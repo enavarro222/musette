@@ -1,0 +1,20 @@
+[package]
+name = "musette-wasm"
+description = "WebAssembly bindings of the Musette core for the web app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+fit.workspace = true
+track.workspace = true
+climbs.workspace = true
+driver-bryton.workspace = true
+protocol-cc600.workspace = true
+wasm-bindgen.workspace = true
+serde.workspace = true
+serde-wasm-bindgen.workspace = true

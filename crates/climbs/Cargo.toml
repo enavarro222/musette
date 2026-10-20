@@ -1,0 +1,10 @@
+[package]
+name = "climbs"
+description = "Climb detection on an elevation profile"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+track.workspace = true

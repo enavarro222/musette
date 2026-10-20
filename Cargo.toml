@@ -1,0 +1,34 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/protocol-cc600",
+    "crates/fit",
+    "crates/track",
+    "crates/climbs",
+    "crates/device",
+    "crates/driver-bryton",
+    "crates/musette-wasm",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/enavarro222/musette"
+rust-version = "1.80"
+
+[workspace.dependencies]
+protocol-cc600 = { path = "crates/protocol-cc600" }
+fit = { path = "crates/fit" }
+track = { path = "crates/track" }
+climbs = { path = "crates/climbs" }
+device = { path = "crates/device" }
+driver-bryton = { path = "crates/driver-bryton" }
+
+wasm-bindgen = "0.2"
+serde = { version = "1", features = ["derive"] }
+serde-wasm-bindgen = "0.6"
+
+[profile.release]
+opt-level = "s"
+lto = true

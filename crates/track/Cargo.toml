@@ -1,0 +1,9 @@
+[package]
+name = "track"
+description = "Track geometry: distances, elevation profile, ascent, simplification"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
