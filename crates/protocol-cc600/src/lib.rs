@@ -69,9 +69,11 @@ pub enum Op {
     TransferEnd = 0x12,
     /// Give up; the device drops the partial file.
     TransferAbort = 0x13,
-    /// Read settings blob.
+    /// Read the settings. Answered by `Settings`: the settings file, UTF-8
+    /// `key=value` lines (see the `settings-cc600` crate).
     GetSettings = 0x20,
-    /// Write settings blob.
+    /// Change settings: `key=value` lines, only the changed keys. Applied all
+    /// or nothing: `Ok`, or `Error(BadSetting, key)`.
     SetSettings = 0x21,
 
     // --- responses / events (device -> app)
@@ -121,6 +123,46 @@ impl Op {
     /// True for app -> device messages.
     pub fn is_request(self) -> bool {
         (self as u8) < 0x80
+    }
+}
+
+/// First byte of an `Op::Error` payload.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(u8)]
+pub enum ErrorCode {
+    /// Malformed request, unknown kind, empty file, chunk past the end.
+    BadRequest = 1,
+    /// Not enough free space for the file.
+    NoSpace = 2,
+    /// `TransferChunk` / `TransferEnd` without `TransferBegin`.
+    NoTransfer = 3,
+    /// `TransferEnd` before all bytes arrived.
+    Incomplete = 4,
+    /// The CRC of the whole file does not match `TransferBegin`. The partial
+    /// file is dropped: start over.
+    BadCrc = 5,
+    /// The device cannot take a file now (for example a ride is recording).
+    Busy = 6,
+    /// The device failed to write.
+    Storage = 7,
+    /// `SetSettings` refused a line; the key follows the code. Nothing was
+    /// changed.
+    BadSetting = 8,
+}
+
+impl ErrorCode {
+    pub fn from_u8(v: u8) -> Option<Self> {
+        Some(match v {
+            1 => Self::BadRequest,
+            2 => Self::NoSpace,
+            3 => Self::NoTransfer,
+            4 => Self::Incomplete,
+            5 => Self::BadCrc,
+            6 => Self::Busy,
+            7 => Self::Storage,
+            8 => Self::BadSetting,
+            _ => return None,
+        })
     }
 }
 

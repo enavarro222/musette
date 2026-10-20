@@ -22,6 +22,7 @@
 //! decide; the host does the writes, the radio and the persistence of
 //! [`Receiver::progress`].
 
+pub use crate::ErrorCode;
 use crate::{crc16_update, CRC16_INIT};
 
 /// What a transferred file is. The device decides what to do when it commits.
@@ -41,42 +42,6 @@ impl Kind {
             2 => Some(Self::Map),
             _ => None,
         }
-    }
-}
-
-/// Carried by `Op::Error` as a one byte payload.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[repr(u8)]
-pub enum ErrorCode {
-    /// Malformed request, unknown kind, empty file, chunk past the end.
-    BadRequest = 1,
-    /// Not enough free space for the file.
-    NoSpace = 2,
-    /// `TransferChunk` / `TransferEnd` without `TransferBegin`.
-    NoTransfer = 3,
-    /// `TransferEnd` before all bytes arrived.
-    Incomplete = 4,
-    /// The CRC of the whole file does not match `TransferBegin`. The partial
-    /// file is dropped: start over.
-    BadCrc = 5,
-    /// The device cannot take a file now (for example a ride is recording).
-    Busy = 6,
-    /// The device failed to write.
-    Storage = 7,
-}
-
-impl ErrorCode {
-    pub fn from_u8(v: u8) -> Option<Self> {
-        Some(match v {
-            1 => Self::BadRequest,
-            2 => Self::NoSpace,
-            3 => Self::NoTransfer,
-            4 => Self::Incomplete,
-            5 => Self::BadCrc,
-            6 => Self::Busy,
-            7 => Self::Storage,
-            _ => return None,
-        })
     }
 }
 

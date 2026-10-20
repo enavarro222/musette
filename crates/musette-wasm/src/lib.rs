@@ -368,3 +368,71 @@ impl Cc600Receiver {
         self.committed.clone()
     }
 }
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Cc600FieldJs {
+    pub key: &'static str,
+    /// `onOff`, `range`, `choice`, `tz` or `sensor`.
+    pub kind: &'static str,
+    pub min: Option<u8>,
+    pub max: Option<u8>,
+    pub options: Vec<&'static str>,
+}
+
+/// The CC600 settings and the values each takes (what the device accepts).
+#[wasm_bindgen(js_name = cc600SettingsFields)]
+pub fn cc600_settings_fields() -> Result<JsValue, JsError> {
+    use settings_cc600::FieldKind;
+    let fields: Vec<Cc600FieldJs> = settings_cc600::FIELDS
+        .iter()
+        .map(|f| {
+            let (kind, min, max, options) = match f.kind {
+                FieldKind::OnOff => ("onOff", None, None, vec![]),
+                FieldKind::Range { min, max } => ("range", Some(min), Some(max), vec![]),
+                FieldKind::Choice(words) => ("choice", None, None, words.to_vec()),
+                FieldKind::Tz => ("tz", None, None, vec![]),
+                FieldKind::Sensor => ("sensor", None, None, vec![]),
+            };
+            Cc600FieldJs {
+                key: f.key,
+                kind,
+                min,
+                max,
+                options,
+            }
+        })
+        .collect();
+    Ok(serde_wasm_bindgen::to_value(&fields)?)
+}
+
+/// Reads a CC600 settings file as the device does (defaults for what is
+/// missing or invalid): `{ key: value }`, every key, values as text.
+#[wasm_bindgen(js_name = cc600SettingsParse)]
+pub fn cc600_settings_parse(text: &str) -> Result<JsValue, JsError> {
+    let settings = settings_cc600::Settings::parse(text);
+    let map: std::collections::BTreeMap<&str, String> = settings_cc600::KEYS
+        .iter()
+        .map(|&key| {
+            let mut value = String::new();
+            let _ = settings.get(key, &mut value);
+            (key, value)
+        })
+        .collect();
+    // A plain object, not a JS Map.
+    Ok(map.serialize(&serde_wasm_bindgen::Serializer::json_compatible())?)
+}
+
+/// Applies `key=value` changes to a settings file, all or nothing, as the
+/// device does. Returns the new file; throws the refused key.
+#[wasm_bindgen(js_name = cc600SettingsApply)]
+pub fn cc600_settings_apply(current: &str, changes: &str) -> Result<String, JsValue> {
+    let settings = settings_cc600::Settings::parse(current)
+        .apply(changes)
+        .map_err(|(key, _)| JsValue::from_str(key))?;
+    let mut out = String::new();
+    settings
+        .write(&mut out)
+        .map_err(|_| JsValue::from_str(""))?;
+    Ok(out)
+}

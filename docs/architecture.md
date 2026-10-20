@@ -31,6 +31,16 @@
 
 A host can inject other implementations through `MusettePlatform` (`mountMusette(target, platform)` in `src/main.tsx`).
 
+## Many devices
+
+Musette aims at as many bike computers and watches as possible. Everything above the drivers is device-neutral:
+
+- **Routes**: the app prepares one route (name, points, climbs); `Device.uploadRoute` writes it in the device's format (OCRT for the CC600, a FIT course for others).
+- **Settings**: `Device.readSettings` returns the values and their description (`SettingField`: toggle, number with range and unit, choice, text, read-only). Each setting is filed in one of **Musette's groups** (`SETTING_GROUPS` in `web/src/lib/settings.ts`: Affichage, Sortie, Navigation, Capteurs, Sons, Énergie, Système), so the settings screen is organised the same for every device and knows none of them. `writeSettings` gets only the changed values.
+- **Rides**: FIT, the common format, checked before they are acknowledged.
+
+For the CC600, keys, ranges and choices come from `settings-cc600` (`FIELDS`, checked against what the device accepts); the driver adds labels and groups (`cc600Settings.ts`, a test checks every key has them).
+
 ## CC600 protocol (draft)
 
 Defined in `crates/protocol-cc600`. Frame: `ver | op | seq | len (u16 LE) | payload | crc16`. Requests (`op < 0x80`) come from the app; responses reuse the request's `seq`. BLE: one service, an RX characteristic (write without response) and a TX characteristic (notify); frames may span several GATT packets.
@@ -39,6 +49,7 @@ Main flows:
 
 - `Hello` → `DeviceInfo`
 - `ListActivities` → `ActivityEntry`* → `EndOfList`
+- `GetSettings` → `Settings` (the settings file, `key=value` lines); `SetSettings` (changed lines only) → `Ok` or `Error(BadSetting, key)`, all or nothing
 - `ReadActivity(id, offset, max)` → `ActivityChunk` (repeat) → app verifies → `AckActivity`
 - `TransferBegin(kind, size, crc)` → `TransferReady(next, window)` → `TransferChunk`* (⇄ `TransferAck`) → `TransferEnd` → `Ok` (replaces the active route, or the map of the route). Kinds: route, map.
 

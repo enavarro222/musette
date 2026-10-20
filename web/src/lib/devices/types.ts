@@ -1,4 +1,5 @@
 import type { ParsedRoute } from '../gpx';
+import type { DeviceSettings, SettingValues } from '../settings';
 
 /** Mirrors `crates/device`. */
 export type ModelId = 'open-cc600' | 'bryton-rider-750';
@@ -46,4 +47,8 @@ export interface Device {
    * transfer of the same file. `onProgress` gets the share the device holds.
    */
   uploadFile?(kind: FileKind, bytes: Uint8Array, onProgress?: (ratio: number) => void): Promise<void>;
+  /** The device's settings and how to edit them (when `capabilities.settings`). */
+  readSettings?(): Promise<DeviceSettings>;
+  /** Change settings (only the changed ones), all or nothing. */
+  writeSettings?(changes: SettingValues): Promise<void>;
 }

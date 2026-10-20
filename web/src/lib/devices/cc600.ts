@@ -1,4 +1,6 @@
 import type { ParsedRoute } from '../gpx';
+import type { DeviceSettings, SettingValues } from '../settings';
+import { CC600_SETTINGS, type Cc600Field, toField, toLines, toValue } from './cc600Settings';
 import { loadCore } from '../wasm';
 import type { PacketTransport } from '../transport/types';
 import type { ActivityRef, Capabilities, Device, FileKind } from './types';
@@ -21,6 +23,8 @@ const Op = {
   TransferChunk: 0x11,
   TransferEnd: 0x12,
   TransferAbort: 0x13,
+  GetSettings: 0x20,
+  SetSettings: 0x21,
   DeviceInfo: 0x81,
   ActivityEntry: 0x82,
   ActivityChunk: 0x83,
@@ -28,6 +32,7 @@ const Op = {
   TransferReady: 0x90,
   TransferAck: 0x91,
   TransferResend: 0x92,
+  Settings: 0xa0,
   Ok: 0xf0,
   Error: 0xff,
 } as const;
@@ -45,8 +50,13 @@ const DEVICE_ERRORS: Record<number, string> = {
   6: 'Le compteur est occupé (sortie en cours ?)',
   7: 'Le compteur n’a pas pu écrire le fichier',
 };
+const BAD_SETTING = 8;
 
 function deviceError(payload: Uint8Array): Error {
+  if (payload[0] === BAD_SETTING) {
+    const key = new TextDecoder().decode(payload.subarray(1));
+    return new Error(`Le compteur a refusé le réglage « ${CC600_SETTINGS[key]?.label ?? key} »`);
+  }
   const known = payload.length === 1 ? DEVICE_ERRORS[payload[0]] : undefined;
   return new Error(known ?? `Erreur du compteur (${[...payload].join(',')})`);
 }
@@ -152,6 +162,24 @@ export class Cc600Device implements Device {
     const req = new Uint8Array(6);
     new DataView(req.buffer).setUint32(0, Number(ref.id), true);
     await this.request(Op.AckActivity, req, [Op.Ok]);
+  }
+
+  async readSettings(): Promise<DeviceSettings> {
+    const core = await loadCore();
+    const f = await this.request(Op.GetSettings, new Uint8Array(), [Op.Settings]);
+    const raw = core.cc600SettingsParse(new TextDecoder().decode(f.payload)) as Record<string, string>;
+    const fields = core.cc600SettingsFields() as Cc600Field[];
+    return {
+      fields: fields.map((x) => toField(x, raw[x.key])),
+      values: Object.fromEntries(fields.map((x) => [x.key, toValue(x, raw[x.key])])),
+    };
+  }
+
+  async writeSettings(changes: SettingValues): Promise<void> {
+    if (Object.keys(changes).length === 0) return;
+    const core = await loadCore();
+    const lines = toLines(core.cc600SettingsFields() as Cc600Field[], changes);
+    await this.request(Op.SetSettings, new TextEncoder().encode(lines), [Op.Ok]);
   }
 
   async uploadRoute(route: ParsedRoute, onProgress?: (r: number) => void): Promise<void> {

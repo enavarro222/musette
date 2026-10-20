@@ -1,4 +1,5 @@
 import * as core from '../lib/wasm/pkg/musette_wasm';
+import { loadCore } from '../lib/wasm';
 import type { PacketTransport } from '../lib/transport/types';
 
 /** Keep in sync with crates/protocol-cc600/src/lib.rs `Op`. */
@@ -7,10 +8,13 @@ const Op = {
   ListActivities: 0x02,
   ReadActivity: 0x03,
   AckActivity: 0x04,
+  GetSettings: 0x20,
+  SetSettings: 0x21,
   DeviceInfo: 0x81,
   ActivityEntry: 0x82,
   ActivityChunk: 0x83,
   EndOfList: 0x84,
+  Settings: 0xa0,
   Ok: 0xf0,
   Error: 0xff,
 };
@@ -34,6 +38,8 @@ export interface FakeOptions {
   dropChunk?: (n: number) => boolean;
   /** Lose the n-th `TransferAck`. */
   dropAck?: (n: number) => boolean;
+  /** The settings file on the device (`key=value` lines); defaults if empty. */
+  settings?: string;
 }
 
 /**
@@ -44,9 +50,13 @@ export interface FakeOptions {
 export class FakeCc600 implements PacketTransport {
   readonly kind = 'packet' as const;
   readonly peerName = 'CC600 fake';
-  readonly receiver: core.Cc600Receiver;
+  private rx?: core.Cc600Receiver;
   /** Activity ids acknowledged by the app, in order. */
   readonly acked: number[] = [];
+  /** The settings file, rewritten whole on each change as the firmware does. */
+  settings: string;
+  /** `SetSettings` payloads received, in order. */
+  readonly settingsWrites: string[] = [];
   /** File bytes received in `TransferChunk`s, lost ones included. */
   chunkBytes = 0;
   private chunks = 0;
@@ -55,11 +65,18 @@ export class FakeCc600 implements PacketTransport {
   private listener: (b: Uint8Array) => void = () => {};
 
   constructor(private readonly options: FakeOptions = {}) {
-    this.receiver = new core.Cc600Receiver(options.window ?? 2048, options.free ?? 1 << 20);
+    this.settings = options.settings ?? '';
   }
 
   async connect(): Promise<void> {
+    await loadCore();
     this.alive = true;
+  }
+
+  /** The device side of file transfers (created once the Rust core is loaded). */
+  get receiver(): core.Cc600Receiver {
+    this.rx ??= new core.Cc600Receiver(this.options.window ?? 2048, this.options.free ?? 1 << 20);
+    return this.rx;
   }
 
   async disconnect(): Promise<void> {
@@ -107,6 +124,18 @@ export class FakeCc600 implements PacketTransport {
       case Op.AckActivity:
         this.acked.push(v.getUint32(0, true));
         return reply(Op.Ok);
+      case Op.GetSettings:
+        return reply(Op.Settings, new TextEncoder().encode(this.settings));
+      case Op.SetSettings: {
+        const changes = new TextDecoder().decode(payload);
+        this.settingsWrites.push(changes);
+        try {
+          this.settings = core.cc600SettingsApply(this.settings, changes);
+          return reply(Op.Ok);
+        } catch (key) {
+          return reply(Op.Error, Uint8Array.from([8, ...new TextEncoder().encode(String(key))]));
+        }
+      }
     }
     if (f.op === 0x11) {
       this.chunkBytes += payload.length - 4;

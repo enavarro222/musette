@@ -165,7 +165,91 @@ pub const KEYS: [&str; 12] = [
     "trip_log",
 ];
 
+/// What values a setting takes, for apps that edit them ([`FIELDS`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FieldKind {
+    /// `on` or `off`.
+    OnOff,
+    /// A whole number in `min..=max`.
+    Range { min: u8, max: u8 },
+    /// One of these words.
+    Choice(&'static [&'static str]),
+    /// A POSIX time zone rule ([`Tz`]).
+    Tz,
+    /// A paired sensor ([`Sensor`]); paired from the device.
+    Sensor,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Field {
+    pub key: &'static str,
+    pub kind: FieldKind,
+}
+
+/// Every setting and its values, in the order of [`KEYS`]. [`Settings::set`] accepts exactly these.
+pub const FIELDS: [Field; 12] = [
+    Field {
+        key: "sound",
+        kind: FieldKind::OnOff,
+    },
+    Field {
+        key: "tz",
+        kind: FieldKind::Tz,
+    },
+    Field {
+        key: "theme",
+        kind: FieldKind::Choice(&["day", "night"]),
+    },
+    Field {
+        key: "backlight",
+        kind: FieldKind::Range { min: 0, max: 100 },
+    },
+    Field {
+        key: "usage",
+        kind: FieldKind::Choice(&["explore", "train"]),
+    },
+    Field {
+        key: "scroll_s",
+        kind: FieldKind::Range { min: 2, max: 60 },
+    },
+    Field {
+        key: "hr",
+        kind: FieldKind::Sensor,
+    },
+    Field {
+        key: "speed_cadence",
+        kind: FieldKind::Sensor,
+    },
+    Field {
+        key: "power",
+        kind: FieldKind::Sensor,
+    },
+    Field {
+        key: "follow_route",
+        kind: FieldKind::OnOff,
+    },
+    Field {
+        key: "auto_off_min",
+        kind: FieldKind::Range { min: 0, max: 120 },
+    },
+    Field {
+        key: "trip_log",
+        kind: FieldKind::OnOff,
+    },
+];
+
 impl Settings {
+    /// Applies `key=value` lines (blank lines ignored), all or nothing: on the first refused line, the key and why.
+    pub fn apply<'a>(&self, changes: &'a str) -> Result<Self, (&'a str, Error)> {
+        let mut s = *self;
+        for line in changes.lines().filter(|l| !l.trim().is_empty()) {
+            let (key, value) = line.split_once('=').ok_or((line.trim(), Error::BadValue))?;
+            let key = key.trim();
+            s.set(key, value.trim()).map_err(|e| (key, e))?;
+        }
+        Ok(s)
+    }
+
     /// Reads a settings file: defaults for what is missing or invalid, unknown keys and other lines ignored.
     pub fn parse(text: &str) -> Self {
         let mut s = Self::default();
@@ -546,6 +630,60 @@ mod tests {
             assert_eq!(s.set("hr", bad), Err(Error::BadValue), "{bad}");
         }
         assert_eq!(s, Settings::default(), "a refused value changes nothing");
+    }
+
+    #[test]
+    fn fields_match_what_set_accepts() {
+        assert_eq!(FIELDS.map(|f| f.key), KEYS);
+        for f in FIELDS {
+            let mut s = Settings::default();
+            let ok = |s: &mut Settings, v: &str| s.set(f.key, v).is_ok();
+            match f.kind {
+                FieldKind::OnOff => {
+                    assert!(ok(&mut s, "on") && ok(&mut s, "off") && !ok(&mut s, "1"))
+                }
+                FieldKind::Range { min, max } => {
+                    assert!(
+                        ok(&mut s, &std::format!("{min}")) && ok(&mut s, &std::format!("{max}")),
+                        "{}",
+                        f.key
+                    );
+                    assert!(
+                        !ok(&mut s, &std::format!("{}", max as u16 + 1)),
+                        "{}",
+                        f.key
+                    );
+                    if min > 0 {
+                        assert!(!ok(&mut s, &std::format!("{}", min - 1)), "{}", f.key);
+                    }
+                }
+                FieldKind::Choice(words) => {
+                    assert!(
+                        words.iter().all(|w| ok(&mut s, w)) && !ok(&mut s, "other"),
+                        "{}",
+                        f.key
+                    )
+                }
+                FieldKind::Tz => assert!(ok(&mut s, PARIS) && !ok(&mut s, "Paris")),
+                FieldKind::Sensor => {
+                    assert!(ok(&mut s, "none") && ok(&mut s, "ant:120:1:1") && !ok(&mut s, "x"))
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn apply_is_all_or_nothing() {
+        let s = Settings::default();
+        let changed = s.apply("sound=off\n\nbacklight=80\n").unwrap();
+        assert!(!changed.sound);
+        assert_eq!(changed.backlight, 80);
+        assert_eq!(
+            s.apply("sound=off\nbacklight=180\n"),
+            Err(("backlight", Error::BadValue))
+        );
+        assert_eq!(s.apply("colour=red"), Err(("colour", Error::UnknownKey)));
+        assert_eq!(s.apply("sound"), Err(("sound", Error::BadValue)));
     }
 
     #[test]

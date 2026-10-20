@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { MODELS, type ModelEntry } from '../lib/devices/registry';
 import { appStore, reportError, useApp } from '../lib/store';
 import { syncActivities } from '../lib/sync';
+import Settings from './Settings';
 
 const CAPABILITY_LABELS: Record<string, string> = {
   downloadActivities: 'Récupération des sorties',
@@ -90,6 +91,13 @@ export default function Devices({ onSynced }: { onSynced?: () => void }) {
               )}
             </section>
           )}
+
+          {device.capabilities.settings && device.readSettings && device.writeSettings && (
+            <>
+              <h2>Réglages</h2>
+              <Settings device={device} />
+            </>
+          )}
         </>
       ) : (
         <>
@@ -100,7 +108,7 @@ export default function Devices({ onSynced }: { onSynced?: () => void }) {
             {MODELS.map((model) => {
               const supported = !!platform && !!model.create(platform.transports);
               return (
-                <div className="row" key={model.id}>
+                <div className="row" key={model.label}>
                   <div className="grow">
                     <div className="title">{model.label}</div>
                     <div className="muted small">
