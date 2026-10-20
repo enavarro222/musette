@@ -1,0 +1,17 @@
+{
+  "name": "Musette",
+  "short_name": "Musette",
+  "description": "Companion app for bike computers",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F6F6F3",
+  "theme_color": "#0B6E69",
+  "icons": [],
+  "file_handlers": [
+    {
+      "action": "./?open=route",
+      "accept": { "application/gpx+xml": [".gpx"] }
+    }
+  ]
+}

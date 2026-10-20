@@ -1,0 +1,10 @@
+[package]
+name = "fit"
+description = "FIT file helpers: integrity checks (header, CRC) used before deleting anything from a device"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+# TODO: add `fitparser` for full record decoding (session summary, laps...).

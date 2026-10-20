@@ -1,0 +1,9 @@
+[package]
+name = "device"
+description = "Device model shared by all drivers: identity and capabilities"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
