@@ -1,6 +1,9 @@
 /** Mirrors `crates/device`. */
 export type ModelId = 'open-cc600' | 'bryton-rider-750';
 
+/** Files a device can receive. */
+export type FileKind = 'route' | 'map';
+
 export interface Capabilities {
   downloadActivities: boolean;
   uploadRoute: boolean;
@@ -31,4 +34,9 @@ export interface Device {
   /** Tell the device the copy is safe (it may free it later). */
   acknowledgeActivity?(ref: ActivityRef, fit: Uint8Array): Promise<void>;
   uploadRoute?(gpx: string): Promise<void>;
+  /**
+   * Send a prepared file (route or corridor map), resuming an interrupted
+   * transfer of the same file. `onProgress` gets the share the device holds.
+   */
+  uploadFile?(kind: FileKind, bytes: Uint8Array, onProgress?: (ratio: number) => void): Promise<void>;
 }

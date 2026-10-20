@@ -40,7 +40,19 @@ Main flows:
 - `Hello` → `DeviceInfo`
 - `ListActivities` → `ActivityEntry`* → `EndOfList`
 - `ReadActivity(id, offset, max)` → `ActivityChunk` (repeat) → app verifies → `AckActivity`
-- `RouteBegin` → `RouteChunk`* → `RouteCommit` (replaces the active route)
+- `TransferBegin(kind, size, crc)` → `TransferReady(next, window)` → `TransferChunk`* (⇄ `TransferAck`) → `TransferEnd` → `Ok` (replaces the active route, or the map of the route). Kinds: route, map.
+
+### File transfer (`protocol_cc600::transfer`)
+
+Routes and maps are a few hundred KB over BLE (5–20 KB/s from a browser), so the transfer is **resumable** and **flow-controlled**:
+
+- The device keeps the partial file and its running CRC. A new `TransferBegin` with the same kind, size and CRC answers `TransferReady` with `next > 0`: the app continues from there.
+- The app pipelines chunks (write without response) up to `window` bytes; the device acks every `window/2` bytes and at the end.
+- A chunk that is not the expected one is not written; the device sends one `TransferResend(next)` and the app resends from there. `TransferAck` only means progress: with chunks in flight it is always behind what the app sent.
+- Silence (lost ack or lost last chunk): the app sends `TransferBegin` again and the device says where it is.
+- `TransferEnd` checks size and the CRC of the whole file, then commits atomically. `BadCrc` drops the partial file.
+- Errors (`Op::Error`, one byte): bad request, no space, no transfer, incomplete, bad CRC, busy (ride recording), storage.
+- `Receiver` (device) and `Sender` (app) are sans-IO state machines, tested together with lost chunks and cuts.
 
 ## Roadmap
 

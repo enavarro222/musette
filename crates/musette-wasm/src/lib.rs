@@ -164,3 +164,175 @@ pub fn cc600_decode(bytes: &[u8]) -> Result<JsValue, JsError> {
         Err(e) => Err(JsError::new(&format!("{e:?}"))),
     }
 }
+
+/// `TransferBegin` payload for sending `bytes` as a file of `kind`
+/// (1 route, 2 map): kind, size and CRC of the whole file.
+#[wasm_bindgen(js_name = cc600TransferBegin)]
+pub fn cc600_transfer_begin(kind: u8, bytes: &[u8]) -> Result<Vec<u8>, JsError> {
+    use protocol_cc600::transfer::{Begin, Kind};
+    let kind = Kind::from_u8(kind).ok_or_else(|| JsError::new("unknown file kind"))?;
+    let size = u32::try_from(bytes.len()).map_err(|_| JsError::new("file too large"))?;
+    let crc = protocol_cc600::crc16_ccitt(bytes);
+    Ok(Begin { kind, size, crc }.to_bytes().to_vec())
+}
+
+/// `TransferChunk` payload: offset then the bytes.
+#[wasm_bindgen(js_name = cc600TransferChunk)]
+pub fn cc600_transfer_chunk(offset: u32, data: &[u8]) -> Vec<u8> {
+    let mut out = protocol_cc600::transfer::chunk_header(offset).to_vec();
+    out.extend_from_slice(data);
+    out
+}
+
+/// App side of a file transfer: what to send next, given the device's answers.
+#[wasm_bindgen(js_name = Cc600Sender)]
+pub struct Cc600Sender(protocol_cc600::transfer::Sender);
+
+#[wasm_bindgen(js_class = Cc600Sender)]
+impl Cc600Sender {
+    #[wasm_bindgen(constructor)]
+    pub fn new(size: u32) -> Self {
+        Self(protocol_cc600::transfer::Sender::new(size))
+    }
+
+    /// Applies a `TransferReady` payload; returns the offset to start from.
+    pub fn ready(&mut self, payload: &[u8]) -> Result<u32, JsError> {
+        let ready = protocol_cc600::transfer::Ready::from_bytes(payload)
+            .ok_or_else(|| JsError::new("bad TransferReady"))?;
+        self.0.ready(ready);
+        Ok(ready.next)
+    }
+
+    /// Applies a `TransferAck` payload.
+    pub fn ack(&mut self, payload: &[u8]) -> Result<(), JsError> {
+        let ack = protocol_cc600::transfer::Ack::from_bytes(payload)
+            .ok_or_else(|| JsError::new("bad TransferAck"))?;
+        self.0.ack(ack);
+        Ok(())
+    }
+
+    /// Applies a `TransferResend` payload.
+    pub fn resend(&mut self, payload: &[u8]) -> Result<(), JsError> {
+        let ack = protocol_cc600::transfer::Ack::from_bytes(payload)
+            .ok_or_else(|| JsError::new("bad TransferResend"))?;
+        self.0.resend(ack);
+        Ok(())
+    }
+
+    /// `[offset, length]` of the next chunk (at most `max` bytes), or
+    /// `undefined` when the window is full or everything was sent.
+    #[wasm_bindgen(js_name = nextChunk)]
+    pub fn next_chunk(&mut self, max: u32) -> Option<Vec<u32>> {
+        self.0.next_chunk(max).map(|(o, l)| vec![o, l])
+    }
+
+    /// Everything was sent and acknowledged.
+    pub fn done(&self) -> bool {
+        self.0.all_sent() && self.0.permille() == 1000
+    }
+
+    /// Share of the file the device holds, 0..=1000.
+    pub fn permille(&self) -> u32 {
+        self.0.permille()
+    }
+}
+
+/// Device side of a file transfer, with the file kept in memory: the real
+/// [`protocol_cc600::transfer::Receiver`] behind a simulated CC600 (tests,
+/// demo without a device).
+#[wasm_bindgen(js_name = Cc600Receiver)]
+pub struct Cc600Receiver {
+    rx: protocol_cc600::transfer::Receiver,
+    free: u32,
+    partial: Option<protocol_cc600::transfer::Partial>,
+    data: Vec<u8>,
+    committed: Option<Vec<u8>>,
+}
+
+#[wasm_bindgen(js_class = Cc600Receiver)]
+impl Cc600Receiver {
+    #[wasm_bindgen(constructor)]
+    pub fn new(window: u16, free: u32) -> Self {
+        Self {
+            rx: protocol_cc600::transfer::Receiver::new(window),
+            free,
+            partial: None,
+            data: Vec::new(),
+            committed: None,
+        }
+    }
+
+    /// Handles a transfer request; returns the answer as `[op, ...payload]`,
+    /// or `undefined` when there is none.
+    pub fn handle(&mut self, op: u8, payload: &[u8]) -> Result<Option<Vec<u8>>, JsError> {
+        use protocol_cc600::transfer::{parse_chunk, Begin, Chunk, ErrorCode};
+        use protocol_cc600::Op;
+        let reply = |op: Op, p: &[u8]| Some([&[op as u8], p].concat());
+        let error = |code: ErrorCode| reply(Op::Error, &[code as u8]);
+        let op = Op::from_u8(op).ok_or_else(|| JsError::new("unknown op"))?;
+        Ok(match op {
+            Op::TransferBegin => {
+                let Some(begin) = Begin::from_bytes(payload) else {
+                    return Ok(error(ErrorCode::BadRequest));
+                };
+                match self.rx.begin(begin, self.partial, self.free) {
+                    Ok(ready) => {
+                        self.data.truncate(ready.next as usize);
+                        self.partial = self.rx.progress();
+                        reply(Op::TransferReady, &ready.to_bytes())
+                    }
+                    Err(code) => error(code),
+                }
+            }
+            Op::TransferChunk => {
+                let Some((offset, bytes)) = parse_chunk(payload) else {
+                    return Ok(error(ErrorCode::BadRequest));
+                };
+                match self.rx.chunk(offset, bytes) {
+                    Ok(Chunk::Accept(ack)) => {
+                        self.data.extend_from_slice(bytes);
+                        self.partial = self.rx.progress();
+                        ack.and_then(|a| reply(Op::TransferAck, &a.to_bytes()))
+                    }
+                    Ok(Chunk::Resend(a)) => reply(Op::TransferResend, &a.to_bytes()),
+                    Ok(Chunk::Ignore) => None,
+                    Err(code) => error(code),
+                }
+            }
+            Op::TransferEnd => match self.rx.end() {
+                Ok(_) => {
+                    self.partial = None;
+                    self.committed = Some(core::mem::take(&mut self.data));
+                    reply(Op::Ok, &[])
+                }
+                Err(code) => {
+                    if code == ErrorCode::BadCrc {
+                        self.partial = None;
+                        self.data.clear();
+                    }
+                    error(code)
+                }
+            },
+            Op::TransferAbort => {
+                self.rx.abort();
+                reply(Op::Ok, &[])
+            }
+            _ => return Err(JsError::new("not a transfer request")),
+        })
+    }
+
+    /// The link dropped: the partial file stays, as on the device.
+    pub fn disconnect(&mut self) {
+        self.rx.abort();
+    }
+
+    /// Bytes of the partial file held so far.
+    pub fn received(&self) -> u32 {
+        self.partial.map_or(0, |p| p.received)
+    }
+
+    /// The last file committed by `TransferEnd`.
+    pub fn committed(&self) -> Option<Vec<u8>> {
+        self.committed.clone()
+    }
+}

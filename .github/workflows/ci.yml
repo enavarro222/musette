@@ -38,6 +38,7 @@ jobs:
           npm install
           npm run wasm
           npm run check
+          npm test
           npm run build
       - uses: actions/upload-pages-artifact@v3
         if: github.ref == 'refs/heads/main'

@@ -3,8 +3,17 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "lib": ["ES2022", "DOM", "DOM.Iterable", "DOM.AsyncIterable"],
-    "types": ["web-bluetooth", "vite/client"],
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable",
+      "DOM.AsyncIterable"
+    ],
+    "types": [
+      "web-bluetooth",
+      "vite/client",
+      "node"
+    ],
     "jsx": "react-jsx",
     "strict": true,
     "noEmit": true,
@@ -13,5 +22,7 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true
   },
-  "include": ["src"]
+  "include": [
+    "src"
+  ]
 }

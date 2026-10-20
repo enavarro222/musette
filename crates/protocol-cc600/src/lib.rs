@@ -23,10 +23,14 @@
 
 #![no_std]
 
+#[cfg(test)]
+extern crate std;
+
 pub mod ble;
 mod crc;
+pub mod transfer;
 
-pub use crc::crc16_ccitt;
+pub use crc::{crc16_ccitt, crc16_update, CRC16_INIT};
 
 /// Protocol version carried in every frame. Bump on breaking changes.
 pub const PROTOCOL_VERSION: u8 = 1;
@@ -56,12 +60,15 @@ pub enum Op {
     /// Mark an activity as safely copied (device may free it later).
     /// Payload: id u32, crc u16 of the full file as received.
     AckActivity = 0x04,
-    /// Start uploading a route. Payload: total size u32, crc u16.
-    RouteBegin = 0x10,
-    /// Route data chunk. Payload: offset u32 + bytes.
-    RouteChunk = 0x11,
-    /// Commit the uploaded route (replaces the active route).
-    RouteCommit = 0x12,
+    /// Start (or resume) sending a file to the device. See [`transfer`].
+    TransferBegin = 0x10,
+    /// File data. Payload: offset u32 + bytes. Sent without waiting for answers
+    /// (up to the window announced in `TransferReady`).
+    TransferChunk = 0x11,
+    /// All bytes sent: verify and commit (replaces the active route / map).
+    TransferEnd = 0x12,
+    /// Give up; the device drops the partial file.
+    TransferAbort = 0x13,
     /// Read settings blob.
     GetSettings = 0x20,
     /// Write settings blob.
@@ -72,6 +79,12 @@ pub enum Op {
     ActivityEntry = 0x82,
     ActivityChunk = 0x83,
     EndOfList = 0x84,
+    /// Answer to `TransferBegin`: where to (re)start and how much may be in flight.
+    TransferReady = 0x90,
+    /// Progress: the device holds the file up to `next`.
+    TransferAck = 0x91,
+    /// A chunk was missing: send again from `next`.
+    TransferResend = 0x92,
     Settings = 0xA0,
     Ok = 0xF0,
     Error = 0xFF,
@@ -85,15 +98,19 @@ impl Op {
             0x02 => ListActivities,
             0x03 => ReadActivity,
             0x04 => AckActivity,
-            0x10 => RouteBegin,
-            0x11 => RouteChunk,
-            0x12 => RouteCommit,
+            0x10 => TransferBegin,
+            0x11 => TransferChunk,
+            0x12 => TransferEnd,
+            0x13 => TransferAbort,
             0x20 => GetSettings,
             0x21 => SetSettings,
             0x81 => DeviceInfo,
             0x82 => ActivityEntry,
             0x83 => ActivityChunk,
             0x84 => EndOfList,
+            0x90 => TransferReady,
+            0x91 => TransferAck,
+            0x92 => TransferResend,
             0xA0 => Settings,
             0xF0 => Ok,
             0xFF => Error,
