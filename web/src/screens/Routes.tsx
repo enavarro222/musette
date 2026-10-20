@@ -21,9 +21,10 @@ function profilePath(profile: number[]): string {
 export default function Routes() {
   const { device, pendingRoute } = useApp();
   const [route, setRoute] = useState<ParsedRoute>();
-  const [gpxText, setGpxText] = useState('');
   const [analysis, setAnalysis] = useState<RouteAnalysis>();
-  const [sending, setSending] = useState(false);
+  /** Share of the route the device holds while sending, undefined otherwise. */
+  const [sending, setSending] = useState<number>();
+  const [sent, setSent] = useState(false);
 
   async function load(file: File) {
     try {
@@ -35,8 +36,8 @@ export default function Routes() {
         Float64Array.from(parsed.lons),
         Float64Array.from(parsed.eles),
       ) as RouteAnalysis;
-      setGpxText(text);
       setRoute(parsed);
+      setSent(false);
       setAnalysis(result);
     } catch (e) {
       reportError(e);
@@ -56,13 +57,15 @@ export default function Routes() {
   async function send() {
     if (!device?.uploadRoute || !route) return;
     if (!confirm(`Remplacer la trace du compteur par « ${route.name} » ?`)) return;
-    setSending(true);
+    setSending(0);
+    setSent(false);
     try {
-      await device.uploadRoute(gpxText);
+      await device.uploadRoute(route, setSending);
+      setSent(true);
     } catch (e) {
       reportError(e);
     } finally {
-      setSending(false);
+      setSending(undefined);
     }
   }
 
@@ -126,9 +129,11 @@ export default function Routes() {
             </section>
           )}
 
-          <button type="button" className="primary block" disabled={!canSend || sending} onClick={send}>
-            {sending ? 'Envoi…' : 'Envoyer sur le compteur'}
+          <button type="button" className="primary block" disabled={!canSend || sending !== undefined} onClick={send}>
+            {sending !== undefined ? `Envoi… ${Math.round(sending * 100)} %` : 'Envoyer sur le compteur'}
           </button>
+          {sending !== undefined && <progress className="block" value={sending} max={1} />}
+          {sent && <p className="small center">Trace envoyée sur le compteur.</p>}
           {!device ? (
             <p className="muted small center">Connectez un compteur pour envoyer la trace.</p>
           ) : (

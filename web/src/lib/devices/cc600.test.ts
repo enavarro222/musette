@@ -91,6 +91,27 @@ describe('CC600 file upload', () => {
   });
 });
 
+describe('CC600 route', () => {
+  it('sends the route as an OCRT file', async () => {
+    const fake = new FakeCc600();
+    const device = await connected(fake);
+    // 2 km north, a point every 10 m
+    const n = 201;
+    const route = {
+      name: 'Col du test',
+      lats: Array.from({ length: n }, (_, i) => 45 + (i * 0.01) / 111.32),
+      lons: Array.from({ length: n }, () => 3),
+      eles: Array.from({ length: n }, (_, i) => 200 + i / 2),
+    };
+    const progress: number[] = [];
+    await device.uploadRoute(route, (r) => progress.push(r));
+    const file = fake.receiver.committed()!;
+    expect(new TextDecoder().decode(file.subarray(0, 4))).toBe('OCRT');
+    expect(new TextDecoder().decode(file)).toContain('Col du test');
+    expect(progress.at(-1)).toBe(1);
+  });
+});
+
 describe('CC600 activities', () => {
   it('lists and downloads a ride in several reads', async () => {
     const fit = fitFile(file(3000));

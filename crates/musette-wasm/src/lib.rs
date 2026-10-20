@@ -165,6 +165,38 @@ pub fn cc600_decode(bytes: &[u8]) -> Result<JsValue, JsError> {
     }
 }
 
+/// Simplification of the CC600 route line, metres (as the firmware's route tool).
+const CC600_ROUTE_TOLERANCE_M: f64 = 3.0;
+
+/// The CC600 route file (`OCRT`) of a route. `eles` uses NaN for missing elevation.
+#[wasm_bindgen(js_name = cc600BuildRoute)]
+pub fn cc600_build_route(
+    name: String,
+    lats: Vec<f64>,
+    lons: Vec<f64>,
+    eles: Vec<f64>,
+) -> Result<Vec<u8>, JsError> {
+    if lats.len() != lons.len() || lats.len() != eles.len() {
+        return Err(JsError::new(
+            "lats, lons and eles must have the same length",
+        ));
+    }
+    if lats.len() < 2 {
+        return Err(JsError::new("a route needs at least 2 points"));
+    }
+    let gpx = route_cc600::Gpx {
+        name,
+        points: lats
+            .iter()
+            .zip(&lons)
+            .zip(&eles)
+            .map(|((&lat, &lon), &e)| (lat, lon, (!e.is_nan()).then_some(e)))
+            .collect(),
+        times: vec![None; lats.len()],
+    };
+    Ok(route_cc600::build(&gpx, CC600_ROUTE_TOLERANCE_M))
+}
+
 /// `TransferBegin` payload for sending `bytes` as a file of `kind`
 /// (1 route, 2 map): kind, size and CRC of the whole file.
 #[wasm_bindgen(js_name = cc600TransferBegin)]

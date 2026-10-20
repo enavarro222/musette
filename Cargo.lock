@@ -85,6 +85,7 @@ dependencies = [
  "driver-bryton",
  "fit",
  "protocol-cc600",
+ "route-cc600",
  "serde",
  "serde-wasm-bindgen",
  "track",

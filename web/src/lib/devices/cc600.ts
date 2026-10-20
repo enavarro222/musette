@@ -1,3 +1,4 @@
+import type { ParsedRoute } from '../gpx';
 import { loadCore } from '../wasm';
 import type { PacketTransport } from '../transport/types';
 import type { ActivityRef, Capabilities, Device, FileKind } from './types';
@@ -151,6 +152,17 @@ export class Cc600Device implements Device {
     const req = new Uint8Array(6);
     new DataView(req.buffer).setUint32(0, Number(ref.id), true);
     await this.request(Op.AckActivity, req, [Op.Ok]);
+  }
+
+  async uploadRoute(route: ParsedRoute, onProgress?: (r: number) => void): Promise<void> {
+    const core = await loadCore();
+    const file = core.cc600BuildRoute(
+      route.name,
+      Float64Array.from(route.lats),
+      Float64Array.from(route.lons),
+      Float64Array.from(route.eles),
+    );
+    await this.uploadFile('route', file, onProgress);
   }
 
   async uploadFile(kind: FileKind, bytes: Uint8Array, onProgress?: (r: number) => void): Promise<void> {

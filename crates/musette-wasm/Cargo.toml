@@ -15,6 +15,7 @@ track.workspace = true
 climbs.workspace = true
 driver-bryton.workspace = true
 protocol-cc600.workspace = true
+route-cc600 = { workspace = true, features = ["build"] }
 wasm-bindgen.workspace = true
 serde.workspace = true
 serde-wasm-bindgen.workspace = true

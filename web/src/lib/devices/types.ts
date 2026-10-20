@@ -1,3 +1,5 @@
+import type { ParsedRoute } from '../gpx';
+
 /** Mirrors `crates/device`. */
 export type ModelId = 'open-cc600' | 'bryton-rider-750';
 
@@ -33,7 +35,12 @@ export interface Device {
   downloadActivity(ref: ActivityRef, onProgress?: (ratio: number) => void): Promise<Uint8Array>;
   /** Tell the device the copy is safe (it may free it later). */
   acknowledgeActivity?(ref: ActivityRef, fit: Uint8Array): Promise<void>;
-  uploadRoute?(gpx: string): Promise<void>;
+  /**
+   * Replace the device's route. The route is device-neutral (name, points);
+   * each driver writes it in its own format (OCRT for the CC600, a FIT course
+   * for others).
+   */
+  uploadRoute?(route: ParsedRoute, onProgress?: (ratio: number) => void): Promise<void>;
   /**
    * Send a prepared file (route or corridor map), resuming an interrupted
    * transfer of the same file. `onProgress` gets the share the device holds.
