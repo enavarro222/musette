@@ -1,9 +1,9 @@
 import { defineConfig } from 'vite';
-import { svelte } from '@sveltejs/vite-plugin-svelte';
+import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   // Relative base: works at the domain root and on GitHub Pages (/musette/).
   base: './',
-  plugins: [svelte()],
+  plugins: [react()],
   build: { target: 'es2022' },
 });

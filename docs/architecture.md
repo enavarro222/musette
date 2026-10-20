@@ -10,7 +10,7 @@
 ## Layers
 
 ```
-┌──────────────── web/ (Svelte) ────────────────┐
+┌──────────────── web/ (React) ─────────────────┐
 │ screens: Compteur · Sorties · Traces · Projet │
 │ lib/devices: Cc600Device, BrytonUsbDevice      │  device logic in TS,
 │ lib/transport: PacketTransport | FileTransport │  bytes ↔ meaning in Rust
@@ -29,7 +29,7 @@
 - `PacketTransport` — message link. Web: `WebBluetoothTransport` (GATT write + notify).
 - `FileTransport` — device mounted as a drive. Web: `FileSystemAccessTransport`.
 
-A host can inject other implementations through `MusettePlatform` (`mountMusette(target, platform)` in `src/main.ts`).
+A host can inject other implementations through `MusettePlatform` (`mountMusette(target, platform)` in `src/main.tsx`).
 
 ## CC600 protocol (draft)
 

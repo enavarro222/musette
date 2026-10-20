@@ -28,7 +28,7 @@ crates/
   device           device models and capabilities
   driver-bryton    Bryton stock-firmware driver (USB mass storage)
   musette-wasm     WebAssembly bindings for the web app
-web/               Svelte 5 + Vite app (PWA)
+web/               React + Vite + TypeScript app (PWA)
 docs/              architecture and driver notes
 ```
 
