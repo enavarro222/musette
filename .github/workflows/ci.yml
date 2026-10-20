@@ -18,8 +18,8 @@ jobs:
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
-      # The protocol crate is shared with the firmware: it must build for an MCU.
-      - run: cargo build -p protocol-cc600 --target thumbv7em-none-eabihf
+      # Crates shared with the firmware: they must build for an MCU.
+      - run: cargo build -p protocol-cc600 -p route-cc600 -p settings-cc600 --target thumbv7em-none-eabihf
 
   web:
     runs-on: ubuntu-latest

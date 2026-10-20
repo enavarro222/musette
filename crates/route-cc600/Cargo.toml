@@ -1,0 +1,19 @@
+[package]
+name = "route-cc600"
+description = "Route (OCRT) and corridor map (OCMP) files of the OpenCC600: built off the device, read in place on it (no_std)"
+version.workspace = true
+# Shared with the firmware, which uses edition 2024.
+edition = "2024"
+rust-version = "1.95"
+license.workspace = true
+repository.workspace = true
+
+[features]
+# GPX reading, route and map building (allocates): the app, the PC tools
+build = ["dep:libm"]
+
+[dependencies]
+libm = { version = "0.2.16", optional = true }
+
+[dev-dependencies]
+route-cc600 = { path = ".", features = ["build"] }

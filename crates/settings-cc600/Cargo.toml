@@ -1,0 +1,8 @@
+[package]
+name = "settings-cc600"
+description = "Settings file of the OpenCC600: key=value lines, defaults, POSIX time zones with summer time (no_std)"
+version.workspace = true
+edition = "2024"
+rust-version = "1.95"
+license.workspace = true
+repository.workspace = true

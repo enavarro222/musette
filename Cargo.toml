@@ -2,6 +2,8 @@
 resolver = "2"
 members = [
     "crates/protocol-cc600",
+    "crates/route-cc600",
+    "crates/settings-cc600",
     "crates/fit",
     "crates/track",
     "crates/climbs",
@@ -19,6 +21,8 @@ rust-version = "1.80"
 
 [workspace.dependencies]
 protocol-cc600 = { path = "crates/protocol-cc600" }
+route-cc600 = { path = "crates/route-cc600" }
+settings-cc600 = { path = "crates/settings-cc600" }
 fit = { path = "crates/fit" }
 track = { path = "crates/track" }
 climbs = { path = "crates/climbs" }
