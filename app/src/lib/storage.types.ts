@@ -24,3 +24,30 @@ export function newestFirst(list: StoredActivity[]): StoredActivity[] {
   const when = (a: StoredActivity) => (a.startTime ? a.startTime * 1000 : a.importedAt);
   return list.sort((a, b) => when(b) - when(a));
 }
+
+/** A route kept on this device, as imported (GPX), with what the list shows. */
+export interface StoredRoute {
+  id: string;
+  name: string;
+  importedAt: number;
+  distanceM: number;
+  ascentM: number;
+  gpx: string;
+}
+
+/** A route as the list shows it: no GPX. */
+export type RouteSummary = Omit<StoredRoute, 'gpx'>;
+
+/** Where routes are kept, as rides are. */
+export interface RouteStore {
+  put(r: StoredRoute): Promise<void>;
+  get(id: string): Promise<StoredRoute | undefined>;
+  /** Newest first. */
+  all(): Promise<RouteSummary[]>;
+  remove(id: string): Promise<void>;
+}
+
+/** A new route id: time, then randomness (no collision between two imports). */
+export function newRouteId(): string {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}

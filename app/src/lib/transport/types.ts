@@ -44,8 +44,36 @@ export interface BleOptions {
   namePrefix: string;
 }
 
-/** Factories a platform must (or may) provide. */
+/** A Bluetooth device found nearby, or picked in the browser's chooser. */
+export interface BlePeer {
+  id: string;
+  name: string;
+  /** Signal strength, dBm (closer to 0: nearer). */
+  rssi?: number;
+  /** The profile it matched: this tells which model it is. */
+  options: BleOptions;
+  /** The platform's own handle on the device (the browser's `BluetoothDevice`). */
+  handle?: unknown;
+}
+
+/**
+ * Factories a platform must (or may) provide. To find a Bluetooth device, a
+ * platform has either `bleScan` (iOS, Android: the app lists the devices) or
+ * `blePick` (browser: its own chooser).
+ */
 export interface TransportFactories {
-  ble?: (options: BleOptions) => PacketTransport;
+  ble?: (peer: BlePeer) => PacketTransport;
+  /**
+   * Report the devices around that match one of `wanted`, each once and
+   * again when its signal changes. Returns a function that stops the search.
+   */
+  bleScan?: (wanted: BleOptions[], onFound: (peer: BlePeer) => void, onError: (e: Error) => void) => () => void;
+  /** Ask the user to pick a device that matches one of `wanted`. */
+  blePick?: (wanted: BleOptions[]) => Promise<BlePeer>;
   usbFiles?: () => FileTransport;
+}
+
+/** The profile of `wanted` a device named `name` matches. */
+export function matchBle(wanted: BleOptions[], name: string): BleOptions | undefined {
+  return wanted.find((o) => name.startsWith(o.namePrefix));
 }

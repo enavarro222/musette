@@ -187,6 +187,9 @@ pub struct Field {
 }
 
 /// Every setting and its values, in the order of [`KEYS`]. [`Settings::set`] accepts exactly these.
+/// Page auto-scroll: seconds a page, accepted range.
+pub const SCROLL_S: (u8, u8) = (1, 20);
+
 pub const FIELDS: [Field; 12] = [
     Field {
         key: "sound",
@@ -210,7 +213,10 @@ pub const FIELDS: [Field; 12] = [
     },
     Field {
         key: "scroll_s",
-        kind: FieldKind::Range { min: 2, max: 60 },
+        kind: FieldKind::Range {
+            min: SCROLL_S.0,
+            max: SCROLL_S.1,
+        },
     },
     Field {
         key: "hr",
@@ -286,7 +292,7 @@ impl Settings {
                 self.scroll_s = value
                     .parse()
                     .ok()
-                    .filter(|&v| (2..=60).contains(&v))
+                    .filter(|&v| (SCROLL_S.0..=SCROLL_S.1).contains(&v))
                     .ok_or(bad)?
             }
             "hr" => self.hr = Sensor::parse(value).ok_or(bad)?,
@@ -617,7 +623,8 @@ mod tests {
         let mut s = Settings::default();
         assert_eq!(s.set("colour", "red"), Err(Error::UnknownKey));
         assert_eq!(s.set("tz", "Paris"), Err(Error::BadValue));
-        assert_eq!(s.set("scroll_s", "1"), Err(Error::BadValue));
+        assert_eq!(s.set("scroll_s", "0"), Err(Error::BadValue));
+        assert_eq!(s.set("scroll_s", "21"), Err(Error::BadValue));
         for bad in [
             "ble:x:E0:E2:58:63:35:07",
             "ble:r:E0:E2:58:63:35",

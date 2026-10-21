@@ -1,37 +1,60 @@
 /**
- * Web: local storage of activities in IndexedDB. Nothing leaves the browser.
+ * Web: local storage of rides and routes in IndexedDB. Nothing leaves the
+ * browser; it stays in this browser only (cleared with the site's data).
  * Same API as `storage.ts` (iOS, Android).
  */
-import { newestFirst, type ActivityStore, type StoredActivity } from './storage.types';
+import {
+  newestFirst,
+  type ActivityStore,
+  type RouteStore,
+  type StoredActivity,
+  type StoredRoute,
+} from './storage.types';
 
-export type { StoredActivity } from './storage.types';
+export type { RouteSummary, StoredActivity, StoredRoute } from './storage.types';
+export { newRouteId } from './storage.types';
 
 const DB = 'musette';
-const STORE = 'activities';
+type Store = 'activities' | 'routes';
 
 function open(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB, 1);
-    req.onupgradeneeded = () => req.result.createObjectStore(STORE, { keyPath: 'key' });
+    // 1: activities; 2: + routes.
+    const req = indexedDB.open(DB, 2);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains('activities')) db.createObjectStore('activities', { keyPath: 'key' });
+      if (!db.objectStoreNames.contains('routes')) db.createObjectStore('routes', { keyPath: 'id' });
+    };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
 }
 
-async function tx<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<T>): Promise<T> {
+async function tx<T>(store: Store, mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<T>): Promise<T> {
   const db = await open();
   return new Promise((resolve, reject) => {
-    const req = fn(db.transaction(STORE, mode).objectStore(STORE));
+    const req = fn(db.transaction(store, mode).objectStore(store));
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
 }
 
 export const activities: ActivityStore = {
-  put: async (a) => void (await tx('readwrite', (s) => s.put(a))),
-  has: async (key) => (await tx('readonly', (s) => s.count(key))) > 0,
-  all: async () => newestFirst(await tx<StoredActivity[]>('readonly', (s) => s.getAll())),
-  remove: async (key) => void (await tx('readwrite', (s) => s.delete(key))),
+  put: async (a) => void (await tx('activities', 'readwrite', (s) => s.put(a))),
+  has: async (key) => (await tx('activities', 'readonly', (s) => s.count(key))) > 0,
+  all: async () => newestFirst(await tx<StoredActivity[]>('activities', 'readonly', (s) => s.getAll())),
+  remove: async (key) => void (await tx('activities', 'readwrite', (s) => s.delete(key))),
+};
+
+export const routes: RouteStore = {
+  put: async (r) => void (await tx('routes', 'readwrite', (s) => s.put(r))),
+  get: (id) => tx<StoredRoute | undefined>('routes', 'readonly', (s) => s.get(id)),
+  all: async () =>
+    (await tx<StoredRoute[]>('routes', 'readonly', (s) => s.getAll()))
+      .map(({ gpx: _, ...summary }) => summary)
+      .sort((a, b) => b.importedAt - a.importedAt),
+  remove: async (id) => void (await tx('routes', 'readwrite', (s) => s.delete(id))),
 };
 
 /** Offer a file to the user (download or OS share sheet). */

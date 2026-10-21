@@ -1,4 +1,4 @@
-import type { TransportFactories } from '../transport/types';
+import type { BleOptions, BlePeer, PacketTransport, TransportFactories } from '../transport/types';
 import { BrytonUsbDevice } from './bryton';
 import { CC600_BLE, Cc600Device } from './cc600';
 import { FakeCc600, fitFile } from '../../test/fakeCc600';
@@ -9,8 +9,14 @@ export interface ModelEntry {
   label: string;
   /** Short hint shown when pairing. */
   connectHint: string;
-  /** Returns undefined when the platform lacks the needed transport. */
-  create(transports: TransportFactories): Device | undefined;
+  /**
+   * A Bluetooth device: how to recognise it. The user does not pick the
+   * model: one search finds every Bluetooth model, and the device found
+   * tells which one it is (`modelOf`).
+   */
+  ble?: { options: BleOptions; open(transport: PacketTransport): Device };
+  /** Any other device. Returns undefined when the platform lacks the needed transport. */
+  create?(transports: TransportFactories): Device | undefined;
 }
 
 // Development only: a CC600 simulated in the page, to try the app without a device.
@@ -35,8 +41,8 @@ export const MODELS: ModelEntry[] = [
   {
     id: 'open-cc600',
     label: 'CC600 (firmware OpenCC600)',
-    connectHint: 'Sur le compteur : Menu › Associer, puis choisissez-le dans la liste.',
-    create: (t) => (t.ble ? new Cc600Device(t.ble(CC600_BLE)) : undefined),
+    connectHint: 'Sur le CC600 : Menu › Associer.',
+    ble: { options: CC600_BLE, open: (t) => new Cc600Device(t) },
   },
   {
     id: 'bryton-rider-750',
@@ -46,3 +52,16 @@ export const MODELS: ModelEntry[] = [
   },
   ...SIMULATED,
 ];
+
+/** The models found by a Bluetooth search. */
+export const BLE_MODELS = MODELS.filter((m) => m.ble);
+
+/** The model of a Bluetooth device found by a search. */
+export function modelOf(peer: BlePeer): ModelEntry {
+  return BLE_MODELS.find((m) => m.ble!.options === peer.options)!;
+}
+
+/** Open a Bluetooth device found by a search, undefined where the platform has no Bluetooth. */
+export function openBle(transports: TransportFactories, peer: BlePeer): Device | undefined {
+  return transports.ble ? modelOf(peer).ble!.open(transports.ble(peer)) : undefined;
+}

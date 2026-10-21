@@ -1,15 +1,12 @@
 import { PermissionsAndroid, Platform } from 'react-native';
 import { BleManager, State, type Device, type Subscription } from 'react-native-ble-plx';
-import type { BleOptions, PacketTransport } from './types';
+import { matchBle, type BleOptions, type BlePeer, type PacketTransport } from './types';
 
 /**
  * Native Bluetooth (iOS, Android) through react-native-ble-plx.
  *
- * There is no device chooser as in the browser: `connect` takes the first
- * device that advertises the service and whose name starts with
- * `namePrefix`.
- *
- * Not yet tried with a real CC600.
+ * There is no device chooser as in the browser: the app lists the devices
+ * `scanBle` finds and connects to the one the user picks.
  */
 export class BlePlxTransport implements PacketTransport {
   readonly kind = 'packet' as const;
@@ -21,17 +18,16 @@ export class BlePlxTransport implements PacketTransport {
   /** Bytes per write: the negotiated MTU less the ATT header. */
   private chunkSize = 20;
 
-  constructor(
-    private readonly options: BleOptions,
-    private readonly scanMs = 15_000,
-  ) {}
+  private readonly options: BleOptions;
+
+  constructor(private readonly peer: BlePeer) {
+    this.options = peer.options;
+  }
 
   async connect(): Promise<void> {
     const ble = manager();
-    await askPermissions();
-    await poweredOn(ble);
-    const found = await this.scan(ble);
-    const device = await found.connect({ requestMTU: 247 });
+    await ready(ble);
+    const device = await ble.connectToDevice(this.peer.id, { requestMTU: 247 });
     await device.discoverAllServicesAndCharacteristics();
     this.device = device;
     this.peerName = device.name ?? device.localName ?? undefined;
@@ -65,29 +61,40 @@ export class BlePlxTransport implements PacketTransport {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
   }
+}
 
-  private scan(ble: BleManager): Promise<Device> {
-    const { serviceUuid, namePrefix } = this.options;
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        void ble.stopDeviceScan();
-        reject(new Error('Aucun compteur trouvé. Est-il allumé, en mode association, et à côté du téléphone ?'));
-      }, this.scanMs);
-      void ble.startDeviceScan([serviceUuid], null, async (error, device) => {
-        if (error) {
-          clearTimeout(timer);
-          void ble.stopDeviceScan();
-          return reject(new Error(`Recherche Bluetooth impossible : ${error.message}`));
-        }
-        const name = device?.name ?? device?.localName ?? '';
-        if (device && name.startsWith(namePrefix)) {
-          clearTimeout(timer);
-          await ble.stopDeviceScan();
-          resolve(device);
-        }
-      });
-    });
-  }
+/**
+ * Report the devices around that advertise one of the services and whose
+ * name starts with its `namePrefix`, each once (then again when its signal
+ * changes).
+ */
+export function scanBle(
+  wanted: BleOptions[],
+  onFound: (peer: BlePeer) => void,
+  onError: (e: Error) => void,
+): () => void {
+  const ble = manager();
+  let stopped = false;
+  void ready(ble)
+    .then(() => {
+      if (stopped) return;
+      void ble.startDeviceScan(
+        wanted.map((o) => o.serviceUuid),
+        null,
+        (error, device) => {
+          if (error) return onError(new Error(`Recherche Bluetooth impossible : ${error.message}`));
+          if (!device) return;
+          const name = device.name ?? device.localName ?? '';
+          const options = matchBle(wanted, name);
+          if (options) onFound({ id: device.id, name, rssi: device.rssi ?? undefined, options });
+        },
+      );
+    })
+    .catch(onError);
+  return () => {
+    stopped = true;
+    void ble.stopDeviceScan();
+  };
 }
 
 let shared: BleManager | undefined;
@@ -96,6 +103,12 @@ let shared: BleManager | undefined;
 function manager(): BleManager {
   shared ??= new BleManager();
   return shared;
+}
+
+/** Permissions granted and Bluetooth on, or a French error. */
+async function ready(ble: BleManager): Promise<void> {
+  await askPermissions();
+  await poweredOn(ble);
 }
 
 async function askPermissions(): Promise<void> {

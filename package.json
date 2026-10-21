@@ -1,0 +1,11 @@
+{
+  "name": "musette",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix app run web",
+    "build": "npm --prefix app run build",
+    "test": "npm --prefix app test",
+    "check": "npm --prefix app run check",
+    "wasm": "npm --prefix app run wasm"
+  }
+}
