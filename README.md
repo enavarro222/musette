@@ -1,6 +1,6 @@
 # Musette
 
-**The free companion app for bike computers.** Runs in your browser, no account, no cloud: your rides stay on your device.
+**The free companion app for bike computers.** In your browser, on Android and on iOS. No account, no cloud: your rides stay on your device.
 
 > *Musette* — the bag of food handed to riders during a race. This app hands routes to your bike computer and brings your rides back.
 
@@ -15,7 +15,10 @@ Musette is first built to use and share the [OpenCC600](https://github.com/enava
 | Send a route to the device | planned | to investigate |
 | Device settings, sensors | planned | — |
 
-Browser support: **Chrome / Edge** (desktop and Android) for Bluetooth; **desktop Chrome / Edge** for USB drives. Safari and Firefox do not support Web Bluetooth.
+Where it runs:
+
+- **Web**: Chrome / Edge (desktop and Android) for Bluetooth; desktop Chrome / Edge for USB drives. Safari and Firefox do not support Web Bluetooth.
+- **Android, iOS**: native app (Bluetooth). USB drives are not read yet. Not yet tried with a real CC600.
 
 ## Repository layout
 
@@ -27,8 +30,11 @@ crates/
   climbs           climb detection and categories
   device           device models and capabilities
   driver-bryton    Bryton stock-firmware driver (USB mass storage)
-  musette-wasm     WebAssembly bindings for the web app
-web/               React + Vite + TypeScript app (PWA)
+  musette-core     what the app asks of the crates, the same on every platform
+  musette-wasm     WebAssembly bindings of musette-core (web)
+  musette-ffi      UniFFI bindings of musette-core (iOS, Android)
+app/               Expo (React Native) app: web, Android, iOS from one code base
+  modules/musette-native   React Native module around musette-ffi (generated)
 docs/              architecture and driver notes
 ```
 
@@ -36,15 +42,26 @@ See [docs/architecture.md](docs/architecture.md).
 
 ## Develop
 
-Requirements: Rust (stable) with the `wasm32-unknown-unknown` target, [wasm-pack](https://rustwasm.github.io/wasm-pack/), Node 22.
+Requirements: Rust (stable) with the `wasm32-unknown-unknown` target, `wasm-bindgen-cli` at the version of `Cargo.lock`, Node 22.
 
 ```sh
 cargo test --workspace          # core logic
-cd web
+cd app
 npm install
-npm run wasm                    # build the Rust core to web/src/lib/wasm/pkg
-npm run dev                     # http://localhost:5173 (Web Bluetooth works on localhost)
+npm run wasm                    # build the Rust core for the web (src/lib/core/wasm)
+npm test                        # app logic against a simulated CC600
+npm run web                     # http://localhost:8081 (Web Bluetooth works on localhost)
 ```
+
+Android (needs JDK 17, the Android SDK and NDK, `cargo-ndk`, the Rust targets `aarch64-linux-android` and `x86_64-linux-android`):
+
+```sh
+cd app
+npm --prefix modules/musette-native run generate:android   # Rust core for Android
+npm run android                 # builds, installs and starts the app (device or emulator)
+```
+
+iOS needs macOS and Xcode (`generate:ios`, then `npm run ios`), or an EAS cloud build.
 
 Every push to `main` is built by CI and deployed to GitHub Pages.
 

@@ -21,7 +21,7 @@ jobs:
       # Crates shared with the firmware: they must build for an MCU.
       - run: cargo build -p protocol-cc600 -p route-cc600 -p settings-cc600 --target thumbv7em-none-eabihf
 
-  web:
+  app:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,26 +29,51 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
-      - uses: jetli/wasm-pack-action@v0.4.0
+      # Must match the wasm-bindgen version in Cargo.lock.
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen@0.2.129
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - working-directory: web
+      - working-directory: app
         run: |
-          npm install
+          npm ci
           npm run wasm
           npm run check
           npm test
-          npm run build
+          MUSETTE_BASE_URL=/musette npm run build
       - uses: actions/upload-pages-artifact@v3
         if: github.ref == 'refs/heads/main'
         with:
-          path: web/dist
+          path: app/dist
+
+  # The TypeScript API of the Rust core for iOS/Android is generated from
+  # crates/musette-ffi and committed: regenerate it, it must not change.
+  native:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,x86_64-linux-android
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-ndk
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - working-directory: app
+        run: |
+          npm ci
+          npm --prefix modules/musette-native run generate:android
+          git diff --exit-code -- modules/musette-native/src
 
   # Publish the web app on GitHub Pages (enable Pages > Source: GitHub Actions).
   deploy:
     if: github.ref == 'refs/heads/main'
-    needs: [rust, web]
+    needs: [rust, app, native]
     runs-on: ubuntu-latest
     permissions:
       pages: write

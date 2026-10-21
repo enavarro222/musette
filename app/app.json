@@ -1,0 +1,61 @@
+{
+  "expo": {
+    "name": "Musette",
+    "slug": "musette",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "musette",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "bundleIdentifier": "io.github.enavarro222.musette",
+      "icon": "./assets/expo.icon",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "io.github.enavarro222.musette",
+      "adaptiveIcon": {
+        "backgroundColor": "#E3F1EF",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "single",
+      "favicon": "./assets/images/favicon.png",
+      "name": "Musette",
+      "shortName": "Musette",
+      "description": "Companion app for bike computers",
+      "themeColor": "#0B6E69",
+      "backgroundColor": "#F6F6F3",
+      "lang": "fr"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0B6E69",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 76
+        }
+      ],
+      "expo-asset",
+      "expo-sharing",
+      [
+        "react-native-ble-plx",
+        {
+          "isBackgroundEnabled": false,
+          "neverForLocation": true,
+          "bluetoothAlwaysPermission": "Musette se connecte en Bluetooth \u00e0 votre compteur pour r\u00e9cup\u00e9rer vos sorties et lui envoyer des traces."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}

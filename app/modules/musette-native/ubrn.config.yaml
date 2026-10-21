@@ -1,0 +1,4 @@
+---
+rust:
+  directory: ../../..
+  manifestPath: crates/musette-ffi/Cargo.toml
