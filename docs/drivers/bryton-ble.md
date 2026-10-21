@@ -367,7 +367,7 @@ Read with `musette setting caps | read | get`, written with `musette setting set
 | 24 battery | — | `[a, b, c]` | **[open]** `00 03 01`, also pushed every 5 s |
 | 25 key tone | — | `[0/1]` | 0 = `isTone=0`; **set 1 then 0 checked** |
 | 26 sound | — | `[0/1]` | |
-| 27 auto pause | `[bike]` | `[bike, 0/1]` | |
+| 27 auto pause | `[bike]` | `[bike, 0/1]` | `isPause` in `Bike<n+1>Profile.ini`; **set `[2, 1]` checked** (slot 2 back on) |
 | 28 auto lap | `[bike]` | `[mode << 4 \| bike, f32 dist metric, f32 dist imperial, f32 lat, f32 lon]` | |
 | 29 unit | — | `[unit]` | 0 = `Unit=0` |
 | 30 user | `[0, item]` | `[0, item, value]`: 0 height and 1 weight = 2 × f32 (metric, imperial); 2 birthday = u16 year, month, day; 3 gender u8; 6 language ID (ASCII, e.g. `FRA`); 5 name = long command | all equal to `UserProfile.ini` |
