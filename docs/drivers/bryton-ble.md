@@ -364,7 +364,7 @@ Read with `musette setting caps | read | get`, written with `musette setting set
 | Cmd | Get args | Answer payload | Checked against USB |
 | --- | --- | --- | --- |
 | 20 backlight | — | `[value]` | 6 = `blTime=6` (`DeviceData.ini`) |
-| 24 battery | — | `[a, b, c]` | **[open]** `00 03 01`, also pushed every 5 s |
+| 24 battery | — | `[0, total bars, state]` (see below) | empty, then charging: matches the device |
 | 25 key tone | — | `[0/1]` | 0 = `isTone=0`; **set 1 then 0 checked** |
 | 26 sound | — | `[0/1]` | |
 | 27 auto pause | `[bike]` | `[bike, 0/1]` | `isPause` in `Bike<n+1>Profile.ini`; **set `[2, 1]` checked** (slot 2 back on) |
@@ -387,7 +387,7 @@ Read with `musette setting caps | read | get`, written with `musette setting set
   - speed source (31 item 0), for each of the 3 priorities: 0 = GPS, 1 = speed sensor, 2 = speed/cadence sensor.
   - auto lap (28) mode, high nibble: 0 = off, 1 = distance, 2 = location.
   - unit (29): 0 = metric, 1 = imperial. Gender (30 item 3): 0 = female, 1 = male.
-- **[open]** Battery (24): `00 03 01` while on USB power, `00 03 00` on battery. So byte 2 is probably "charging" and byte 1 a level (3 of ?). Log state (41) was `02 ff ff` and later `00 ff ff`.
+- **[app] [dev]** Battery (24): `[item, total, state]`. Item 0: bars, `total` bars (3 on the Rider 750), state 0 = charging, 1 = empty, n = n-1 bars (`ConstSettingChannel.newSettingBatteryGrid`). Item ≠ 0: `[item, percent]`. Seen: `00 03 01` (empty) just before the device switched off, `00 03 00` (charging) on a charger. The device also pushes it every 5 s. Log state (41) was `02 ff ff` and later `00 ff ff` **[open]**.
 - The user manual also lists per-bike **alerts** (time, distance, speed, heart rate, cadence) and system settings with no command found yet: meter colour mode, auto lock, status duration, smart recording, ODO setup, start remind, file saving, auto scroll. **[open]**
 
 ## 5. Connection sequence (as the app does it)

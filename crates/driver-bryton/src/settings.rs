@@ -109,6 +109,21 @@ fn raw(p: &[u8]) -> Option<Value> {
     Some(Value::Raw(p.to_vec()))
 }
 
+/// Battery (cmd 24): `[0, total bars, state]` with state 0 = charging,
+/// 1 = empty, n = n-1 bars; or `[item != 0, percent]`.
+fn battery(p: &[u8]) -> Option<Value> {
+    let (&item, rest) = p.split_first()?;
+    if item != 0 {
+        return Some(Value::Text(format!("{} %", rest.first()?)));
+    }
+    let (total, state) = (*rest.first()?, *rest.get(1)?);
+    Some(Value::Text(match state {
+        0 => "charging".to_string(),
+        1 => "empty".to_string(),
+        n => format!("{}/{total} bars", n - 1),
+    }))
+}
+
 /// `[bike, value]`
 fn bike_bool(p: &[u8]) -> Option<Value> {
     Some(Value::Bool(*p.get(1)? != 0))
@@ -239,7 +254,7 @@ pub fn fields() -> Vec<Field> {
             key: "battery",
             cmd: 24,
             args: &[],
-            decode: raw,
+            decode: battery,
             choices: NONE,
         },
         Field {
@@ -418,6 +433,16 @@ mod tests {
     #[test]
     fn simple_values() {
         assert_eq!(decode("backlight", &[6]), Value::Int(6));
+        // Seen on a Rider 750: empty just before it switched off, then charging.
+        assert_eq!(decode("battery", &[0, 3, 1]), Value::Text("empty".into()));
+        assert_eq!(
+            decode("battery", &[0, 3, 0]),
+            Value::Text("charging".into())
+        );
+        assert_eq!(
+            decode("battery", &[0, 3, 4]),
+            Value::Text("3/3 bars".into())
+        );
         assert_eq!(decode("key_tone", &[0]), Value::Bool(false));
         assert_eq!(decode("zone.ftp", &[0, 250, 0]), Value::Int(250));
         assert_eq!(decode("bike1.auto_pause", &[1, 1]), Value::Bool(true));
