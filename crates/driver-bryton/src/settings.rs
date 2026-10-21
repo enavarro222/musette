@@ -43,6 +43,16 @@ impl std::fmt::Display for Value {
     }
 }
 
+/// How a setting's value is shown and edited.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Kind {
+    Bool,
+    /// An `Int` among [`Field::choices`].
+    Choice,
+    Number,
+    Text,
+}
+
 /// One readable setting.
 pub struct Field {
     /// Stable key, `bike<N>.` prefix for per-bike values.
@@ -54,6 +64,7 @@ pub struct Field {
     pub decode: fn(&[u8]) -> Option<Value>,
     /// Labels of an `Int` value, indexed by value (empty: a plain number).
     pub choices: &'static [&'static str],
+    pub kind: Kind,
 }
 
 impl Field {
@@ -210,7 +221,7 @@ fn zone_base(p: &[u8]) -> Option<Value> {
 }
 
 macro_rules! per_bike {
-    ($key:literal, $cmd:expr, $decode:expr, $choices:expr) => {
+    ($key:literal, $cmd:expr, $decode:expr, $choices:expr, $kind:expr) => {
         [
             Field {
                 key: concat!("bike0.", $key),
@@ -218,6 +229,7 @@ macro_rules! per_bike {
                 args: &[0],
                 decode: $decode,
                 choices: $choices,
+                kind: $kind,
             },
             Field {
                 key: concat!("bike1.", $key),
@@ -225,6 +237,7 @@ macro_rules! per_bike {
                 args: &[1],
                 decode: $decode,
                 choices: $choices,
+                kind: $kind,
             },
             Field {
                 key: concat!("bike2.", $key),
@@ -232,6 +245,7 @@ macro_rules! per_bike {
                 args: &[2],
                 decode: $decode,
                 choices: $choices,
+                kind: $kind,
             },
         ]
     };
@@ -249,6 +263,7 @@ pub fn fields() -> Vec<Field> {
             args: &[],
             decode: byte0,
             choices: BACKLIGHT,
+            kind: Kind::Choice,
         },
         Field {
             key: "battery",
@@ -256,6 +271,7 @@ pub fn fields() -> Vec<Field> {
             args: &[],
             decode: battery,
             choices: NONE,
+            kind: Kind::Text,
         },
         Field {
             key: "key_tone",
@@ -263,6 +279,7 @@ pub fn fields() -> Vec<Field> {
             args: &[],
             decode: bool0,
             choices: NONE,
+            kind: Kind::Bool,
         },
         Field {
             key: "sound",
@@ -270,6 +287,7 @@ pub fn fields() -> Vec<Field> {
             args: &[],
             decode: bool0,
             choices: NONE,
+            kind: Kind::Bool,
         },
         Field {
             key: "unit",
@@ -277,6 +295,7 @@ pub fn fields() -> Vec<Field> {
             args: &[],
             decode: byte0,
             choices: UNIT,
+            kind: Kind::Choice,
         },
         Field {
             key: "user.height",
@@ -284,6 +303,7 @@ pub fn fields() -> Vec<Field> {
             args: &[0, 0],
             decode: user_pair,
             choices: NONE,
+            kind: Kind::Number,
         },
         Field {
             key: "user.weight",
@@ -291,6 +311,7 @@ pub fn fields() -> Vec<Field> {
             args: &[0, 1],
             decode: user_pair,
             choices: NONE,
+            kind: Kind::Number,
         },
         Field {
             key: "user.birthday",
@@ -298,6 +319,7 @@ pub fn fields() -> Vec<Field> {
             args: &[0, 2],
             decode: user_date,
             choices: NONE,
+            kind: Kind::Text,
         },
         Field {
             key: "user.gender",
@@ -305,6 +327,7 @@ pub fn fields() -> Vec<Field> {
             args: &[0, 3],
             decode: user_byte,
             choices: GENDER,
+            kind: Kind::Choice,
         },
         Field {
             key: "user.language",
@@ -312,6 +335,7 @@ pub fn fields() -> Vec<Field> {
             args: &[0, 6],
             decode: user_text,
             choices: NONE,
+            kind: Kind::Text,
         },
         Field {
             key: "zone.ftp",
@@ -319,6 +343,7 @@ pub fn fields() -> Vec<Field> {
             args: &[0],
             decode: zone_base,
             choices: NONE,
+            kind: Kind::Number,
         },
         Field {
             key: "zone.max_hr",
@@ -326,6 +351,7 @@ pub fn fields() -> Vec<Field> {
             args: &[0],
             decode: zone_base,
             choices: NONE,
+            kind: Kind::Number,
         },
         Field {
             key: "zone.lthr",
@@ -333,6 +359,7 @@ pub fn fields() -> Vec<Field> {
             args: &[0],
             decode: zone_base,
             choices: NONE,
+            kind: Kind::Number,
         },
         Field {
             key: "log_state",
@@ -340,12 +367,13 @@ pub fn fields() -> Vec<Field> {
             args: &[],
             decode: raw,
             choices: NONE,
+            kind: Kind::Text,
         },
     ];
-    v.extend(per_bike!("auto_pause", 27, bike_bool, NONE));
-    v.extend(per_bike!("auto_lap", 28, auto_lap, NONE));
-    v.extend(per_bike!("gps", 40, bike_byte, GPS));
-    v.extend(per_bike!("odometer", 45, bike_pair, NONE));
+    v.extend(per_bike!("auto_pause", 27, bike_bool, NONE, Kind::Bool));
+    v.extend(per_bike!("auto_lap", 28, auto_lap, NONE, Kind::Text));
+    v.extend(per_bike!("gps", 40, bike_byte, GPS, Kind::Choice));
+    v.extend(per_bike!("odometer", 45, bike_pair, NONE, Kind::Number));
     // Cmd 31 args: [seq, item, bike]. Name: chunk (seq) 1.
     for (bike, name, speed) in [
         (&[1, 5, 0], "bike0.name", &[0, 0, 0]),
@@ -358,6 +386,7 @@ pub fn fields() -> Vec<Field> {
             args: bike,
             decode: bike_name,
             choices: NONE,
+            kind: Kind::Text,
         });
         v.push(Field {
             key: SPEED_KEYS[speed[2] as usize],
@@ -365,6 +394,7 @@ pub fn fields() -> Vec<Field> {
             args: speed,
             decode: speed_source,
             choices: NONE,
+            kind: Kind::Text,
         });
     }
     v
@@ -375,6 +405,30 @@ const SPEED_KEYS: [&str; 3] = [
     "bike1.speed_source",
     "bike2.speed_source",
 ];
+
+/// The set frame payload for a writable setting: `(cmd, payload)`. Same
+/// layout as the get answer. Only the settings checked on a device (or as
+/// simple as them) are writable; the others are read-only for now.
+pub fn encode(key: &str, value: i64) -> Option<(u8, Vec<u8>)> {
+    let v = u8::try_from(value).ok()?;
+    let global = |cmd: u8, max: u8| (v <= max).then(|| (cmd, vec![v]));
+    match key {
+        "backlight" => global(20, BACKLIGHT.len() as u8 - 1),
+        "key_tone" => global(25, 1),
+        "sound" => global(26, 1),
+        "unit" => global(29, 1),
+        _ => {
+            let (bike, name) = key.strip_prefix("bike")?.split_once('.')?;
+            let bike: u8 = bike.parse().ok().filter(|b| *b < 3)?;
+            match name {
+                "auto_pause" if v <= 1 => Some((27, vec![bike, v])),
+                // 6 ("on") is for other layouts; 0-5 are the Rider 750's.
+                "gps" if v <= 5 => Some((40, vec![bike, v])),
+                _ => None,
+            }
+        }
+    }
+}
 
 /// The payload of a type-1 answer to `cmd`, without the checksum.
 pub fn answer_payload(cmd: u8, frame: &[u8]) -> Option<&[u8]> {
@@ -464,6 +518,25 @@ mod tests {
         name.extend("Vélo X ".as_bytes());
         name.resize(17, 0);
         assert_eq!(decode("bike2.name", &name), Value::Text("Vélo X".into()));
+    }
+
+    #[test]
+    fn encode_writable() {
+        // Checked on a Rider 750: key tone on, auto pause of slot 2 on.
+        assert_eq!(encode("key_tone", 1), Some((25, vec![1])));
+        assert_eq!(encode("bike2.auto_pause", 1), Some((27, vec![2, 1])));
+        assert_eq!(encode("bike0.gps", 3), Some((40, vec![0, 3])));
+        assert_eq!(encode("backlight", 7), None, "out of range");
+        assert_eq!(encode("bike3.auto_pause", 1), None, "3 bikes");
+        assert_eq!(encode("zone.ftp", 250), None, "read-only for now");
+        // What encode writes is what decode reads.
+        let (cmd, p) = encode("bike1.auto_pause", 0).unwrap();
+        let f = fields()
+            .into_iter()
+            .find(|f| f.key == "bike1.auto_pause")
+            .unwrap();
+        assert_eq!(f.cmd, cmd);
+        assert_eq!((f.decode)(&p), Some(Value::Bool(false)));
     }
 
     #[test]

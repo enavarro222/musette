@@ -300,3 +300,197 @@ pub fn cc600_settings_parse(text: String) -> Vec<Setting> {
 pub fn cc600_settings_apply(current: String, changes: String) -> Result<String> {
     Ok(musette_core::cc600_settings_apply(&current, &changes)?)
 }
+
+#[derive(uniffi::Record)]
+pub struct BrytonWrite {
+    /// 0 command, 1 data (write without response), 2 setting.
+    pub channel: u8,
+    pub bytes: Vec<u8>,
+}
+
+impl From<musette_core::BrytonWrite> for BrytonWrite {
+    fn from(w: musette_core::BrytonWrite) -> Self {
+        Self {
+            channel: w.channel,
+            bytes: w.bytes,
+        }
+    }
+}
+
+#[derive(uniffi::Record)]
+pub struct BrytonRide {
+    pub id: String,
+    pub time_s: u32,
+    pub distance_m: u32,
+    pub sport: u8,
+}
+
+#[derive(uniffi::Record)]
+pub struct BrytonInfo {
+    pub id: String,
+    pub firmware: String,
+    pub model: String,
+    pub recording: bool,
+    pub settings: bool,
+}
+
+#[derive(uniffi::Record)]
+pub struct BrytonEvent {
+    pub kind: String,
+    pub message: String,
+    pub bytes: Vec<u8>,
+    pub done: u32,
+    pub total: u32,
+    pub cmd: u8,
+    pub status: u8,
+    pub rides: Vec<BrytonRide>,
+    pub info: Option<BrytonInfo>,
+}
+
+#[derive(uniffi::Record)]
+pub struct BrytonStep {
+    pub writes: Vec<BrytonWrite>,
+    pub events: Vec<BrytonEvent>,
+}
+
+impl From<musette_core::BrytonStep> for BrytonStep {
+    fn from(s: musette_core::BrytonStep) -> Self {
+        Self {
+            writes: s.writes.into_iter().map(Into::into).collect(),
+            events: s
+                .events
+                .into_iter()
+                .map(|e| BrytonEvent {
+                    kind: e.kind.to_owned(),
+                    message: e.message,
+                    bytes: e.bytes,
+                    done: e.done,
+                    total: e.total,
+                    cmd: e.cmd,
+                    status: e.status,
+                    rides: e
+                        .rides
+                        .into_iter()
+                        .map(|r| BrytonRide {
+                            id: r.id,
+                            time_s: r.time_s,
+                            distance_m: r.distance_m,
+                            sport: r.sport,
+                        })
+                        .collect(),
+                    info: e.info.map(|i| BrytonInfo {
+                        id: i.id,
+                        firmware: i.firmware,
+                        model: i.model,
+                        recording: i.recording,
+                        settings: i.settings,
+                    }),
+                })
+                .collect(),
+        }
+    }
+}
+
+/// One Bryton BLE connection: write what it returns, give it every
+/// notification (`on_notify`).
+#[derive(uniffi::Object)]
+pub struct BrytonSession(Mutex<musette_core::BrytonSession>);
+
+impl Default for BrytonSession {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[uniffi::export]
+impl BrytonSession {
+    #[uniffi::constructor]
+    pub fn new() -> Self {
+        Self(Mutex::new(musette_core::BrytonSession::new()))
+    }
+
+    pub fn read_device_info(&self) -> BrytonWrite {
+        self.0.lock().unwrap().read_device_info().into()
+    }
+
+    pub fn new_app(&self) -> BrytonWrite {
+        self.0.lock().unwrap().new_app().into()
+    }
+
+    pub fn list_rides(&self) -> BrytonWrite {
+        self.0.lock().unwrap().list_rides().into()
+    }
+
+    pub fn download(&self, id: String) -> Result<BrytonWrite> {
+        Ok(self.0.lock().unwrap().download(&id)?.into())
+    }
+
+    pub fn acknowledge(&self, id: String) -> Result<BrytonWrite> {
+        Ok(self.0.lock().unwrap().acknowledge(&id)?.into())
+    }
+
+    pub fn send_route(&self, fit: Vec<u8>, device_id: String) -> BrytonWrite {
+        self.0.lock().unwrap().send_route(&fit, &device_id).into()
+    }
+
+    pub fn send_route_name(&self, name: String) -> BrytonWrite {
+        self.0.lock().unwrap().send_route_name(&name).into()
+    }
+
+    pub fn setting_get(&self, key: String) -> Result<BrytonWrite> {
+        Ok(self.0.lock().unwrap().setting_get(&key)?.into())
+    }
+
+    pub fn setting_set(&self, key: String, value: i64) -> Result<BrytonWrite> {
+        Ok(self.0.lock().unwrap().setting_set(&key, value)?.into())
+    }
+
+    /// `channel`: 0 command, 1 data, 2 setting.
+    pub fn on_notify(&self, channel: u8, bytes: Vec<u8>) -> BrytonStep {
+        self.0.lock().unwrap().on_notify(channel, &bytes).into()
+    }
+}
+
+/// A Bryton route file from track points. `eles` uses NaN for missing elevation.
+#[uniffi::export]
+pub fn bryton_build_route(lats: Vec<f64>, lons: Vec<f64>, eles: Vec<f64>) -> Result<Vec<u8>> {
+    Ok(musette_core::bryton_build_route(&lats, &lons, &eles)?)
+}
+
+#[derive(uniffi::Record)]
+pub struct BrytonField {
+    pub key: String,
+    /// `bool`, `choice`, `number` or `text`.
+    pub kind: String,
+    pub choices: Vec<String>,
+    pub writable: bool,
+}
+
+/// The Bryton settings Musette reads.
+#[uniffi::export]
+pub fn bryton_setting_fields() -> Vec<BrytonField> {
+    musette_core::bryton_setting_fields()
+        .into_iter()
+        .map(|f| BrytonField {
+            key: f.key,
+            kind: f.kind.to_owned(),
+            choices: f.choices,
+            writable: f.writable,
+        })
+        .collect()
+}
+
+#[derive(uniffi::Record)]
+pub struct BrytonValue {
+    pub number: Option<f64>,
+    pub text: String,
+}
+
+/// Decodes the answer to the get of `key`; none if it is not one.
+#[uniffi::export]
+pub fn bryton_setting_value(key: String, frame: Vec<u8>) -> Option<BrytonValue> {
+    musette_core::bryton_setting_value(&key, &frame).map(|v| BrytonValue {
+        number: v.number,
+        text: v.text,
+    })
+}

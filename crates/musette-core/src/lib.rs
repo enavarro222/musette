@@ -60,15 +60,20 @@ fn check_lengths(lats: &[f64], lons: &[f64], eles: &[f64]) -> Result<()> {
     Ok(())
 }
 
-/// Analyse a route. `eles` uses NaN for missing elevation.
-pub fn analyze_route(lats: &[f64], lons: &[f64], eles: &[f64]) -> Result<RouteAnalysis> {
+/// Track points from the app's arrays; `eles` uses NaN when unknown.
+fn to_points(lats: &[f64], lons: &[f64], eles: &[f64]) -> Result<Vec<track::Point>> {
     check_lengths(lats, lons, eles)?;
-    let points: Vec<track::Point> = lats
+    Ok(lats
         .iter()
         .zip(lons)
         .zip(eles)
         .map(|((&lat, &lon), &e)| track::Point::new(lat, lon, (!e.is_nan()).then_some(e)))
-        .collect();
+        .collect())
+}
+
+/// Analyse a route. `eles` uses NaN for missing elevation.
+pub fn analyze_route(lats: &[f64], lons: &[f64], eles: &[f64]) -> Result<RouteAnalysis> {
+    let points = to_points(lats, lons, eles)?;
 
     let cumulative = track::cumulative_distance(&points);
     let distance_m = cumulative.last().copied().unwrap_or(0.0);
@@ -181,6 +186,344 @@ pub fn bryton_find_activities(paths: Vec<String>, sizes: &[f64]) -> Vec<Activity
             size: a.size,
         })
         .collect()
+}
+
+// ---- Bryton over BLE ------------------------------------------------------
+
+use driver_bryton::ble as bryton;
+
+/// Characteristics a [`BrytonWrite`] goes to, and a notification comes from.
+pub const BRYTON_COMMAND: u8 = 0;
+pub const BRYTON_DATA: u8 = 1;
+pub const BRYTON_SETTING: u8 = 2;
+
+fn channel_id(c: bryton::Channel) -> u8 {
+    match c {
+        bryton::Channel::Command => BRYTON_COMMAND,
+        bryton::Channel::Data => BRYTON_DATA,
+        bryton::Channel::Setting => BRYTON_SETTING,
+    }
+}
+
+/// Bytes to write to a Bryton characteristic ([`BRYTON_COMMAND`]...). The
+/// data channel is written without response, the others with.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]
+pub struct BrytonWrite {
+    pub channel: u8,
+    pub bytes: Vec<u8>,
+}
+
+impl From<bryton::Write> for BrytonWrite {
+    fn from(w: bryton::Write) -> Self {
+        Self {
+            channel: channel_id(w.channel),
+            bytes: w.bytes,
+        }
+    }
+}
+
+/// A ride in the device's "not synced" list.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]
+pub struct BrytonRide {
+    /// `yyMMddHHmmss`: also the ride's file name over USB.
+    pub id: String,
+    pub time_s: u32,
+    pub distance_m: u32,
+    pub sport: u8,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]
+pub struct BrytonInfo {
+    /// `UD`: the first 4 digits are the product code (1902: Rider 750).
+    pub id: String,
+    pub firmware: String,
+    pub model: String,
+    /// The device is recording a ride.
+    pub recording: bool,
+    /// It has the setting channel (needed for settings, acknowledgement and
+    /// routes).
+    pub settings: bool,
+}
+
+/// What happened, from [`BrytonSession::on_notify`]. One struct for every
+/// kind, so that WASM and UniFFI carry it the same way; `kind` says which
+/// fields count.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]
+pub struct BrytonEvent {
+    /// `info`, `ready` (handshake), `rides`, `progress`, `file`, `sent`,
+    /// `routeNamed`, `settingAck`, `setting`, `failed`.
+    pub kind: &'static str,
+    /// `failed`: what failed, in English (the app maps it).
+    pub message: String,
+    /// `file`: the ride. `setting`: the whole setting frame.
+    pub bytes: Vec<u8>,
+    /// `progress`: bytes done and total.
+    pub done: u32,
+    pub total: u32,
+    /// `settingAck`, `setting`: the setting command; `settingAck`: its status
+    /// (10 = ok).
+    pub cmd: u8,
+    pub status: u8,
+    pub rides: Vec<BrytonRide>,
+    pub info: Option<BrytonInfo>,
+}
+
+impl BrytonEvent {
+    fn new(kind: &'static str) -> Self {
+        Self {
+            kind,
+            ..Self::default()
+        }
+    }
+}
+
+fn failure_text(f: &bryton::Failure) -> String {
+    match f {
+        bryton::Failure::Status { cmd, status } => format!("cmd {cmd}: status {status}"),
+        bryton::Failure::Action { cmd, code } => format!("cmd {cmd}: action {code}"),
+        bryton::Failure::BadSum { cmd } => format!("cmd {cmd}: bad checksum"),
+        bryton::Failure::Missing { cmd } => format!("cmd {cmd}: frames missing"),
+        bryton::Failure::Empty { cmd } => format!("cmd {cmd}: no data"),
+        bryton::Failure::Size { expected, got } => format!("expected {expected} bytes, got {got}"),
+    }
+}
+
+fn bryton_event(e: bryton::Event) -> BrytonEvent {
+    match e {
+        bryton::Event::DeviceInfo(i) => BrytonEvent {
+            info: Some(BrytonInfo {
+                settings: i.has(bryton::cp::SETTING),
+                recording: i.recording(),
+                id: i.id.unwrap_or_default(),
+                firmware: i.firmware.unwrap_or_default(),
+                model: i.model.unwrap_or_default(),
+            }),
+            ..BrytonEvent::new("info")
+        },
+        bryton::Event::Handshake(_) => BrytonEvent::new("ready"),
+        bryton::Event::Activities(list) => BrytonEvent {
+            rides: list
+                .iter()
+                .map(|e| BrytonRide {
+                    id: e.name(),
+                    time_s: e.activity_time,
+                    distance_m: e.activity_dist,
+                    sport: e.sport_type,
+                })
+                .collect(),
+            ..BrytonEvent::new("rides")
+        },
+        bryton::Event::Progress { done, total } => BrytonEvent {
+            done,
+            total,
+            ..BrytonEvent::new("progress")
+        },
+        bryton::Event::File { bytes, .. } => BrytonEvent {
+            bytes,
+            ..BrytonEvent::new("file")
+        },
+        bryton::Event::Sent { .. } => BrytonEvent::new("sent"),
+        bryton::Event::RouteNamed => BrytonEvent::new("routeNamed"),
+        bryton::Event::SettingAck { cmd, status } => BrytonEvent {
+            cmd,
+            status,
+            ..BrytonEvent::new("settingAck")
+        },
+        bryton::Event::Setting(frame) => BrytonEvent {
+            cmd: frame.first().copied().unwrap_or(0),
+            bytes: frame,
+            ..BrytonEvent::new("setting")
+        },
+        bryton::Event::Failed(f) => BrytonEvent {
+            message: failure_text(&f),
+            ..BrytonEvent::new("failed")
+        },
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]
+pub struct BrytonStep {
+    /// Write them in order.
+    pub writes: Vec<BrytonWrite>,
+    pub events: Vec<BrytonEvent>,
+}
+
+fn ride_id(id: &str) -> Result<u32> {
+    bryton::file_id_from_name(id).ok_or_else(|| error(format!("not a Bryton ride id: {id}")))
+}
+
+/// One Bryton BLE connection (`driver_bryton::ble::Session`): the app
+/// writes what it returns and gives it every notification.
+pub struct BrytonSession(bryton::Session);
+
+impl Default for BrytonSession {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl BrytonSession {
+    pub fn new() -> Self {
+        Self(bryton::Session::new(bryton::Config::default()))
+    }
+
+    /// First request after subscribing to the command and data channels.
+    pub fn read_device_info(&mut self) -> BrytonWrite {
+        self.0.read_device_info().into()
+    }
+
+    /// Once subscribed to the setting channel: the device answers with the
+    /// handshake (event `ready`).
+    pub fn new_app(&mut self) -> BrytonWrite {
+        self.0.new_app().into()
+    }
+
+    /// The rides not synced yet (event `rides`).
+    pub fn list_rides(&mut self) -> BrytonWrite {
+        self.0.list_activities(bryton::ListType::Unsynced).into()
+    }
+
+    /// Downloads a ride by id (events `progress`, then `file`).
+    pub fn download(&mut self, id: &str) -> Result<BrytonWrite> {
+        Ok(self.0.download(ride_id(id)?).into())
+    }
+
+    /// The ride is stored: it leaves the "not synced" list (event
+    /// `settingAck` with cmd 51).
+    pub fn acknowledge(&mut self, id: &str) -> Result<BrytonWrite> {
+        Ok(self.0.acknowledge(ride_id(id)?).into())
+    }
+
+    /// Sends a route file from [`bryton_build_route`] (events `progress`,
+    /// then `sent`); `device_id` is [`BrytonInfo::id`] (it tells whether the
+    /// device wants the file compressed). Then send its name.
+    pub fn send_route(&mut self, fit: &[u8], device_id: &str) -> BrytonWrite {
+        let payload = if bryton::compresses_routes(device_id) {
+            bryton::gzip(fit)
+        } else {
+            fit.to_vec()
+        };
+        self.0
+            .send_file(bryton::FILE_TYPE_PLAN_TRIP, &payload)
+            .into()
+    }
+
+    /// The route's name: the device then imports it (event `routeNamed`).
+    pub fn send_route_name(&mut self, name: &str) -> BrytonWrite {
+        self.0.send_route_name(name).into()
+    }
+
+    /// Reads a setting (event `setting` with its cmd; decode it with
+    /// [`bryton_setting_value`]).
+    pub fn setting_get(&mut self, key: &str) -> Result<BrytonWrite> {
+        let f = driver_bryton::settings::fields()
+            .into_iter()
+            .find(|f| f.key == key)
+            .ok_or_else(|| error(format!("unknown setting {key}")))?;
+        Ok(self.0.setting_get(f.cmd, f.args).into())
+    }
+
+    /// Changes a setting (event `settingAck`, status 10 when done).
+    pub fn setting_set(&mut self, key: &str, value: i64) -> Result<BrytonWrite> {
+        let (cmd, payload) = driver_bryton::settings::encode(key, value)
+            .ok_or_else(|| error(format!("{key} cannot be set to {value}")))?;
+        Ok(self.0.setting_set(cmd, &payload).into())
+    }
+
+    /// A notification from a characteristic ([`BRYTON_COMMAND`]...).
+    pub fn on_notify(&mut self, channel: u8, bytes: &[u8]) -> BrytonStep {
+        let step = match channel {
+            BRYTON_COMMAND => self.0.on_command(bytes),
+            BRYTON_DATA => self.0.on_data(bytes),
+            BRYTON_SETTING => self.0.on_setting(bytes),
+            _ => return BrytonStep::default(),
+        };
+        BrytonStep {
+            writes: step.writes.into_iter().map(Into::into).collect(),
+            events: step.events.into_iter().map(bryton_event).collect(),
+        }
+    }
+}
+
+/// A route file for a Bryton (its own FIT messages) from track points, start
+/// and arrival turns only; `eles` uses NaN when unknown. Points are kept
+/// within 5 m of the track.
+pub fn bryton_build_route(lats: &[f64], lons: &[f64], eles: &[f64]) -> Result<Vec<u8>> {
+    let points = to_points(lats, lons, eles)?;
+    let keep = track::simplify(&points, 5.0);
+    let kept: Vec<track::Point> = keep.into_iter().map(|i| points[i]).collect();
+    // 16 km/h for the turn durations, as the app's routes.
+    driver_bryton::route::Route::from_track(&kept, 16.0 / 3.6)
+        .encode()
+        .map_err(|e| error(format!("{e:?}")))
+}
+
+/// A Bryton setting as `driver_bryton::settings` describes it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]
+pub struct BrytonField {
+    /// `user.height`, `bike0.auto_pause`... (bike slots 0-2 are the
+    /// device's `Bike1-3Profile.ini`).
+    pub key: String,
+    /// `bool`, `choice`, `number` or `text`.
+    pub kind: &'static str,
+    /// `choice`: the labels, indexed by value (English; the app has its own).
+    pub choices: Vec<String>,
+    /// [`BrytonSession::setting_set`] accepts it.
+    pub writable: bool,
+}
+
+/// Every setting Musette reads from a Bryton.
+pub fn bryton_setting_fields() -> Vec<BrytonField> {
+    use driver_bryton::settings::{encode, fields, Kind};
+    fields()
+        .into_iter()
+        .map(|f| BrytonField {
+            key: f.key.to_owned(),
+            kind: match f.kind {
+                Kind::Bool => "bool",
+                Kind::Choice => "choice",
+                Kind::Number => "number",
+                Kind::Text => "text",
+            },
+            choices: f.choices.iter().map(|c| (*c).to_owned()).collect(),
+            writable: encode(f.key, 0).is_some(),
+        })
+        .collect()
+}
+
+/// A setting value: `number` for bool (0/1), choice and number; `text` for
+/// the others (and a readable form of every value).
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]
+pub struct BrytonValue {
+    pub number: Option<f64>,
+    pub text: String,
+}
+
+/// Decodes the device's answer (a `setting` event's bytes) to the get of `key`.
+pub fn bryton_setting_value(key: &str, frame: &[u8]) -> Option<BrytonValue> {
+    use driver_bryton::settings::{answer_payload, fields, Value};
+    let f = fields().into_iter().find(|f| f.key == key)?;
+    let v = (f.decode)(answer_payload(f.cmd, frame)?)?;
+    let number = match &v {
+        Value::Bool(b) => Some(*b as u8 as f64),
+        Value::Int(i) => Some(*i as f64),
+        Value::Pair { metric, .. } => Some(*metric as f64),
+        _ => None,
+    };
+    Some(BrytonValue {
+        number,
+        text: match &v {
+            Value::Text(t) => t.clone(),
+            _ => f.show(&v),
+        },
+    })
 }
 
 // ---- CC600 frames --------------------------------------------------------
@@ -527,5 +870,79 @@ mod tests {
             cc600_settings_apply("", "backlight=999\n"),
             Err(Error("backlight".into()))
         );
+    }
+
+    #[test]
+    fn bryton_session_lists_rides() {
+        use driver_bryton::ble::{control, split_transfer};
+        let mut s = BrytonSession::new();
+        let w = s.list_rides();
+        assert_eq!(
+            (w.channel, w.bytes.clone()),
+            (BRYTON_COMMAND, vec![11, 0x04, 0])
+        );
+        let step = s.on_notify(BRYTON_COMMAND, &[11, control(1, 1), 2]);
+        assert_eq!(step.writes[0].bytes, [11, 0x44, 3]);
+        let id = driver_bryton::ble::file_id_from_name("260922125127").unwrap();
+        let mut entry = vec![19];
+        entry.extend(id.to_be_bytes());
+        entry.extend(2902u32.to_be_bytes());
+        entry.extend(12_868u32.to_be_bytes());
+        entry.resize(36, 0);
+        entry[18] = 2;
+        let mut events = vec![];
+        for f in split_transfer(11, 1, &entry, 20) {
+            events.extend(s.on_notify(BRYTON_DATA, &f).events);
+        }
+        assert_eq!(events[0].kind, "rides");
+        assert_eq!(
+            events[0].rides,
+            [BrytonRide {
+                id: "260922125127".into(),
+                time_s: 2902,
+                distance_m: 12_868,
+                sport: 2
+            }]
+        );
+        assert!(s.download("tmp").is_err());
+        assert_eq!(
+            s.acknowledge("260922125127").unwrap().channel,
+            BRYTON_SETTING
+        );
+    }
+
+    #[test]
+    fn bryton_settings_and_route() {
+        let fields = bryton_setting_fields();
+        let key_tone = fields.iter().find(|f| f.key == "key_tone").unwrap();
+        assert_eq!((key_tone.kind, key_tone.writable), ("bool", true));
+        let gps = fields.iter().find(|f| f.key == "bike0.gps").unwrap();
+        assert_eq!((gps.kind, gps.choices.len()), ("choice", 7));
+        assert!(
+            !fields
+                .iter()
+                .find(|f| f.key == "zone.ftp")
+                .unwrap()
+                .writable
+        );
+        // Backlight "auto", as a Rider 750 answers it.
+        let v = bryton_setting_value("backlight", &[0x14, 1, 6, 0x1b]).unwrap();
+        assert_eq!((v.number, v.text.as_str()), (Some(6.0), "auto (6)"));
+        let mut s = BrytonSession::new();
+        assert_eq!(
+            s.setting_set("bike2.auto_pause", 1).unwrap().bytes,
+            [27, 1, 2, 1, 31]
+        );
+        assert!(s.setting_set("zone.ftp", 250).is_err());
+
+        let lats: Vec<f64> = (0..100).map(|i| 45.0 + i as f64 * 1e-4).collect();
+        let lons = vec![1.0; 100];
+        let eles = vec![f64::NAN; 100];
+        let fit = bryton_build_route(&lats, &lons, &eles).unwrap();
+        let r = driver_bryton::route::Route::decode(&fit).unwrap();
+        assert_eq!(r.points.len(), 2, "a straight line keeps its ends");
+        // The Rider 750 (product 1902) gets it gzip-compressed.
+        let w = s.send_route(&fit, "1902201200001954");
+        assert_eq!(w.bytes, [16, 0x04, 11]);
     }
 }

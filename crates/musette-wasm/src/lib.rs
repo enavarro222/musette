@@ -199,3 +199,97 @@ pub fn cc600_settings_parse(text: &str) -> Result<JsValue, JsError> {
 pub fn cc600_settings_apply(current: &str, changes: &str) -> Result<String, JsError> {
     musette_core::cc600_settings_apply(current, changes).map_err(js)
 }
+
+/// One Bryton BLE connection: write what it returns (`{channel, bytes}`),
+/// give it every notification (`onNotify`).
+#[wasm_bindgen(js_name = BrytonSession)]
+pub struct BrytonSession(musette_core::BrytonSession);
+
+impl Default for BrytonSession {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[wasm_bindgen(js_class = BrytonSession)]
+impl BrytonSession {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> Self {
+        Self(musette_core::BrytonSession::new())
+    }
+
+    #[wasm_bindgen(js_name = readDeviceInfo)]
+    pub fn read_device_info(&mut self) -> Result<JsValue, JsError> {
+        to_js(&self.0.read_device_info())
+    }
+
+    #[wasm_bindgen(js_name = newApp)]
+    pub fn new_app(&mut self) -> Result<JsValue, JsError> {
+        to_js(&self.0.new_app())
+    }
+
+    #[wasm_bindgen(js_name = listRides)]
+    pub fn list_rides(&mut self) -> Result<JsValue, JsError> {
+        to_js(&self.0.list_rides())
+    }
+
+    pub fn download(&mut self, id: &str) -> Result<JsValue, JsError> {
+        to_js(&self.0.download(id).map_err(js)?)
+    }
+
+    pub fn acknowledge(&mut self, id: &str) -> Result<JsValue, JsError> {
+        to_js(&self.0.acknowledge(id).map_err(js)?)
+    }
+
+    #[wasm_bindgen(js_name = sendRoute)]
+    pub fn send_route(&mut self, fit: &[u8], device_id: &str) -> Result<JsValue, JsError> {
+        to_js(&self.0.send_route(fit, device_id))
+    }
+
+    #[wasm_bindgen(js_name = sendRouteName)]
+    pub fn send_route_name(&mut self, name: &str) -> Result<JsValue, JsError> {
+        to_js(&self.0.send_route_name(name))
+    }
+
+    #[wasm_bindgen(js_name = settingGet)]
+    pub fn setting_get(&mut self, key: &str) -> Result<JsValue, JsError> {
+        to_js(&self.0.setting_get(key).map_err(js)?)
+    }
+
+    #[wasm_bindgen(js_name = settingSet)]
+    pub fn setting_set(&mut self, key: &str, value: f64) -> Result<JsValue, JsError> {
+        to_js(&self.0.setting_set(key, value as i64).map_err(js)?)
+    }
+
+    /// `{writes, events}` for a notification from `channel` (0 command,
+    /// 1 data, 2 setting).
+    #[wasm_bindgen(js_name = onNotify)]
+    pub fn on_notify(&mut self, channel: u8, bytes: &[u8]) -> Result<JsValue, JsError> {
+        to_js(&self.0.on_notify(channel, bytes))
+    }
+}
+
+/// A Bryton route file from track points. `eles` uses NaN for missing elevation.
+#[wasm_bindgen(js_name = brytonBuildRoute)]
+pub fn bryton_build_route(
+    lats: Vec<f64>,
+    lons: Vec<f64>,
+    eles: Vec<f64>,
+) -> Result<Vec<u8>, JsError> {
+    musette_core::bryton_build_route(&lats, &lons, &eles).map_err(js)
+}
+
+/// The Bryton settings Musette reads.
+#[wasm_bindgen(js_name = brytonSettingFields)]
+pub fn bryton_setting_fields() -> Result<JsValue, JsError> {
+    to_js(&musette_core::bryton_setting_fields())
+}
+
+/// Decodes the answer to the get of `key`; `undefined` if it is not one.
+#[wasm_bindgen(js_name = brytonSettingValue)]
+pub fn bryton_setting_value(key: &str, frame: &[u8]) -> Result<JsValue, JsError> {
+    match musette_core::bryton_setting_value(key, frame) {
+        Some(v) => to_js(&v),
+        None => Ok(JsValue::UNDEFINED),
+    }
+}

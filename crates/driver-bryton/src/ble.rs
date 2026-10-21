@@ -705,6 +705,15 @@ pub enum Event {
     Sent {
         file_type: u8,
     },
+    /// The device's 2-byte answer to a setting frame (10 = ok, 0 = fail,
+    /// 11 = not supported).
+    SettingAck {
+        cmd: u8,
+        status: u8,
+    },
+    /// The route name ([`Session::send_route_name`]) is complete: the device
+    /// imports the route.
+    RouteNamed,
     /// Any other valid setting frame from the device (already acked).
     Setting(Vec<u8>),
 }
@@ -784,6 +793,8 @@ pub struct Session {
     package_size: usize,
     rx: DataReceiver,
     op: Op,
+    /// Route name being sent, and the last chunk the device got.
+    name: Option<(PlanTripName, usize)>,
 }
 
 impl Session {
@@ -796,6 +807,7 @@ impl Session {
             package_size: PACKAGE_BEFORE_HANDSHAKE,
             rx: DataReceiver::new(DEFAULT_BATCH),
             op: Op::Idle,
+            name: None,
         }
     }
 
@@ -900,6 +912,14 @@ impl Session {
             ),
         };
         (w, PlanTripName { bytes, chunks })
+    }
+
+    /// Sends the route name and answers the device's chunk requests in
+    /// [`Session::on_setting`], until [`Event::RouteNamed`].
+    pub fn send_route_name(&mut self, name: &str) -> Write {
+        let (head, chunks) = self.plan_trip_name(name);
+        self.name = Some((chunks, 0));
+        head
     }
 
     /// Starts sending a file with cmd 16 (a route: [`FILE_TYPE_PLAN_TRIP`]).
@@ -1211,8 +1231,25 @@ impl Session {
     /// A notification from the setting channel. Valid device frames are
     /// acked as the app does; the handshake sets the batch size.
     pub fn on_setting(&mut self, b: &[u8]) -> Step {
-        if b.len() <= 2 {
-            return Step::default(); // an ack from the device
+        if let [cmd, status] = *b {
+            // The device's answer to one of our frames.
+            if cmd == setting::PLAN_TRIP_NAME {
+                if let Some((name, last)) = &self.name {
+                    if status != setting::ACK_OK {
+                        self.name = None;
+                        return Step::event(Event::Failed(Failure::Action { cmd, code: status }));
+                    }
+                    if *last == name.chunks {
+                        self.name = None;
+                        return Step::event(Event::RouteNamed);
+                    }
+                    return Step::default();
+                }
+            }
+            return Step::event(Event::SettingAck { cmd, status });
+        }
+        if b.len() < 2 {
+            return Step::default();
         }
         let cmd = b[0];
         if cmd == setting::ABORT {
@@ -1234,6 +1271,13 @@ impl Session {
             }],
             events: vec![],
         };
+        if let (Some(k), Some((name, last))) = (PlanTripName::requested(b), self.name.as_mut()) {
+            if let Some(w) = name.chunk(k) {
+                s.writes.push(w);
+                *last = k;
+            }
+            return s;
+        }
         match Handshake::parse(b) {
             Some(h) => {
                 if let Ok(batch @ 1..) = u16::try_from(h.batch_frames) {
@@ -1629,6 +1673,27 @@ mod tests {
         std::io::Read::read_to_string(&mut flate2::read::GzDecoder::new(&z[..]), &mut back)
             .unwrap();
         assert_eq!(back, "hello hello hello");
+    }
+
+    #[test]
+    fn route_name_driven_by_the_device() {
+        let mut s = Session::new(Config::default());
+        let head = s.send_route_name("MusetteGz3");
+        assert_eq!(head.bytes, [0x31, 1, 0, 2, 10, 0x3e]); // as sent to a Rider 750
+        assert_eq!(s.on_setting(&[0x31, 0x0a]), Step::default());
+        let step = s.on_setting(&[0x31, 2, 1, 0x34]);
+        assert_eq!(step.writes[0].bytes, [0x31, 0x0a]);
+        assert_eq!(&step.writes[1].bytes[..13], b"\x31\x01\x01MusetteGz3");
+        assert_eq!(step.writes[1].bytes[19], 0x0e);
+        assert_eq!(s.on_setting(&[0x31, 0x0a]).events, [Event::RouteNamed]);
+        // Other acks are reported.
+        assert_eq!(
+            s.on_setting(&[25, 10]).events,
+            [Event::SettingAck {
+                cmd: 25,
+                status: 10
+            }]
+        );
     }
 
     #[test]
