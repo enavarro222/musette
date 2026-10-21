@@ -8,6 +8,7 @@ mod ble;
 mod bryton_ble;
 mod bryton_usb;
 mod device;
+mod gpx;
 mod trace;
 
 use std::path::PathBuf;
@@ -114,6 +115,11 @@ enum Cmd {
         #[command(subcommand)]
         op: SettingOp,
     },
+    /// Bryton route files (offline: build and inspect).
+    Route {
+        #[command(subcommand)]
+        op: RouteOp,
+    },
     /// Download the rides missing from a folder, check them, store them as
     /// `<name>.fit`.
     Sync {
@@ -125,6 +131,24 @@ enum Cmd {
         #[arg(long)]
         ack: bool,
     },
+}
+
+#[derive(Subcommand)]
+enum RouteOp {
+    /// GPX → Bryton route FIT (start and arrival turns only).
+    Build {
+        gpx: PathBuf,
+        #[arg(short, long)]
+        out: PathBuf,
+        /// Douglas-Peucker tolerance in metres (0: keep every point).
+        #[arg(long, default_value_t = 0.0)]
+        simplify: f64,
+        /// Speed for the turn durations, km/h.
+        #[arg(long, default_value_t = 16.0)]
+        speed: f64,
+    },
+    /// Print a Bryton route FIT: summary and turns.
+    Dump { fit: PathBuf },
 }
 
 #[derive(Subcommand)]
@@ -169,12 +193,63 @@ async fn main() -> Result<()> {
         Cmd::Download { dev, id, out } => {
             with_device(&dev, cli.scan_secs, trace, Action::Download(id, out)).await
         }
+        Cmd::Route { op } => route(op),
         Cmd::Setting { dev, op } => setting(&dev, cli.scan_secs, trace, op).await,
         Cmd::Ack { dev, id } => with_device(&dev, cli.scan_secs, trace, Action::Ack(id)).await,
         Cmd::Sync { dev, dir, ack } => {
             with_device(&dev, cli.scan_secs, trace, Action::Sync(dir, ack)).await
         }
     }
+}
+
+fn route(op: RouteOp) -> Result<()> {
+    use driver_bryton::route::Route;
+    match op {
+        RouteOp::Build {
+            gpx,
+            out,
+            simplify,
+            speed,
+        } => {
+            let mut pts = gpx::read(&std::fs::read_to_string(&gpx)?)?;
+            if simplify > 0.0 {
+                let keep = track::simplify(&pts, simplify);
+                pts = keep.into_iter().map(|i| pts[i]).collect();
+            }
+            let r = Route::from_track(&pts, speed / 3.6);
+            let bytes = r.encode().map_err(|e| anyhow::anyhow!("{e:?}"))?;
+            std::fs::write(&out, &bytes)?;
+            println!(
+                "{}: {} points, {} m, +{} m / -{} m, {} bytes",
+                out.display(),
+                r.points.len(),
+                r.distance_m,
+                r.gain_m,
+                r.loss_m,
+                bytes.len()
+            );
+        }
+        RouteOp::Dump { fit } => {
+            let r = Route::decode(&std::fs::read(&fit)?).map_err(|e| anyhow::anyhow!("{e:?}"))?;
+            println!(
+                "version {}.{}, {} points, {} m, +{} m / -{} m, {} turns",
+                r.version.0,
+                r.version.1,
+                r.points.len(),
+                r.distance_m,
+                r.gain_m,
+                r.loss_m,
+                r.turns.len()
+            );
+            for t in &r.turns {
+                println!(
+                    "  point {:5}  maneuver {:3}  next {:6} m  {:8} ms  {}",
+                    t.point, t.maneuver, t.distance_m, t.duration, t.instruction
+                );
+            }
+        }
+    }
+    Ok(())
 }
 
 async fn scan(secs: u64) -> Result<()> {

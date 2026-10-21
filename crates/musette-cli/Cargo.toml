@@ -18,6 +18,7 @@ clap = { version = "4", features = ["derive"] }
 device.workspace = true
 driver-bryton.workspace = true
 fit.workspace = true
+track.workspace = true
 futures = "0.3"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync", "signal"] }
 uuid = "1"

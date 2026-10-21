@@ -373,6 +373,8 @@ name = "driver-bryton"
 version = "0.1.0"
 dependencies = [
  "device",
+ "fit",
+ "track",
 ]
 
 [[package]]
@@ -728,6 +730,7 @@ dependencies = [
  "fit",
  "futures",
  "tokio",
+ "track",
  "uuid",
 ]
 

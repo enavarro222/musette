@@ -8,3 +8,5 @@ repository.workspace = true
 
 [dependencies]
 device.workspace = true
+fit.workspace = true
+track.workspace = true
