@@ -1,6 +1,6 @@
 [package]
 name = "musette-wasm"
-description = "WebAssembly bindings of the Musette core for the web app"
+description = "WebAssembly bindings of musette-core for the web build of the app"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -10,13 +10,8 @@ repository.workspace = true
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-fit.workspace = true
-track.workspace = true
-climbs.workspace = true
-driver-bryton.workspace = true
-protocol-cc600.workspace = true
-route-cc600 = { workspace = true, features = ["build"] }
-settings-cc600.workspace = true
+musette-core = { workspace = true, features = ["serde"] }
+js-sys.workspace = true
 wasm-bindgen.workspace = true
 serde.workspace = true
 serde-wasm-bindgen.workspace = true

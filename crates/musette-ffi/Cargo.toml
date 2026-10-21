@@ -1,0 +1,15 @@
+[package]
+name = "musette-ffi"
+description = "UniFFI bindings of musette-core, for the iOS and Android builds of the app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+# staticlib: linked into the React Native module (uniffi-bindgen-react-native).
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[dependencies]
+musette-core.workspace = true
+uniffi.workspace = true

@@ -1,0 +1,20 @@
+[package]
+name = "musette-core"
+description = "What the Musette app asks of the Rust crates, the same for every host (WASM, UniFFI)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+serde = ["dep:serde"]
+
+[dependencies]
+fit.workspace = true
+track.workspace = true
+climbs.workspace = true
+driver-bryton.workspace = true
+protocol-cc600.workspace = true
+route-cc600 = { workspace = true, features = ["build"] }
+settings-cc600.workspace = true
+serde = { workspace = true, optional = true }
