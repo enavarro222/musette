@@ -12,6 +12,7 @@ members = [
     "crates/musette-core",
     "crates/musette-wasm",
     "crates/musette-ffi",
+    "crates/musette-cli",
 ]
 
 [workspace.package]

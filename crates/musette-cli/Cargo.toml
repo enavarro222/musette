@@ -1,0 +1,27 @@
+[package]
+name = "musette-cli"
+description = "Musette on the command line: talk to devices from a PC (protocol tests, captures, sync)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[[bin]]
+name = "musette"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+btleplug = "0.13"
+clap = { version = "4", features = ["derive"] }
+device.workspace = true
+driver-bryton.workspace = true
+fit.workspace = true
+futures = "0.3"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync", "signal"] }
+uuid = "1"
+
+# btleplug talks to BlueZ through libdbus: build it here, no system package needed.
+[target.'cfg(target_os = "linux")'.dependencies]
+dbus = { version = "0.9", features = ["vendored"] }

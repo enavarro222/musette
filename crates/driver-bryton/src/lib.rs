@@ -8,15 +8,24 @@
 //! Step 2: route upload by dropping a file on the drive — to be confirmed
 //! by inspecting what Bryton Active writes (see docs/drivers/bryton.md).
 //!
-//! Step 3: Bluetooth, once the protocol is understood.
+//! Step 3: Bluetooth: the protocol of Bryton Active in [`ble`] (to be
+//! confirmed on a device, see docs/drivers/bryton-ble.md).
 //!
-//! Folder names are not documented by Bryton: the heuristics below are
-//! deliberately loose and must be tightened with a real directory listing.
+//! Folder names are not documented by Bryton. On the Rider 750 (seen in
+//! 2026-10) rides are `Activities/yyMMddHHmmss.fit`; routes are FIT files too
+//! (`PlanTrip/`), so other top-level folders are ignored by name.
+
+pub mod ble;
 
 use device::ActivityRef;
 
 /// Top-level folders known not to contain activities.
-const IGNORED_DIRS: &[&str] = &["map", "maps", "update", "system", "firmware"];
+const IGNORED_DIRS: &[&str] = &[
+    "map", "maps", "update", "system", "firmware", "plantrip", "tracks", "debug",
+];
+
+/// Scratch files the device writes next to the rides.
+const IGNORED_FILES: &[&str] = &["tmp.fit"];
 
 /// A file found on the mounted drive.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -45,6 +54,10 @@ pub fn find_activities(files: &[DriveFile]) -> Vec<ActivityRef> {
 fn is_activity_path(path: &str) -> bool {
     let lower = path.to_ascii_lowercase();
     if !lower.ends_with(".fit") {
+        return false;
+    }
+    let file = lower.rsplit('/').next().unwrap_or("");
+    if IGNORED_FILES.contains(&file) {
         return false;
     }
     let mut parts = lower.split('/').filter(|p| !p.is_empty());
@@ -77,6 +90,9 @@ mod tests {
             f("Bryton/MAP/Update/europe.map"),
             f("Bryton/Map/tiles.fit"),
             f("Bryton/Track/readme.txt"),
+            f("PlanTrip/GoBoulot-1.fit"),
+            f("Activities/tmp.fit"),
+            f("System/tmpNEW.fit"),
         ];
         let acts = find_activities(&files);
         let ids: Vec<_> = acts.iter().map(|a| a.id.as_str()).collect();
