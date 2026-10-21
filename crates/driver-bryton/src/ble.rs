@@ -65,6 +65,8 @@ pub mod action {
 pub mod setting {
     /// "set new app": the app says hello; the device then sends the handshake.
     pub const NEW_APP: u8 = 47;
+    /// Name of the route just sent (file type 11); version 1: 17 bytes.
+    pub const PLAN_TRIP_NAME: u8 = 49;
     /// "set btnotifydev": the app has stored this ride (fileId, u32 LE).
     /// The app sends it after each ride it syncs.
     pub const RIDE_STORED: u8 = 51;
@@ -97,6 +99,91 @@ pub mod cp {
 
 /// File type used by the app for rides.
 pub const FILE_TYPE_ACTIVITY: u8 = 1;
+/// Cmd 16 file type of a route FIT ([`crate::route`]).
+pub const FILE_TYPE_PLAN_TRIP: u8 = 11;
+/// Package size app → device before the handshake, and after a handshake
+/// without `devRx` (the app's defaults).
+pub const PACKAGE_BEFORE_HANDSHAKE: usize = 990;
+pub const PACKAGE_DEFAULT: usize = 6930;
+
+/// Whether the device wants route files gzip-compressed: the app does it
+/// for these product codes (first 4 digits of the `UD` id: 1902 is the
+/// Rider 750, also the FIT product id) and for devices with `log_compress`.
+pub fn compresses_routes(device_id: &str) -> bool {
+    matches!(device_id.get(..4), Some("1902" | "2007"))
+}
+
+/// Gzip, as the app's `GZipUtils.compress` (the device decompresses it).
+pub fn gzip(data: &[u8]) -> Vec<u8> {
+    use std::io::Write as _;
+    let mut e = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+    e.write_all(data).expect("writing to a Vec");
+    e.finish().expect("writing to a Vec")
+}
+
+/// The chunks of a route name (setting cmd 49), sent when the device asks.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PlanTripName {
+    bytes: Vec<u8>,
+    pub chunks: usize,
+}
+
+impl PlanTripName {
+    /// The device's request for a chunk: `[49, 2, k, checksum]` → k.
+    pub fn requested(frame: &[u8]) -> Option<usize> {
+        match frame {
+            [setting::PLAN_TRIP_NAME, setting::TYPE_GET, k, ..] if setting_valid(frame) => {
+                Some(*k as usize)
+            }
+            _ => None,
+        }
+    }
+
+    /// Chunk k (1-based): `[49, 1, k, 16 bytes, checksum]`, zero padded.
+    pub fn chunk(&self, k: usize) -> Option<Write> {
+        if k == 0 || k > self.chunks {
+            return None;
+        }
+        let mut b = vec![k as u8];
+        let from = (k - 1) * 16;
+        b.extend_from_slice(
+            &self.bytes[from.min(self.bytes.len())..(from + 16).min(self.bytes.len())],
+        );
+        b.resize(17, 0);
+        Some(Write {
+            channel: Channel::Setting,
+            bytes: setting_frame(setting::PLAN_TRIP_NAME, setting::TYPE_SET, &b),
+        })
+    }
+}
+
+/// Cmd 16 file types the app cuts into packages with an 8-byte header
+/// (`offset u32 BE, total u32 BE`); the others go in one raw transfer.
+pub fn is_packaged(file_type: u8) -> bool {
+    matches!(file_type, 2..=9 | 11 | 14 | 15 | 17..=21 | 23..=25)
+}
+
+/// Cuts a file into cmd-16 packages of at most `size` bytes, header included.
+pub fn packages(data: &[u8], size: usize) -> Vec<Vec<u8>> {
+    let room = size.saturating_sub(8).max(1);
+    let total = (data.len() as u32).to_be_bytes();
+    let mut out: Vec<Vec<u8>> = data
+        .chunks(room)
+        .enumerate()
+        .map(|(i, c)| {
+            let mut p = ((i * room) as u32).to_be_bytes().to_vec();
+            p.extend_from_slice(&total);
+            p.extend_from_slice(c);
+            p
+        })
+        .collect();
+    if out.is_empty() {
+        let mut p = vec![0; 4];
+        p.extend_from_slice(&total);
+        out.push(p);
+    }
+    out
+}
 /// Range size the app asks for when it downloads a ride.
 pub const DEFAULT_CHUNK: u32 = 39_600;
 /// Frames per batch before the handshake.
@@ -614,6 +701,10 @@ pub enum Event {
         bytes: Vec<u8>,
     },
     Failed(Failure),
+    /// A file sent with cmd 16 is fully accepted (action 3 on its last package).
+    Sent {
+        file_type: u8,
+    },
     /// Any other valid setting frame from the device (already acked).
     Setting(Vec<u8>),
 }
@@ -670,6 +761,15 @@ enum Op {
         data: Vec<u8>,
         retries: u8,
     },
+    Upload {
+        file_type: u8,
+        packages: Vec<Vec<u8>>,
+        index: usize,
+        /// Frames of the current package and how many are written.
+        frames: Vec<Vec<u8>>,
+        sent: usize,
+        retries: u8,
+    },
 }
 
 /// One connection's protocol state: sequence numbers, batch size and the
@@ -678,6 +778,10 @@ pub struct Session {
     cfg: Config,
     seq: u8,
     batch: u16,
+    /// Data-channel frame size for what we send (handshake `payloadSize`).
+    frame_size: usize,
+    /// Cmd-16 package size (handshake `devRx`).
+    package_size: usize,
     rx: DataReceiver,
     op: Op,
 }
@@ -688,6 +792,8 @@ impl Session {
             cfg,
             seq: 0,
             batch: DEFAULT_BATCH,
+            frame_size: DEFAULT_FRAME_SIZE,
+            package_size: PACKAGE_BEFORE_HANDSHAKE,
             rx: DataReceiver::new(DEFAULT_BATCH),
             op: Op::Idle,
         }
@@ -765,6 +871,136 @@ impl Session {
         }
     }
 
+    /// Setting cmd 49: the name of the route just sent. The app sends it
+    /// after the route file is accepted; the device then unzips
+    /// `PlanTrip/PlanTripBT.bin` into `PlanTrip/<name>.fit` (firmware
+    /// R089). It is a long command, driven by the device:
+    ///
+    /// 1. app: `[49, 1, 0, chunks + 1, length]` (this function's `Write`);
+    /// 2. device: `[49, 2, k]` asks for chunk k (1..=chunks);
+    /// 3. app: `[49, 1, k, 16 bytes]` ([`PlanTripName::chunk`]).
+    ///
+    /// The name is UTF-8, at most 32 bytes (byte 31 forced to 0).
+    pub fn plan_trip_name(&mut self, name: &str) -> (Write, PlanTripName) {
+        let mut end = name.len().min(32);
+        while !name.is_char_boundary(end) {
+            end -= 1;
+        }
+        let mut bytes = name.as_bytes()[..end].to_vec();
+        if bytes.len() == 32 {
+            bytes[31] = 0;
+        }
+        let chunks = bytes.len().div_ceil(16).max(1);
+        let w = Write {
+            channel: Channel::Setting,
+            bytes: setting_frame(
+                setting::PLAN_TRIP_NAME,
+                setting::TYPE_SET,
+                &[0, chunks as u8 + 1, bytes.len() as u8],
+            ),
+        };
+        (w, PlanTripName { bytes, chunks })
+    }
+
+    /// Starts sending a file with cmd 16 (a route: [`FILE_TYPE_PLAN_TRIP`]).
+    pub fn send_file(&mut self, file_type: u8, data: &[u8]) -> Write {
+        let packages = if is_packaged(file_type) {
+            packages(data, self.package_size)
+        } else {
+            vec![data.to_vec()]
+        };
+        self.op = Op::Upload {
+            file_type,
+            packages,
+            index: 0,
+            frames: vec![],
+            sent: 0,
+            retries: 0,
+        };
+        self.upload_request(file_type)
+    }
+
+    fn upload_request(&mut self, file_type: u8) -> Write {
+        let seq = self.next_seq();
+        Write::command(vec![cmd::SEND_FILE, control(TYPE_COMMAND, seq), file_type])
+    }
+
+    /// The next batch of data frames of the current package: frames are
+    /// counted from the start frame (0); the end frame goes with the last
+    /// data frame.
+    fn upload_batch(&mut self) -> Vec<Write> {
+        let batch = self.batch as usize;
+        let Op::Upload { frames, sent, .. } = &mut self.op else {
+            return vec![];
+        };
+        let mut end = frames.len().min((*sent / batch + 1) * batch);
+        if end + 1 == frames.len() {
+            end += 1;
+        }
+        let out = frames[*sent..end]
+            .iter()
+            .map(|f| Write {
+                channel: Channel::Data,
+                bytes: f.clone(),
+            })
+            .collect();
+        *sent = end;
+        out
+    }
+
+    fn on_upload_action(&mut self, code: u8) -> Step {
+        let Op::Upload {
+            file_type,
+            packages,
+            index,
+            retries,
+            ..
+        } = &mut self.op
+        else {
+            return Step::default();
+        };
+        let file_type = *file_type;
+        match code {
+            action::CONTINUE => Step {
+                writes: self.upload_batch(),
+                events: vec![],
+            },
+            action::SUCCESS => {
+                *index += 1;
+                *retries = 0;
+                let done: usize = packages[..*index].iter().map(|p| p.len()).sum();
+                let total: usize = packages.iter().map(|p| p.len()).sum();
+                let progress = Event::Progress {
+                    done: done as u32,
+                    total: total as u32,
+                };
+                if *index < packages.len() {
+                    Step {
+                        writes: vec![self.upload_request(file_type)],
+                        events: vec![progress],
+                    }
+                } else {
+                    self.op = Op::Idle;
+                    Step {
+                        writes: vec![],
+                        events: vec![progress, Event::Sent { file_type }],
+                    }
+                }
+            }
+            action::CHECKSUM_ERROR | action::PACKET_LOST if *retries < self.cfg.retries => {
+                *retries += 1;
+                Step {
+                    writes: vec![self.upload_request(file_type)],
+                    events: vec![],
+                }
+            }
+            _ => self.fail(Failure::Action {
+                cmd: cmd::SEND_FILE,
+                code,
+            }),
+        }
+    }
+
     /// Starts a ride download: first the size (offset 0, length 4).
     pub fn download(&mut self, file_id: u32) -> Write {
         self.op = Op::Size { file_id };
@@ -795,6 +1031,23 @@ impl Session {
                     // The device sends the data only after this answer
                     // (seen on a Rider 750): action 3 for cmds 6 and 11,
                     // action 5 with the batch size for ranges.
+                    if let Op::Upload {
+                        packages,
+                        index,
+                        frames,
+                        sent,
+                        ..
+                    } = &mut self.op
+                    {
+                        *frames = split_transfer(cmd, seq, &packages[*index], self.frame_size);
+                        *sent = 0;
+                        let mut writes = vec![Write::command(batch_frame(cmd, seq, self.batch))];
+                        writes.extend(self.upload_batch());
+                        return Step {
+                            writes,
+                            events: vec![],
+                        };
+                    }
                     let answer = match self.op {
                         Op::Info => Some(action_frame(cmd, seq, action::SUCCESS)),
                         Op::Size { .. } | Op::Range { .. } => {
@@ -817,6 +1070,11 @@ impl Session {
                 } else {
                     self.fail(Failure::Status { cmd, status })
                 }
+            }
+            Some(Reply::Action { cmd, code, .. })
+                if cmd == cmd::SEND_FILE && matches!(self.op, Op::Upload { .. }) =>
+            {
+                self.on_upload_action(code)
             }
             Some(Reply::Action { cmd, code, .. }) => match code {
                 action::SUCCESS | action::CONTINUE => Step::default(),
@@ -925,6 +1183,11 @@ impl Session {
                 s
             }
             Op::Idle => Step::default(),
+            // No incoming transfer while sending a file: keep sending.
+            op @ Op::Upload { .. } => {
+                self.op = op;
+                Step::default()
+            }
         }
     }
 
@@ -977,6 +1240,10 @@ impl Session {
                     self.batch = batch;
                     self.rx.set_batch(batch);
                 }
+                if (8..=257).contains(&h.frame_size) {
+                    self.frame_size = h.frame_size as usize;
+                }
+                self.package_size = h.dev_rx.map_or(PACKAGE_DEFAULT, |r| r as usize);
                 s.events.push(Event::Handshake(h));
             }
             None => s.events.push(Event::Setting(b.to_vec())),
@@ -1285,6 +1552,105 @@ mod tests {
             })
         );
         assert!(!s.busy());
+    }
+
+    /// Plays the device for an upload; returns the received file.
+    fn receive_upload(s: &mut Session, first: Write, batch: u16) -> (Vec<u8>, Vec<Event>, usize) {
+        let mut queue = vec![first];
+        let mut events = vec![];
+        let mut rx = DataReceiver::new(batch);
+        let (mut file, mut continues) = (Vec::new(), 0);
+        while let Some(w) = (!queue.is_empty()).then(|| queue.remove(0)) {
+            let b = w.bytes;
+            let step = match w.channel {
+                Channel::Command if b[1] >> 5 == TYPE_COMMAND => {
+                    s.on_command(&[16, control(TYPE_RESPONSE, (b[1] >> 2) & 7), status::OK])
+                }
+                Channel::Data => match rx.feed(&b) {
+                    DataEvent::Continue { .. } => {
+                        continues += 1;
+                        s.on_command(&action_frame(16, 0, action::CONTINUE))
+                    }
+                    DataEvent::Done(t) => {
+                        let total = u32::from_be_bytes(t.bytes[4..8].try_into().unwrap()) as usize;
+                        file.extend_from_slice(&t.bytes[8..]);
+                        assert!(file.len() <= total);
+                        s.on_command(&action_frame(16, 0, action::SUCCESS))
+                    }
+                    DataEvent::None => Step::default(),
+                    e => panic!("{e:?}"),
+                },
+                _ => Step::default(),
+            };
+            queue.extend(step.writes);
+            events.extend(step.events);
+        }
+        (file, events, continues)
+    }
+
+    #[test]
+    fn upload_in_packages_and_batches() {
+        let mut s = Session::new(Config::default());
+        // Handshake: batch 10, frames of 150 bytes, packages of 990 (no devRx
+        // in v1 → 6930; force small packages to test several).
+        s.batch = 10;
+        s.rx.set_batch(10);
+        s.frame_size = 150;
+        s.package_size = 990;
+        let data: Vec<u8> = (0..5000u32).map(|i| (i * 13) as u8).collect();
+        let first = s.send_file(FILE_TYPE_PLAN_TRIP, &data);
+        assert_eq!(first.bytes, [16, 0x04, 11]);
+        let (file, events, continues) = receive_upload(&mut s, first, 10);
+        assert_eq!(file, data);
+        assert_eq!(events.last(), Some(&Event::Sent { file_type: 11 }));
+        assert_eq!(packages(&data, 990).len(), 6);
+        assert!(continues == 0, "a 990-byte package is 8 frames: one batch");
+        assert!(!s.busy());
+
+        // One big package: several batches, each ended by "continue".
+        let mut s = Session::new(Config::default());
+        s.batch = 10;
+        s.rx.set_batch(10);
+        s.frame_size = 20;
+        s.package_size = 6930;
+        let first = s.send_file(FILE_TYPE_PLAN_TRIP, &data[..2000]);
+        let (file, _, continues) = receive_upload(&mut s, first, 10);
+        assert_eq!(file, &data[..2000]);
+        assert!(continues >= 10, "{continues}");
+    }
+
+    #[test]
+    fn route_compression() {
+        assert!(compresses_routes("1902201200001954"));
+        assert!(!compresses_routes("1801000000000000"));
+        let z = gzip(b"hello hello hello");
+        assert_eq!(&z[..2], [0x1f, 0x8b]);
+        let mut back = String::new();
+        std::io::Read::read_to_string(&mut flate2::read::GzDecoder::new(&z[..]), &mut back)
+            .unwrap();
+        assert_eq!(back, "hello hello hello");
+    }
+
+    #[test]
+    fn plan_trip_name_frames() {
+        let mut s = Session::new(Config::default());
+        let (head, name) = s.plan_trip_name("Musette route du dimanche");
+        // 25 bytes: 2 chunks, so the header says 3 (chunks + 1), length 25.
+        assert_eq!(head.bytes[..5], [49, 1, 0, 3, 25]);
+        assert!(setting_valid(&head.bytes));
+        let req = setting_frame(49, 2, &[1]);
+        assert_eq!(PlanTripName::requested(&req), Some(1));
+        let c1 = name.chunk(1).unwrap().bytes;
+        assert_eq!(&c1[..3], [49, 1, 1]);
+        assert_eq!(&c1[3..19], b"Musette route du");
+        let c2 = name.chunk(2).unwrap().bytes;
+        assert_eq!(&c2[3..12], b" dimanche");
+        assert_eq!(&c2[12..19], [0; 7]);
+        assert_eq!(c2.len(), 20);
+        assert!(name.chunk(3).is_none());
+        // Cut at 32 bytes on a char boundary, byte 31 forced to 0.
+        let (head, _) = s.plan_trip_name("Vélo couché : grande boucle du Tarn");
+        assert_eq!(head.bytes[3..5], [3, 32]);
     }
 
     #[test]

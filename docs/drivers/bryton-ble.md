@@ -66,6 +66,27 @@ Run: `musette scan | gatt | sniff | info | list | download` (see `crates/musette
 
 Source: Bryton Active for Android, China build `com.brytonsport.barringercn` 3.0.39 (version code 385), from download.brytonsport.com, decompiled with jadx 1.5.1. Code: `com.brytonsport.active.bleplugin` (`BbcpUtil`, `DataUtil`, `ParserUtil`, `SampleGattAttributes`, `ConstSettingChannel`, `NewSettingUtil`), `utils.BleUtil` and `service.BleService`. The global build from Google Play may be different **[open]**. Class names are given only so that you can find the code again. Do not copy code from the app (see [adding-a-device.md](../adding-a-device.md)).
 
+### Sending a route (checked: the route shows on the device)
+
+```
+> command  10 08 0b                 cmd 16, file type 11 (route)
+< command  10 28 02                 OK
+> command  10 48 05 01 f4           action 5, batch 500
+> data     start + 13 frames + end  one package: [offset u32 BE][total u32 BE][gzip of the route FIT]
+< command  10 48 03 00 00           success
+> setting  31 01 00 02 0a 3e        cmd 49 (route name), long command: header [0, chunks + 1, length]
+< setting  31 0a
+< setting  31 02 01 34              the device asks for chunk 1
+> setting  31 0a                    ack
+> setting  31 01 01 "MusetteGz3" 00… chunk 1: [1, 16 bytes]
+< setting  31 0a                    → the device unzips and indexes the route
+```
+
+- **The route FIT must be gzip-compressed** on the Rider 750: the app does it for product codes 1902 and 2007 (first digits of `UD`). Sent raw, the device accepts it but cannot unzip it.
+- **The name is what triggers the import.** Firmware R089: the cmd-49 handler collects the chunks, cleans the name (`\ : / * < > | ? "` → `_`), then an event runs the import: it unzips `\PlanTrip\PlanTripBT.bin` (where cmd 16 type 11 stores the received bytes) into `\PlanTrip\<name>.fit`, deletes the `.bin`, and builds `\Tracks\<name>.smy`, `.tinfo`, `.track`. A name sent in one frame (the app's "version 1" layout) is taken as a middle chunk and nothing happens, although cmd 49 reports version 1.
+- **Copying a FIT into `PlanTrip/` over USB is not enough**: the device lists only routes that have their `Tracks/` files.
+- `musette route send -d bryton-ble:<dev> <fit> --name <name>`; code: `Session::send_file`, `Session::plan_trip_name`, `ble::gzip`.
+
 ## 1. GATT
 
 | Service | Characteristic | Use |

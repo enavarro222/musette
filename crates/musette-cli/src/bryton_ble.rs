@@ -190,8 +190,78 @@ impl BrytonBle {
         &mut self.session
     }
 
+    /// Sends a route FIT (file type 11), then its name (setting cmd 49),
+    /// in the app's order.
+    pub async fn send_route(
+        &mut self,
+        fit: &[u8],
+        name: &str,
+        progress: &mut dyn FnMut(u64, u64),
+    ) -> Result<()> {
+        let id = self
+            .device_info
+            .as_ref()
+            .and_then(|i| i.id.clone())
+            .unwrap_or_default();
+        let payload = if driver_bryton::ble::compresses_routes(&id) {
+            driver_bryton::ble::gzip(fit)
+        } else {
+            fit.to_vec()
+        };
+        let w = self
+            .session
+            .send_file(driver_bryton::ble::FILE_TYPE_PLAN_TRIP, &payload);
+        self.send(&[w]).await?;
+        self.run(|e| match e {
+            Event::Progress { done, total } => {
+                progress(done as u64, total as u64);
+                None
+            }
+            Event::Sent { .. } => Some(()),
+            _ => None,
+        })
+        .await?;
+        self.send_plan_trip_name(name).await
+    }
+
+    /// Setting cmd 49, a long command: header, then the chunks the device
+    /// asks for, until it acks the last one.
+    async fn send_plan_trip_name(&mut self, name: &str) -> Result<()> {
+        let (head, chunks) = self.session.plan_trip_name(name);
+        self.send(&[head]).await?;
+        let mut last_sent = 0;
+        let deadline = Instant::now() + self.opts.timeout;
+        while Instant::now() < deadline {
+            let Some((u, b)) = self.link.next(deadline - Instant::now()).await? else {
+                break;
+            };
+            if u.to_string() != uuid::SETTING_CHANNEL {
+                continue;
+            }
+            if b.first() == Some(&49) && b.len() == 2 {
+                match b[1] {
+                    10 if last_sent == chunks.chunks => return Ok(()),
+                    10 => continue,
+                    s => bail!("the device refused the route name (status {s})"),
+                }
+            }
+            let step = self.session.on_setting(&b);
+            self.send(&step.writes).await?;
+            if let Some(k) = driver_bryton::ble::PlanTripName::requested(&b) {
+                let w = chunks
+                    .chunk(k)
+                    .ok_or_else(|| anyhow!("the device asked for name chunk {k}"))?;
+                self.send(&[w]).await?;
+                last_sent = k;
+            }
+        }
+        bail!("route sent, but the name was not completed")
+    }
+
     pub async fn setting_exchange(&mut self, w: Write) -> Result<Vec<Vec<u8>>> {
         let cmd = w.bytes[0];
+        // A set is answered by the 2-byte ack only.
+        let is_set = w.bytes.get(1) == Some(&driver_bryton::ble::setting::TYPE_SET);
         self.send(&[w]).await?;
         let mut got = vec![];
         let deadline = Instant::now() + self.opts.timeout;
@@ -207,7 +277,7 @@ impl BrytonBle {
             if b.first() != Some(&cmd) {
                 continue;
             }
-            let done = b.len() > 2 || b.get(1) != Some(&10);
+            let done = b.len() > 2 || b.get(1) != Some(&10) || is_set;
             got.push(b);
             if done {
                 break;

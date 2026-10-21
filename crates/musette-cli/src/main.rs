@@ -149,6 +149,15 @@ enum RouteOp {
     },
     /// Print a Bryton route FIT: summary and turns.
     Dump { fit: PathBuf },
+    /// Send a route FIT to a Bryton over BLE (file type 11, then its name).
+    Send {
+        #[command(flatten)]
+        dev: DeviceArgs,
+        fit: PathBuf,
+        /// Name on the device (17 bytes max); default: the file name.
+        #[arg(long)]
+        name: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -193,7 +202,7 @@ async fn main() -> Result<()> {
         Cmd::Download { dev, id, out } => {
             with_device(&dev, cli.scan_secs, trace, Action::Download(id, out)).await
         }
-        Cmd::Route { op } => route(op),
+        Cmd::Route { op } => route(op, cli.scan_secs, trace).await,
         Cmd::Setting { dev, op } => setting(&dev, cli.scan_secs, trace, op).await,
         Cmd::Ack { dev, id } => with_device(&dev, cli.scan_secs, trace, Action::Ack(id)).await,
         Cmd::Sync { dev, dir, ack } => {
@@ -202,7 +211,7 @@ async fn main() -> Result<()> {
     }
 }
 
-fn route(op: RouteOp) -> Result<()> {
+async fn route(op: RouteOp, scan_secs: u64, trace: Arc<Trace>) -> Result<()> {
     use driver_bryton::route::Route;
     match op {
         RouteOp::Build {
@@ -228,6 +237,23 @@ fn route(op: RouteOp) -> Result<()> {
                 r.loss_m,
                 bytes.len()
             );
+        }
+        RouteOp::Send { dev, fit, name } => {
+            let bytes = std::fs::read(&fit)?;
+            Route::decode(&bytes).map_err(|e| anyhow::anyhow!("not a Bryton route FIT: {e:?}"))?;
+            let name = name.unwrap_or_else(|| {
+                fit.file_stem()
+                    .map_or("Musette".into(), |s| s.to_string_lossy().into_owned())
+            });
+            let arg = dev
+                .device
+                .strip_prefix("bryton-ble:")
+                .context("route send: bryton-ble:<device>")?;
+            let mut d = connect_bryton_ble(&dev, arg, scan_secs, trace).await?;
+            let r = d.send_route(&bytes, &name, &mut progress).await;
+            d.close().await?;
+            r?;
+            println!("{name}: sent ({} bytes)", bytes.len());
         }
         RouteOp::Dump { fit } => {
             let r = Route::decode(&std::fs::read(&fit)?).map_err(|e| anyhow::anyhow!("{e:?}"))?;
