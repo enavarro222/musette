@@ -1,6 +1,7 @@
 //! BLE GATT identifiers exposed by the OpenCC600 firmware.
 //!
-//! Keep in sync with `web/src/lib/devices/cc600.ts`.
+//! The app takes them from here (`musette_core::Session::channels`); only its
+//! search profile repeats the service, checked by a test.
 
 /// Primary service advertised by the device.
 pub const SERVICE_UUID: &str = "18fbbd9a-adda-4ef4-9635-befd2efbf8a3";

@@ -1,14 +1,13 @@
 import type { MusettePlatform } from './platform.types';
 import { FileSystemAccessTransport } from './transport/fileSystemAccess';
-import { pickBle, WebBluetoothTransport, WebGattTransport } from './transport/webBluetooth';
+import { pickBle, WebGattTransport } from './transport/webBluetooth';
 
 /** Web: what the browser offers (Chrome and Edge have both, Safari neither). */
 export const platform: MusettePlatform = {
   name: 'web',
   transports: {
-    ble: WebBluetoothTransport.isSupported() ? (peer) => new WebBluetoothTransport(peer) : undefined,
-    gatt: WebBluetoothTransport.isSupported() ? (peer) => new WebGattTransport(peer) : undefined,
-    blePick: WebBluetoothTransport.isSupported() ? pickBle : undefined,
+    gatt: WebGattTransport.isSupported() ? (peer) => new WebGattTransport(peer) : undefined,
+    blePick: WebGattTransport.isSupported() ? pickBle : undefined,
     usbFiles: FileSystemAccessTransport.isSupported() ? () => new FileSystemAccessTransport() : undefined,
   },
   unsupported: 'Non pris en charge par ce navigateur (essayez Chrome ou Edge sur ordinateur).',

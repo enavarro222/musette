@@ -9,6 +9,7 @@ mod bryton_ble;
 mod bryton_usb;
 mod device;
 mod gpx;
+mod session;
 mod trace;
 
 use std::path::PathBuf;
@@ -52,7 +53,8 @@ enum ListKind {
 
 #[derive(clap::Args)]
 struct DeviceArgs {
-    /// `bryton-ble:<name part or address>` or `bryton-usb:<mount folder>`.
+    /// `cc600-ble:<name part or address>`, `bryton-ble:...`, `bryton-usb:<mount folder>`,
+    /// or `bryton-session:...` (Bryton through the app's session, as `cc600-ble`).
     #[arg(short, long)]
     device: String,
     /// Seconds of silence before a request fails.
@@ -114,6 +116,23 @@ enum Cmd {
         dev: DeviceArgs,
         #[command(subcommand)]
         op: SettingOp,
+    },
+    /// Read the settings through the app's session; `key=value` changes
+    /// them first (all or nothing).
+    Settings {
+        #[command(flatten)]
+        dev: DeviceArgs,
+        changes: Vec<String>,
+    },
+    /// Send a GPX as the device's route, through the app's session (the
+    /// device's format is built in Rust). A CC600 resumes an interrupted send.
+    SendRoute {
+        #[command(flatten)]
+        dev: DeviceArgs,
+        gpx: PathBuf,
+        /// Drop the link once this share is sent (0..1), to try resuming.
+        #[arg(long)]
+        cut_at: Option<f64>,
     },
     /// Bryton route files (offline: build and inspect).
     Route {
@@ -205,6 +224,10 @@ async fn main() -> Result<()> {
         Cmd::Route { op } => route(op, cli.scan_secs, trace).await,
         Cmd::Setting { dev, op } => setting(&dev, cli.scan_secs, trace, op).await,
         Cmd::Ack { dev, id } => with_device(&dev, cli.scan_secs, trace, Action::Ack(id)).await,
+        Cmd::Settings { dev, changes } => settings(&dev, cli.scan_secs, trace, changes).await,
+        Cmd::SendRoute { dev, gpx, cut_at } => {
+            send_route(&dev, cli.scan_secs, trace, gpx, cut_at).await
+        }
         Cmd::Sync { dev, dir, ack } => {
             with_device(&dev, cli.scan_secs, trace, Action::Sync(dir, ack)).await
         }
@@ -368,8 +391,125 @@ async fn with_device(
     match kind {
         "bryton-usb" => run(bryton_usb::BrytonUsb::open(arg)?, action).await,
         "bryton-ble" => run(connect_bryton_ble(d, arg, scan_secs, trace).await?, action).await,
-        _ => bail!("unknown driver '{kind}' (bryton-ble, bryton-usb)"),
+        "cc600-ble" | "bryton-session" => {
+            run(connect_session(d, scan_secs, trace).await?, action).await
+        }
+        _ => bail!("unknown driver '{kind}' (cc600-ble, bryton-ble, bryton-usb, bryton-session)"),
     }
+}
+
+/// CC600 characteristics, for the trace.
+const CC600_NAMES: &[(&str, &str)] = &[
+    (protocol_cc600::ble::RX_CHAR_UUID, "rx"),
+    (protocol_cc600::ble::TX_CHAR_UUID, "tx"),
+];
+
+/// A device through the app's session (`cc600-ble:` or `bryton-session:`).
+async fn connect_session(
+    d: &DeviceArgs,
+    scan_secs: u64,
+    trace: Arc<Trace>,
+) -> Result<session::SessionDevice> {
+    let (kind, arg) = d
+        .device
+        .split_once(':')
+        .context("--device is <driver>:<argument>")?;
+    let (model, names) = match kind {
+        "cc600-ble" => (musette_core::Model::OpenCc600, CC600_NAMES),
+        "bryton-session" => (
+            musette_core::Model::BrytonRider750,
+            bryton_ble::CHANNEL_NAMES,
+        ),
+        _ => bail!("'{kind}' does not run the app's session (cc600-ble, bryton-session)"),
+    };
+    let adapter = ble::adapter().await?;
+    let seen = ble::find(&adapter, arg, scan_secs).await?;
+    let link = ble::Link::open(&seen, names, trace).await?;
+    let timing = musette_core::Timing {
+        request_ms: (d.timeout * 1000) as u32,
+        ..musette_core::Timing::of(model)
+    };
+    session::SessionDevice::connect(link, model, timing).await
+}
+
+async fn settings(
+    d: &DeviceArgs,
+    scan_secs: u64,
+    trace: Arc<Trace>,
+    changes: Vec<String>,
+) -> Result<()> {
+    let mut dev = connect_session(d, scan_secs, trace).await?;
+    let result = async {
+        if !changes.is_empty() {
+            let changes = changes
+                .iter()
+                .map(|c| {
+                    let (key, text) = c.split_once('=').context("a change is key=value")?;
+                    Ok(musette_core::Setting {
+                        key: key.into(),
+                        number: text.parse().ok(),
+                        text: text.into(),
+                    })
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let step = dev.session().write_settings(&changes)?;
+            dev.run(step, &mut |_| {}).await?;
+            println!("written");
+        }
+        let step = dev.session().read_settings()?;
+        let musette_core::Outcome::Settings { fields, values } = dev.run(step, &mut |_| {}).await?
+        else {
+            bail!("no settings");
+        };
+        for v in values {
+            let f = fields.iter().find(|f| f.key == v.key);
+            let kind = f.map_or("?", |f| f.kind);
+            let rw = if f.is_some_and(|f| f.writable) {
+                ""
+            } else {
+                " (read-only)"
+            };
+            println!("{:<22} {:<28} {kind}{rw}", v.key, v.text);
+        }
+        Ok(())
+    }
+    .await;
+    dev.close().await?;
+    result
+}
+
+async fn send_route(
+    d: &DeviceArgs,
+    scan_secs: u64,
+    trace: Arc<Trace>,
+    gpx: PathBuf,
+    cut_at: Option<f64>,
+) -> Result<()> {
+    let route = musette_core::parse_gpx(&std::fs::read_to_string(&gpx)?)
+        .map_err(|e| anyhow::anyhow!("{gpx:?}: {e}"))?;
+    let mut dev = connect_session(d, scan_secs, trace).await?;
+    let result = async {
+        let step = dev.session().send_route(&route)?;
+        dev.cut_at = cut_at;
+        let start = std::time::Instant::now();
+        let mut first = None;
+        dev.run(step, &mut |p| {
+            first.get_or_insert(p);
+            eprint!("\r  {:5.1} %", p * 100.0);
+        })
+        .await?;
+        eprintln!();
+        println!(
+            "{}: sent in {:.1} s (the device held {:.0} % when it started)",
+            route.name,
+            start.elapsed().as_secs_f64(),
+            first.unwrap_or(0.0) * 100.0
+        );
+        Ok(())
+    }
+    .await;
+    dev.close().await?;
+    result
 }
 
 async fn connect_bryton_ble(

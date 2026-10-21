@@ -1,26 +1,5 @@
-import { loadCore, type Cc600Receiver, type Core } from '../lib/core';
-import type { PacketTransport } from '../lib/transport/types';
-
-/** Keep in sync with crates/protocol-cc600/src/lib.rs `Op`. */
-const Op = {
-  Hello: 0x01,
-  ListActivities: 0x02,
-  ReadActivity: 0x03,
-  AckActivity: 0x04,
-  GetSettings: 0x20,
-  SetSettings: 0x21,
-  DeviceInfo: 0x81,
-  ActivityEntry: 0x82,
-  ActivityChunk: 0x83,
-  EndOfList: 0x84,
-  Settings: 0xa0,
-  Ok: 0xf0,
-  Error: 0xff,
-};
-
-const FIT_EPOCH_OFFSET = 631_065_600;
-/** Bytes per notification, as with the default BLE MTU. */
-const NOTIFY = 20;
+import { loadCore, type Cc600Simulator, type SimulatorOptions } from '../lib/core';
+import type { GattTransport } from '../lib/transport/types';
 
 export interface FakeActivity {
   id: number;
@@ -29,59 +8,42 @@ export interface FakeActivity {
   fit: Uint8Array;
 }
 
-export interface FakeOptions {
-  window?: number;
-  free?: number;
+export interface FakeOptions extends SimulatorOptions {
   activities?: FakeActivity[];
-  /** Lose the n-th `TransferChunk` (1-based, counted over the fake's life). */
-  dropChunk?: (n: number) => boolean;
-  /** Lose the n-th `TransferAck`. */
-  dropAck?: (n: number) => boolean;
-  /** The settings file on the device (`key=value` lines); defaults if empty. */
-  settings?: string;
 }
 
 /**
- * A CC600 at the other end of a BLE link, in memory. File transfers go to the
- * real device-side state machine (`Cc600Receiver`, Rust). Answers are split in
- * 20-byte notifications and delivered asynchronously, like GATT notifications.
+ * A CC600 at the other end of a BLE link, in memory: the simulated CC600 of
+ * the Rust core (`driver_cc600::sim`), whose transfers and settings go
+ * through the firmware's own code. Writes come in packets of `maxWrite`
+ * bytes; answers go out in 20-byte notifications, delivered asynchronously
+ * like GATT notifications.
  */
-export class FakeCc600 implements PacketTransport {
-  readonly kind = 'packet' as const;
+export class FakeCc600 implements GattTransport {
+  readonly kind = 'gatt' as const;
   readonly peerName = 'CC600 fake';
-  private core?: Core;
-  private rx?: Cc600Receiver;
-  /** Activity ids acknowledged by the app, in order. */
-  readonly acked: number[] = [];
-  /** The settings file, rewritten whole on each change as the firmware does. */
-  settings: string;
-  /** `SetSettings` payloads received, in order. */
-  readonly settingsWrites: string[] = [];
-  /** File bytes received in `TransferChunk`s, lost ones included. */
-  chunkBytes = 0;
-  private chunks = 0;
-  private acks = 0;
+  /** The default BLE packet: frames are cut, the device reassembles them. */
+  readonly maxWrite = 20;
+  private sim?: Cc600Simulator;
+  /** Where answers come from: the characteristic the app subscribed to. */
+  private tx = '';
   private alive = true;
-  private listener: (b: Uint8Array) => void = () => {};
+  private listener: (characteristic: string, bytes: Uint8Array) => void = () => {};
 
-  constructor(private readonly options: FakeOptions = {}) {
-    this.settings = options.settings ?? '';
-  }
+  constructor(private readonly options: FakeOptions = {}) {}
 
   async connect(): Promise<void> {
-    this.core = await loadCore();
+    if (!this.sim) {
+      this.sim = (await loadCore()).cc600Simulator(this.options);
+      for (const a of this.options.activities ?? []) this.sim.addActivity(a.id, a.startTime, a.fit);
+    }
     this.alive = true;
   }
 
-  /** The device side of file transfers (once connected: the Rust core is loaded). */
-  get receiver(): Cc600Receiver {
-    this.rx ??= this.rust.cc600Receiver(this.options.window ?? 2048, this.options.free ?? 1 << 20);
-    return this.rx;
-  }
-
-  private get rust(): Core {
-    if (!this.core) throw new Error('FakeCc600: connect() first');
-    return this.core;
+  /** The device (once connected). */
+  get device(): Cc600Simulator {
+    if (!this.sim) throw new Error('FakeCc600: connect() first');
+    return this.sim;
   }
 
   async disconnect(): Promise<void> {
@@ -91,67 +53,21 @@ export class FakeCc600 implements PacketTransport {
   /** The link drops: nothing passes any more, the device keeps its partial file. */
   cut(): void {
     this.alive = false;
-    this.receiver.disconnect();
+    this.sim?.disconnect();
   }
 
-  onData(listener: (bytes: Uint8Array) => void): () => void {
+  async subscribe(_service: string, characteristic: string): Promise<void> {
+    this.tx = characteristic;
+  }
+
+  onNotify(listener: (characteristic: string, bytes: Uint8Array) => void): () => void {
     this.listener = listener;
     return () => (this.listener = () => {});
   }
 
-  async send(bytes: Uint8Array): Promise<void> {
+  async write(_service: string, _characteristic: string, bytes: Uint8Array): Promise<void> {
     if (!this.alive) return;
-    const core = this.rust;
-    const f = core.cc600Decode(bytes);
-    if (!f || f.consumed !== bytes.length) throw new Error('one frame per send expected');
-    const payload = f.payload.slice();
-    const v = new DataView(payload.buffer);
-    const reply = (op: number, p: Uint8Array = new Uint8Array()) => this.notify(core.cc600Encode(op, f.seq, p));
-    switch (f.op) {
-      case Op.Hello:
-        return reply(Op.DeviceInfo);
-      case Op.ListActivities: {
-        for (const a of this.options.activities ?? []) {
-          const e = new DataView(new ArrayBuffer(13));
-          e.setUint32(0, a.id, true);
-          e.setUint32(4, a.startTime - FIT_EPOCH_OFFSET, true);
-          e.setUint32(8, a.fit.length, true);
-          e.setUint8(12, this.acked.includes(a.id) ? 1 : 0);
-          reply(Op.ActivityEntry, new Uint8Array(e.buffer));
-        }
-        return reply(Op.EndOfList);
-      }
-      case Op.ReadActivity: {
-        const a = this.options.activities?.find((x) => x.id === v.getUint32(0, true));
-        if (!a) return reply(Op.Error, Uint8Array.of(1));
-        const offset = v.getUint32(4, true);
-        return reply(Op.ActivityChunk, a.fit.slice(offset, offset + v.getUint16(8, true)));
-      }
-      case Op.AckActivity:
-        this.acked.push(v.getUint32(0, true));
-        return reply(Op.Ok);
-      case Op.GetSettings:
-        return reply(Op.Settings, new TextEncoder().encode(this.settings));
-      case Op.SetSettings: {
-        const changes = new TextDecoder().decode(payload);
-        this.settingsWrites.push(changes);
-        try {
-          this.settings = core.cc600SettingsApply(this.settings, changes);
-          return reply(Op.Ok);
-        } catch (e) {
-          const key = e instanceof Error ? e.message : String(e);
-          return reply(Op.Error, Uint8Array.from([8, ...new TextEncoder().encode(key)]));
-        }
-      }
-    }
-    if (f.op === 0x11) {
-      this.chunkBytes += payload.length - 4;
-      if (this.options.dropChunk?.(++this.chunks)) return;
-    }
-    const answer = this.receiver.handle(f.op, payload);
-    if (!answer) return;
-    if (answer[0] === 0x91 && this.options.dropAck?.(++this.acks)) return;
-    reply(answer[0], answer.subarray(1));
+    for (const frame of this.device.write(bytes)) this.notify(frame);
   }
 
   /** Notifications waiting to be delivered, in order. */
@@ -159,7 +75,7 @@ export class FakeCc600 implements PacketTransport {
 
   private notify(frame: Uint8Array): void {
     const idle = this.outbox.length === 0;
-    for (let i = 0; i < frame.length; i += NOTIFY) this.outbox.push(frame.slice(i, i + NOTIFY));
+    for (let i = 0; i < frame.length; i += 20) this.outbox.push(frame.slice(i, i + 20));
     if (idle) this.deliver();
   }
 
@@ -171,7 +87,7 @@ export class FakeCc600 implements PacketTransport {
   private deliver(): void {
     setTimeout(() => {
       const part = this.outbox.shift();
-      if (part && this.alive) this.listener(part);
+      if (part && this.alive) this.listener(this.tx, part);
       if (this.outbox.length) this.deliver();
     }, 0);
   }

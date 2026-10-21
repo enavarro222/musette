@@ -122,375 +122,364 @@ pub fn bryton_find_activities(paths: Vec<String>, sizes: Vec<f64>) -> Vec<Activi
         .collect()
 }
 
-/// Encode a CC600 protocol frame.
+#[derive(uniffi::Record)]
+pub struct Capabilities {
+    pub download_activities: bool,
+    pub upload_route: bool,
+    pub route_corridor_map: bool,
+    pub climbs_on_device: bool,
+    pub settings: bool,
+    pub sensors: bool,
+    pub wifi_sync: bool,
+}
+
+/// What a model can do over a link (`ble` or `usbFiles`).
 #[uniffi::export]
-pub fn cc600_encode(op: u8, seq: u8, payload: Vec<u8>) -> Result<Vec<u8>> {
-    Ok(musette_core::cc600_encode(op, seq, &payload)?)
+pub fn capabilities(model: String, link: String) -> Result<Capabilities> {
+    let link = match link.as_str() {
+        "ble" => musette_core::Link::Ble,
+        "usbFiles" => musette_core::Link::UsbFiles,
+        _ => return Err(musette_core::Error(format!("unknown link {link}")).into()),
+    };
+    let c = musette_core::capabilities(musette_core::model(&model)?, link);
+    Ok(Capabilities {
+        download_activities: c.download_activities,
+        upload_route: c.upload_route,
+        route_corridor_map: c.route_corridor_map,
+        climbs_on_device: c.climbs_on_device,
+        settings: c.settings,
+        sensors: c.sensors,
+        wifi_sync: c.wifi_sync,
+    })
 }
 
 #[derive(uniffi::Record)]
-pub struct DecodedFrame {
-    pub op: u8,
-    pub seq: u8,
-    pub payload: Vec<u8>,
-    pub consumed: u32,
-}
-
-/// Decode one CC600 frame from the start of `bytes`; none if more bytes are
-/// needed.
-#[uniffi::export]
-pub fn cc600_decode(bytes: Vec<u8>) -> Result<Option<DecodedFrame>> {
-    Ok(musette_core::cc600_decode(&bytes)?.map(|f| DecodedFrame {
-        op: f.op,
-        seq: f.seq,
-        payload: f.payload,
-        consumed: f.consumed,
-    }))
-}
-
-/// The CC600 route file (`OCRT`) of a route. `eles` uses NaN for missing elevation.
-#[uniffi::export]
-pub fn cc600_build_route(
-    name: String,
-    lats: Vec<f64>,
-    lons: Vec<f64>,
-    eles: Vec<f64>,
-) -> Result<Vec<u8>> {
-    Ok(musette_core::cc600_build_route(name, &lats, &lons, &eles)?)
-}
-
-/// `TransferBegin` payload for sending `bytes` as a file of `kind` (1 route, 2 map).
-#[uniffi::export]
-pub fn cc600_transfer_begin(kind: u8, bytes: Vec<u8>) -> Result<Vec<u8>> {
-    Ok(musette_core::cc600_transfer_begin(kind, &bytes)?)
-}
-
-/// `TransferChunk` payload: offset then the bytes.
-#[uniffi::export]
-pub fn cc600_transfer_chunk(offset: u32, data: Vec<u8>) -> Vec<u8> {
-    musette_core::cc600_transfer_chunk(offset, &data)
-}
-
-/// App side of a file transfer: what to send next, given the device's answers.
-#[derive(uniffi::Object)]
-pub struct Cc600Sender(Mutex<musette_core::Cc600Sender>);
-
-#[uniffi::export]
-impl Cc600Sender {
-    #[uniffi::constructor]
-    pub fn new(size: u32) -> Self {
-        Self(Mutex::new(musette_core::Cc600Sender::new(size)))
-    }
-
-    /// Applies a `TransferReady` payload; returns the offset to start from.
-    pub fn ready(&self, payload: Vec<u8>) -> Result<u32> {
-        Ok(self.0.lock().unwrap().ready(&payload)?)
-    }
-
-    /// Applies a `TransferAck` payload.
-    pub fn ack(&self, payload: Vec<u8>) -> Result<()> {
-        Ok(self.0.lock().unwrap().ack(&payload)?)
-    }
-
-    /// Applies a `TransferResend` payload.
-    pub fn resend(&self, payload: Vec<u8>) -> Result<()> {
-        Ok(self.0.lock().unwrap().resend(&payload)?)
-    }
-
-    /// `[offset, length]` of the next chunk (at most `max` bytes), or none
-    /// when the window is full or everything was sent.
-    pub fn next_chunk(&self, max: u32) -> Option<Vec<u32>> {
-        self.0
-            .lock()
-            .unwrap()
-            .next_chunk(max)
-            .map(|(o, l)| vec![o, l])
-    }
-
-    /// Everything was sent and acknowledged.
-    pub fn done(&self) -> bool {
-        self.0.lock().unwrap().done()
-    }
-
-    /// Share of the file the device holds, 0..=1000.
-    pub fn permille(&self) -> u32 {
-        self.0.lock().unwrap().permille()
-    }
-}
-
-/// Device side of a file transfer (simulated CC600).
-#[derive(uniffi::Object)]
-pub struct Cc600Receiver(Mutex<musette_core::Cc600Receiver>);
-
-#[uniffi::export]
-impl Cc600Receiver {
-    #[uniffi::constructor]
-    pub fn new(window: u16, free: u32) -> Self {
-        Self(Mutex::new(musette_core::Cc600Receiver::new(window, free)))
-    }
-
-    /// Handles a transfer request; returns the answer as `[op, ...payload]`,
-    /// or none when there is none.
-    pub fn handle(&self, op: u8, payload: Vec<u8>) -> Result<Option<Vec<u8>>> {
-        Ok(self.0.lock().unwrap().handle(op, &payload)?)
-    }
-
-    /// The link dropped: the partial file stays, as on the device.
-    pub fn disconnect(&self) {
-        self.0.lock().unwrap().disconnect();
-    }
-
-    /// Bytes of the partial file held so far.
-    pub fn received(&self) -> u32 {
-        self.0.lock().unwrap().received()
-    }
-
-    /// The last file committed by `TransferEnd`.
-    pub fn committed(&self) -> Option<Vec<u8>> {
-        self.0.lock().unwrap().committed()
-    }
-}
-
-#[derive(uniffi::Record)]
-pub struct Cc600Field {
+pub struct SettingField {
     pub key: String,
-    /// `onOff`, `range`, `choice`, `tz` or `sensor`.
+    /// `bool`, `number`, `choice` or `text`.
     pub kind: String,
-    pub min: Option<u8>,
-    pub max: Option<u8>,
+    pub min: Option<f64>,
+    pub max: Option<f64>,
     pub options: Vec<String>,
+    pub labels: Vec<String>,
+    pub writable: bool,
 }
 
-/// The CC600 settings and the values each takes (what the device accepts).
-#[uniffi::export]
-pub fn cc600_settings_fields() -> Vec<Cc600Field> {
-    musette_core::cc600_settings_fields()
-        .into_iter()
-        .map(|f| Cc600Field {
-            key: f.key.to_owned(),
+impl From<musette_core::SettingField> for SettingField {
+    fn from(f: musette_core::SettingField) -> Self {
+        Self {
+            key: f.key,
             kind: f.kind.to_owned(),
             min: f.min,
             max: f.max,
-            options: f.options.into_iter().map(str::to_owned).collect(),
-        })
-        .collect()
+            options: f.options,
+            labels: f.labels,
+            writable: f.writable,
+        }
+    }
+}
+
+/// The settings of a model and what each takes.
+#[uniffi::export]
+pub fn setting_fields(model: String) -> Result<Vec<SettingField>> {
+    let model = musette_core::model(&model)?;
+    Ok(musette_core::setting_fields(model)
+        .into_iter()
+        .map(Into::into)
+        .collect())
 }
 
 #[derive(uniffi::Record)]
 pub struct Setting {
     pub key: String,
-    pub value: String,
-}
-
-/// Reads a CC600 settings file as the device does: every key, values as text.
-#[uniffi::export]
-pub fn cc600_settings_parse(text: String) -> Vec<Setting> {
-    musette_core::cc600_settings_parse(&text)
-        .into_iter()
-        .map(|(key, value)| Setting {
-            key: key.to_owned(),
-            value,
-        })
-        .collect()
-}
-
-/// Applies `key=value` changes to a settings file, all or nothing, as the
-/// device does. Returns the new file; the error message is the refused key.
-#[uniffi::export]
-pub fn cc600_settings_apply(current: String, changes: String) -> Result<String> {
-    Ok(musette_core::cc600_settings_apply(&current, &changes)?)
-}
-
-#[derive(uniffi::Record)]
-pub struct BrytonWrite {
-    /// 0 command, 1 data (write without response), 2 setting.
-    pub channel: u8,
-    pub bytes: Vec<u8>,
-}
-
-impl From<musette_core::BrytonWrite> for BrytonWrite {
-    fn from(w: musette_core::BrytonWrite) -> Self {
-        Self {
-            channel: w.channel,
-            bytes: w.bytes,
-        }
-    }
-}
-
-#[derive(uniffi::Record)]
-pub struct BrytonRide {
-    pub id: String,
-    pub time_s: u32,
-    pub distance_m: u32,
-    pub sport: u8,
-}
-
-#[derive(uniffi::Record)]
-pub struct BrytonInfo {
-    pub id: String,
-    pub firmware: String,
-    pub model: String,
-    pub recording: bool,
-    pub settings: bool,
-}
-
-#[derive(uniffi::Record)]
-pub struct BrytonEvent {
-    pub kind: String,
-    pub message: String,
-    pub bytes: Vec<u8>,
-    pub done: u32,
-    pub total: u32,
-    pub cmd: u8,
-    pub status: u8,
-    pub rides: Vec<BrytonRide>,
-    pub info: Option<BrytonInfo>,
-}
-
-#[derive(uniffi::Record)]
-pub struct BrytonStep {
-    pub writes: Vec<BrytonWrite>,
-    pub events: Vec<BrytonEvent>,
-}
-
-impl From<musette_core::BrytonStep> for BrytonStep {
-    fn from(s: musette_core::BrytonStep) -> Self {
-        Self {
-            writes: s.writes.into_iter().map(Into::into).collect(),
-            events: s
-                .events
-                .into_iter()
-                .map(|e| BrytonEvent {
-                    kind: e.kind.to_owned(),
-                    message: e.message,
-                    bytes: e.bytes,
-                    done: e.done,
-                    total: e.total,
-                    cmd: e.cmd,
-                    status: e.status,
-                    rides: e
-                        .rides
-                        .into_iter()
-                        .map(|r| BrytonRide {
-                            id: r.id,
-                            time_s: r.time_s,
-                            distance_m: r.distance_m,
-                            sport: r.sport,
-                        })
-                        .collect(),
-                    info: e.info.map(|i| BrytonInfo {
-                        id: i.id,
-                        firmware: i.firmware,
-                        model: i.model,
-                        recording: i.recording,
-                        settings: i.settings,
-                    }),
-                })
-                .collect(),
-        }
-    }
-}
-
-/// One Bryton BLE connection: write what it returns, give it every
-/// notification (`on_notify`).
-#[derive(uniffi::Object)]
-pub struct BrytonSession(Mutex<musette_core::BrytonSession>);
-
-impl Default for BrytonSession {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[uniffi::export]
-impl BrytonSession {
-    #[uniffi::constructor]
-    pub fn new() -> Self {
-        Self(Mutex::new(musette_core::BrytonSession::new()))
-    }
-
-    pub fn read_device_info(&self) -> BrytonWrite {
-        self.0.lock().unwrap().read_device_info().into()
-    }
-
-    pub fn new_app(&self) -> BrytonWrite {
-        self.0.lock().unwrap().new_app().into()
-    }
-
-    pub fn list_rides(&self) -> BrytonWrite {
-        self.0.lock().unwrap().list_rides().into()
-    }
-
-    pub fn download(&self, id: String) -> Result<BrytonWrite> {
-        Ok(self.0.lock().unwrap().download(&id)?.into())
-    }
-
-    pub fn acknowledge(&self, id: String) -> Result<BrytonWrite> {
-        Ok(self.0.lock().unwrap().acknowledge(&id)?.into())
-    }
-
-    pub fn send_route(&self, fit: Vec<u8>, device_id: String) -> BrytonWrite {
-        self.0.lock().unwrap().send_route(&fit, &device_id).into()
-    }
-
-    pub fn send_route_name(&self, name: String) -> BrytonWrite {
-        self.0.lock().unwrap().send_route_name(&name).into()
-    }
-
-    pub fn setting_get(&self, key: String) -> Result<BrytonWrite> {
-        Ok(self.0.lock().unwrap().setting_get(&key)?.into())
-    }
-
-    pub fn setting_set(&self, key: String, value: i64) -> Result<BrytonWrite> {
-        Ok(self.0.lock().unwrap().setting_set(&key, value)?.into())
-    }
-
-    /// `channel`: 0 command, 1 data, 2 setting.
-    pub fn on_notify(&self, channel: u8, bytes: Vec<u8>) -> BrytonStep {
-        self.0.lock().unwrap().on_notify(channel, &bytes).into()
-    }
-}
-
-/// A Bryton route file from track points. `eles` uses NaN for missing elevation.
-#[uniffi::export]
-pub fn bryton_build_route(lats: Vec<f64>, lons: Vec<f64>, eles: Vec<f64>) -> Result<Vec<u8>> {
-    Ok(musette_core::bryton_build_route(&lats, &lons, &eles)?)
-}
-
-#[derive(uniffi::Record)]
-pub struct BrytonField {
-    pub key: String,
-    /// `bool`, `choice`, `number` or `text`.
-    pub kind: String,
-    pub choices: Vec<String>,
-    pub writable: bool,
-}
-
-/// The Bryton settings Musette reads.
-#[uniffi::export]
-pub fn bryton_setting_fields() -> Vec<BrytonField> {
-    musette_core::bryton_setting_fields()
-        .into_iter()
-        .map(|f| BrytonField {
-            key: f.key,
-            kind: f.kind.to_owned(),
-            choices: f.choices,
-            writable: f.writable,
-        })
-        .collect()
-}
-
-#[derive(uniffi::Record)]
-pub struct BrytonValue {
     pub number: Option<f64>,
     pub text: String,
 }
 
-/// Decodes the answer to the get of `key`; none if it is not one.
+#[derive(uniffi::Record)]
+pub struct Channel {
+    pub service: String,
+    pub characteristic: String,
+    pub with_response: bool,
+    pub split: bool,
+}
+
+#[derive(uniffi::Record)]
+pub struct Write {
+    pub channel: u8,
+    pub bytes: Vec<u8>,
+}
+
+#[derive(uniffi::Record)]
+pub struct Activity {
+    pub id: String,
+    pub start_time: Option<i64>,
+    pub local_time: bool,
+    pub size: Option<u64>,
+    pub synced: Option<bool>,
+}
+
+/// `musette_core::Outcome` in one record: `kind` (`done`, `info`,
+/// `activities`, `file`, `settings`, `failed`) says which fields count.
+#[derive(uniffi::Record)]
+pub struct Outcome {
+    pub kind: String,
+    pub name: String,
+    pub recording: bool,
+    pub activities: Vec<Activity>,
+    pub bytes: Vec<u8>,
+    pub fields: Vec<SettingField>,
+    pub values: Vec<Setting>,
+    pub code: String,
+    pub detail: String,
+}
+
+#[derive(uniffi::Record)]
+pub struct Step {
+    pub subscribe: Vec<u8>,
+    pub writes: Vec<Write>,
+    pub progress: Option<f64>,
+    pub wait_ms: Option<u32>,
+    pub outcome: Option<Outcome>,
+}
+
+fn outcome(o: musette_core::Outcome) -> Outcome {
+    use musette_core::Outcome as O;
+    let mut out = Outcome {
+        kind: String::new(),
+        name: String::new(),
+        recording: false,
+        activities: vec![],
+        bytes: vec![],
+        fields: vec![],
+        values: vec![],
+        code: String::new(),
+        detail: String::new(),
+    };
+    out.kind = match o {
+        O::Done => "done",
+        O::Info { name, recording } => {
+            out.name = name;
+            out.recording = recording;
+            "info"
+        }
+        O::Activities { activities } => {
+            out.activities = activities
+                .into_iter()
+                .map(|a| Activity {
+                    id: a.id,
+                    start_time: a.start_time,
+                    local_time: a.local_time,
+                    size: a.size,
+                    synced: a.synced,
+                })
+                .collect();
+            "activities"
+        }
+        O::File { bytes } => {
+            out.bytes = bytes;
+            "file"
+        }
+        O::Settings { fields, values } => {
+            out.fields = fields.into_iter().map(Into::into).collect();
+            out.values = values
+                .into_iter()
+                .map(|v| Setting {
+                    key: v.key,
+                    number: v.number,
+                    text: v.text,
+                })
+                .collect();
+            "settings"
+        }
+        O::Failed(f) => {
+            out.code = f.code.to_owned();
+            out.detail = f.detail;
+            "failed"
+        }
+    }
+    .to_owned();
+    out
+}
+
+impl From<musette_core::Step> for Step {
+    fn from(s: musette_core::Step) -> Self {
+        Self {
+            subscribe: s.subscribe,
+            writes: s
+                .writes
+                .into_iter()
+                .map(|w| Write {
+                    channel: w.channel,
+                    bytes: w.bytes,
+                })
+                .collect(),
+            progress: s.progress,
+            wait_ms: s.wait_ms,
+            outcome: s.outcome.map(outcome),
+        }
+    }
+}
+
+/// One connection to a device (`musette_core::Session`).
+#[derive(uniffi::Object)]
+pub struct Session(Mutex<musette_core::Session>);
+
 #[uniffi::export]
-pub fn bryton_setting_value(key: String, frame: Vec<u8>) -> Option<BrytonValue> {
-    musette_core::bryton_setting_value(&key, &frame).map(|v| BrytonValue {
-        number: v.number,
-        text: v.text,
-    })
+impl Session {
+    /// The model's own timing, unless given (tests).
+    #[uniffi::constructor]
+    pub fn new(model: String, request_ms: Option<u32>, short_ms: Option<u32>) -> Result<Self> {
+        let model = musette_core::model(&model)?;
+        let t = musette_core::Timing::of(model);
+        let timing = musette_core::Timing {
+            request_ms: request_ms.unwrap_or(t.request_ms),
+            short_ms: short_ms.unwrap_or(t.short_ms),
+        };
+        Ok(Self(Mutex::new(musette_core::Session::new(model, timing))))
+    }
+
+    pub fn channels(&self) -> Vec<Channel> {
+        self.0
+            .lock()
+            .unwrap()
+            .channels()
+            .into_iter()
+            .map(|c| Channel {
+                service: c.service.to_owned(),
+                characteristic: c.characteristic.to_owned(),
+                with_response: c.with_response,
+                split: c.split,
+            })
+            .collect()
+    }
+
+    pub fn connect(&self) -> Result<Step> {
+        Ok(self.0.lock().unwrap().connect()?.into())
+    }
+
+    pub fn list_activities(&self) -> Result<Step> {
+        Ok(self.0.lock().unwrap().list_activities()?.into())
+    }
+
+    pub fn download(&self, id: String, size: Option<u64>) -> Result<Step> {
+        Ok(self.0.lock().unwrap().download(&id, size)?.into())
+    }
+
+    pub fn acknowledge(&self, id: String) -> Result<Step> {
+        Ok(self.0.lock().unwrap().acknowledge(&id)?.into())
+    }
+
+    /// `eles` uses NaN for missing elevation.
+    pub fn send_route(
+        &self,
+        name: String,
+        lats: Vec<f64>,
+        lons: Vec<f64>,
+        eles: Vec<f64>,
+    ) -> Result<Step> {
+        let route = musette_core::ParsedRoute {
+            name,
+            lats,
+            lons,
+            eles,
+        };
+        Ok(self.0.lock().unwrap().send_route(&route)?.into())
+    }
+
+    /// `kind`: `route` or `map`.
+    pub fn send_file(&self, kind: String, bytes: Vec<u8>) -> Result<Step> {
+        let kind = match kind.as_str() {
+            "route" => musette_core::FileKind::Route,
+            "map" => musette_core::FileKind::Map,
+            _ => return Err(musette_core::Error(format!("unknown file kind {kind}")).into()),
+        };
+        Ok(self.0.lock().unwrap().send_file(kind, bytes)?.into())
+    }
+
+    pub fn read_settings(&self) -> Result<Step> {
+        Ok(self.0.lock().unwrap().read_settings()?.into())
+    }
+
+    pub fn write_settings(&self, changes: Vec<Setting>) -> Result<Step> {
+        let changes: Vec<musette_core::Setting> = changes
+            .into_iter()
+            .map(|c| musette_core::Setting {
+                key: c.key,
+                number: c.number,
+                text: c.text,
+            })
+            .collect();
+        Ok(self.0.lock().unwrap().write_settings(&changes)?.into())
+    }
+
+    pub fn on_notify(&self, channel: u8, bytes: Vec<u8>) -> Step {
+        self.0.lock().unwrap().on_notify(channel, &bytes).into()
+    }
+
+    pub fn on_timeout(&self) -> Step {
+        self.0.lock().unwrap().on_timeout().into()
+    }
+}
+
+/// A CC600 in memory (demo without a device).
+#[derive(uniffi::Object)]
+pub struct Cc600Simulator(Mutex<musette_core::Cc600Simulator>);
+
+#[uniffi::export]
+impl Cc600Simulator {
+    #[uniffi::constructor]
+    pub fn new(
+        window: u16,
+        free: u32,
+        settings: String,
+        lose_chunks: Vec<u32>,
+        lose_acks: Vec<u32>,
+    ) -> Self {
+        Self(Mutex::new(musette_core::Cc600Simulator::new(
+            window,
+            free,
+            settings,
+            lose_chunks,
+            lose_acks,
+        )))
+    }
+
+    /// `start_time` in Unix seconds.
+    pub fn add_activity(&self, id: u32, start_time: i64, fit: Vec<u8>) {
+        self.0.lock().unwrap().add_activity(id, start_time, fit);
+    }
+
+    /// The frames the device answers.
+    pub fn write(&self, bytes: Vec<u8>) -> Vec<Vec<u8>> {
+        self.0.lock().unwrap().write(&bytes)
+    }
+
+    pub fn disconnect(&self) {
+        self.0.lock().unwrap().disconnect();
+    }
+
+    pub fn received(&self) -> u32 {
+        self.0.lock().unwrap().received()
+    }
+
+    pub fn committed(&self) -> Option<Vec<u8>> {
+        self.0.lock().unwrap().committed()
+    }
+
+    pub fn chunk_bytes(&self) -> u32 {
+        self.0.lock().unwrap().chunk_bytes()
+    }
+
+    pub fn acked(&self) -> Vec<u32> {
+        self.0.lock().unwrap().acked()
+    }
+
+    pub fn settings(&self) -> String {
+        self.0.lock().unwrap().settings()
+    }
+
+    pub fn settings_writes(&self) -> Vec<String> {
+        self.0.lock().unwrap().settings_writes()
+    }
 }

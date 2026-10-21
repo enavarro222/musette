@@ -1,10 +1,11 @@
-import type { BrytonField, BrytonValue } from '../core';
-import type { SettingField, SettingGroup, SettingValue } from '../settings';
+import type { DeviceField, DeviceSetting } from '../core';
+import type { DeviceSettings, SettingField, SettingGroup, SettingValue, SettingValues } from '../settings';
+import { settingValue } from './bleDevice';
 
 /**
  * French labels and Musette groups of the Bryton settings. Keys, kinds,
  * choices and which ones can be written come from Rust
- * (`driver_bryton::settings`, through `brytonSettingFields`).
+ * (`driver_bryton::settings`, through the session).
  */
 interface Label {
   label: string;
@@ -69,8 +70,8 @@ export function bikeOf(key: string): [number, string] | undefined {
   return m ? [Number(m[1]), m[2]] : undefined;
 }
 
-/** The fields to read, in the order to read them; bike names first. */
-export function shownFields(fields: BrytonField[]): BrytonField[] {
+/** The fields to show, bike names first (they name the others). */
+export function shownFields(fields: DeviceField[]): DeviceField[] {
   const names = fields.filter((f) => bikeOf(f.key)?.[1] === 'name');
   return [...names, ...fields.filter((f) => !HIDDEN.has(f.key) && bikeOf(f.key)?.[1] !== 'name')];
 }
@@ -86,7 +87,7 @@ function batteryText(text: string): string {
  * The Musette field of a Bryton setting; `bikeNames` names the bike slots
  * (`undefined` when that bike has no name: the setting is left out).
  */
-export function toField(f: BrytonField, bikeNames: (string | undefined)[]): SettingField | undefined {
+export function toField(f: DeviceField, bikeNames: (string | undefined)[]): SettingField | undefined {
   const bike = bikeOf(f.key);
   const l = bike ? PER_BIKE[bike[1]] : GLOBAL[f.key];
   if (!l) return undefined;
@@ -101,8 +102,8 @@ export function toField(f: BrytonField, bikeNames: (string | undefined)[]): Sett
     case 'bool':
       return { ...base, type: 'toggle' };
     case 'choice': {
-      const labels = l.choices ?? f.choices;
-      return { ...base, type: 'choice', options: labels.map((label, i) => ({ value: String(i), label })) };
+      const labels = l.choices ?? f.labels;
+      return { ...base, type: 'choice', options: f.options.map((value, i) => ({ value, label: labels[i] ?? value })) };
     }
     case 'number':
       return { ...base, type: 'number', min: 0, max: 100_000, unit: l.unit };
@@ -112,20 +113,32 @@ export function toField(f: BrytonField, bikeNames: (string | undefined)[]): Sett
 }
 
 /** The value of a field, as the settings screen holds it. */
-export function toValue(f: BrytonField, v: BrytonValue): SettingValue {
-  switch (f.kind) {
-    case 'bool':
-      return v.number === 1;
-    case 'choice':
-      return String(v.number ?? '');
-    case 'number':
-      return Math.round((v.number ?? 0) * 10) / 10;
-    default:
-      return f.key === 'battery' ? batteryText(v.text) : v.text;
-  }
+export function toValue(f: DeviceField, v: DeviceSetting): SettingValue {
+  return f.key === 'battery' ? batteryText(v.text) : settingValue(f, v);
 }
 
-/** The number Rust encodes for a value from the settings screen. */
-export function toNumber(v: SettingValue): number {
-  return typeof v === 'boolean' ? Number(v) : Number(v);
+/** The settings as the settings screen shows them: bikes by their names, unnamed bikes left out. */
+export function presentSettings(fields: DeviceField[], read: DeviceSetting[]): DeviceSettings {
+  const byKey = new Map(read.map((v) => [v.key, v]));
+  const bikeNames: (string | undefined)[] = [];
+  for (const v of read) {
+    const bike = bikeOf(v.key);
+    if (bike?.[1] === 'name') bikeNames[bike[0]] = v.text || undefined;
+  }
+  const shown: SettingField[] = [];
+  const values: SettingValues = {};
+  for (const f of shownFields(fields)) {
+    const v = byKey.get(f.key);
+    const field = v && bikeOf(f.key)?.[1] !== 'name' ? toField(f, bikeNames) : undefined;
+    if (!v || !field) continue;
+    shown.push(field);
+    values[f.key] = toValue(f, v);
+  }
+  return { fields: shown, values };
+}
+
+/** Musette's name of a setting, with its bike. */
+export function settingLabel(key: string): string {
+  const bike = bikeOf(key);
+  return (bike ? PER_BIKE[bike[1]] : GLOBAL[key])?.label ?? key;
 }

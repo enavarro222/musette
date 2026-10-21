@@ -17,6 +17,8 @@ btleplug = "0.13"
 clap = { version = "4", features = ["derive"] }
 device.workspace = true
 driver-bryton.workspace = true
+musette-core.workspace = true
+protocol-cc600.workspace = true
 fit.workspace = true
 track.workspace = true
 futures = "0.3"

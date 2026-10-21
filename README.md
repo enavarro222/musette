@@ -29,8 +29,9 @@ crates/
   track            distances, elevation profile, ascent, simplification
   climbs           climb detection and categories
   device           device models and capabilities
-  driver-bryton    Bryton stock-firmware driver (USB mass storage)
-  musette-core     what the app asks of the crates, the same on every platform
+  driver-bryton    Bryton stock-firmware driver (USB mass storage, Bluetooth)
+  driver-cc600     app side of the CC600 protocol, and a CC600 in memory
+  musette-core     what the app asks of the crates, one device session for every model
   musette-wasm     WebAssembly bindings of musette-core (web)
   musette-ffi      UniFFI bindings of musette-core (iOS, Android)
 app/               Expo (React Native) app: web, Android, iOS from one code base

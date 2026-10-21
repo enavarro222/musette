@@ -42,28 +42,6 @@ export function analyzeRoute(lats: Array<number>, lons: Array<number>, eles: Arr
     }
 
 /**
- * A Bryton route file from track points. `eles` uses NaN for missing elevation.
- */
-export function brytonBuildRoute(lats: Array<number>, lons: Array<number>, eles: Array<number>): ArrayBuffer /*throws*/ {
-    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
-            /*liftError:*/ FfiConverterTypeFfiError.lift.bind(FfiConverterTypeFfiError),
-            /*caller:*/ (callStatus) => {
-                return nativeModule().ubrn_uniffi_musette_ffi_fn_func_bryton_build_route(
-        FfiConverterSequenceFloat64.lower(lats, nativeModule().rustbuffer_alloc),
-        FfiConverterSequenceFloat64.lower(lons, nativeModule().rustbuffer_alloc),
-        FfiConverterSequenceFloat64.lower(eles, nativeModule().rustbuffer_alloc),
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-        return FfiConverterArrayBuffer.lift(__rb);
-    } finally {
-        nativeModule().rustbuffer_free(__rb);
-    }
-    }
-
-/**
  * Pick activity files from a Bryton drive listing.
  */
 export function brytonFindActivities(paths: Array<string>, sizes: Array<number>): Array<ActivityRef> {
@@ -84,204 +62,21 @@ export function brytonFindActivities(paths: Array<string>, sizes: Array<number>)
     }
 
 /**
- * The Bryton settings Musette reads.
+ * What a model can do over a link (`ble` or `usbFiles`).
  */
-export function brytonSettingFields(): Array<BrytonField> {
-    const __rb: Uint8Array = uniffiCaller.rustCall(
-            /*caller:*/ (callStatus) => {
-                return nativeModule().ubrn_uniffi_musette_ffi_fn_func_bryton_setting_fields(
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-        return FfiConverterSequenceTypeBrytonField.lift(__rb);
-    } finally {
-        nativeModule().rustbuffer_free(__rb);
-    }
-    }
-
-/**
- * Decodes the answer to the get of `key`; none if it is not one.
- */
-export function brytonSettingValue(key: string, frame: ArrayBuffer): BrytonValue | undefined {
-    const __rb: Uint8Array = uniffiCaller.rustCall(
-            /*caller:*/ (callStatus) => {
-                return nativeModule().ubrn_uniffi_musette_ffi_fn_func_bryton_setting_value(
-        FfiConverterString.lower(key, nativeModule().rustbuffer_alloc),
-        FfiConverterArrayBuffer.lower(frame, nativeModule().rustbuffer_alloc),
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-        return FfiConverterOptionalTypeBrytonValue.lift(__rb);
-    } finally {
-        nativeModule().rustbuffer_free(__rb);
-    }
-    }
-
-/**
- * The CC600 route file (`OCRT`) of a route. `eles` uses NaN for missing elevation.
- */
-export function cc600BuildRoute(name: string, lats: Array<number>, lons: Array<number>, eles: Array<number>): ArrayBuffer /*throws*/ {
+export function capabilities(model: string, link: string): Capabilities /*throws*/ {
     const __rb: Uint8Array = uniffiCaller.rustCallWithError(
             /*liftError:*/ FfiConverterTypeFfiError.lift.bind(FfiConverterTypeFfiError),
             /*caller:*/ (callStatus) => {
-                return nativeModule().ubrn_uniffi_musette_ffi_fn_func_cc600_build_route(
-        FfiConverterString.lower(name, nativeModule().rustbuffer_alloc),
-        FfiConverterSequenceFloat64.lower(lats, nativeModule().rustbuffer_alloc),
-        FfiConverterSequenceFloat64.lower(lons, nativeModule().rustbuffer_alloc),
-        FfiConverterSequenceFloat64.lower(eles, nativeModule().rustbuffer_alloc),
+                return nativeModule().ubrn_uniffi_musette_ffi_fn_func_capabilities(
+        FfiConverterString.lower(model, nativeModule().rustbuffer_alloc),
+        FfiConverterString.lower(link, nativeModule().rustbuffer_alloc),
                 callStatus);
             },
             /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
     );
     try {
-        return FfiConverterArrayBuffer.lift(__rb);
-    } finally {
-        nativeModule().rustbuffer_free(__rb);
-    }
-    }
-
-/**
- * Decode one CC600 frame from the start of `bytes`; none if more bytes are
- * needed.
- */
-export function cc600Decode(bytes: ArrayBuffer): DecodedFrame | undefined /*throws*/ {
-    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
-            /*liftError:*/ FfiConverterTypeFfiError.lift.bind(FfiConverterTypeFfiError),
-            /*caller:*/ (callStatus) => {
-                return nativeModule().ubrn_uniffi_musette_ffi_fn_func_cc600_decode(
-        FfiConverterArrayBuffer.lower(bytes, nativeModule().rustbuffer_alloc),
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-        return FfiConverterOptionalTypeDecodedFrame.lift(__rb);
-    } finally {
-        nativeModule().rustbuffer_free(__rb);
-    }
-    }
-
-/**
- * Encode a CC600 protocol frame.
- */
-export function cc600Encode(op: number, seq: number, payload: ArrayBuffer): ArrayBuffer /*throws*/ {
-    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
-            /*liftError:*/ FfiConverterTypeFfiError.lift.bind(FfiConverterTypeFfiError),
-            /*caller:*/ (callStatus) => {
-                return nativeModule().ubrn_uniffi_musette_ffi_fn_func_cc600_encode(
-        FfiConverterUInt8.lower(op, nativeModule().rustbuffer_alloc),
-        FfiConverterUInt8.lower(seq, nativeModule().rustbuffer_alloc),
-        FfiConverterArrayBuffer.lower(payload, nativeModule().rustbuffer_alloc),
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-        return FfiConverterArrayBuffer.lift(__rb);
-    } finally {
-        nativeModule().rustbuffer_free(__rb);
-    }
-    }
-
-/**
- * Applies `key=value` changes to a settings file, all or nothing, as the
- * device does. Returns the new file; the error message is the refused key.
- */
-export function cc600SettingsApply(current: string, changes: string): string /*throws*/ {
-    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
-            /*liftError:*/ FfiConverterTypeFfiError.lift.bind(FfiConverterTypeFfiError),
-            /*caller:*/ (callStatus) => {
-                return nativeModule().ubrn_uniffi_musette_ffi_fn_func_cc600_settings_apply(
-        FfiConverterString.lower(current, nativeModule().rustbuffer_alloc),
-        FfiConverterString.lower(changes, nativeModule().rustbuffer_alloc),
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-        return FfiConverterString.lift(__rb);
-    } finally {
-        nativeModule().rustbuffer_free(__rb);
-    }
-    }
-
-/**
- * The CC600 settings and the values each takes (what the device accepts).
- */
-export function cc600SettingsFields(): Array<Cc600Field> {
-    const __rb: Uint8Array = uniffiCaller.rustCall(
-            /*caller:*/ (callStatus) => {
-                return nativeModule().ubrn_uniffi_musette_ffi_fn_func_cc600_settings_fields(
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-        return FfiConverterSequenceTypeCc600Field.lift(__rb);
-    } finally {
-        nativeModule().rustbuffer_free(__rb);
-    }
-    }
-
-/**
- * Reads a CC600 settings file as the device does: every key, values as text.
- */
-export function cc600SettingsParse(text: string): Array<Setting> {
-    const __rb: Uint8Array = uniffiCaller.rustCall(
-            /*caller:*/ (callStatus) => {
-                return nativeModule().ubrn_uniffi_musette_ffi_fn_func_cc600_settings_parse(
-        FfiConverterString.lower(text, nativeModule().rustbuffer_alloc),
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-        return FfiConverterSequenceTypeSetting.lift(__rb);
-    } finally {
-        nativeModule().rustbuffer_free(__rb);
-    }
-    }
-
-/**
- * `TransferBegin` payload for sending `bytes` as a file of `kind` (1 route, 2 map).
- */
-export function cc600TransferBegin(kind: number, bytes: ArrayBuffer): ArrayBuffer /*throws*/ {
-    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
-            /*liftError:*/ FfiConverterTypeFfiError.lift.bind(FfiConverterTypeFfiError),
-            /*caller:*/ (callStatus) => {
-                return nativeModule().ubrn_uniffi_musette_ffi_fn_func_cc600_transfer_begin(
-        FfiConverterUInt8.lower(kind, nativeModule().rustbuffer_alloc),
-        FfiConverterArrayBuffer.lower(bytes, nativeModule().rustbuffer_alloc),
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-        return FfiConverterArrayBuffer.lift(__rb);
-    } finally {
-        nativeModule().rustbuffer_free(__rb);
-    }
-    }
-
-/**
- * `TransferChunk` payload: offset then the bytes.
- */
-export function cc600TransferChunk(offset: number, data: ArrayBuffer): ArrayBuffer {
-    const __rb: Uint8Array = uniffiCaller.rustCall(
-            /*caller:*/ (callStatus) => {
-                return nativeModule().ubrn_uniffi_musette_ffi_fn_func_cc600_transfer_chunk(
-        FfiConverterUInt32.lower(offset, nativeModule().rustbuffer_alloc),
-        FfiConverterArrayBuffer.lower(data, nativeModule().rustbuffer_alloc),
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-        return FfiConverterArrayBuffer.lift(__rb);
+        return FfiConverterTypeCapabilities.lift(__rb);
     } finally {
         nativeModule().rustbuffer_free(__rb);
     }
@@ -302,6 +97,26 @@ export function parseGpx(text: string): ParsedRoute /*throws*/ {
     );
     try {
         return FfiConverterTypeParsedRoute.lift(__rb);
+    } finally {
+        nativeModule().rustbuffer_free(__rb);
+    }
+    }
+
+/**
+ * The settings of a model and what each takes.
+ */
+export function settingFields(model: string): Array<SettingField> /*throws*/ {
+    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
+            /*liftError:*/ FfiConverterTypeFfiError.lift.bind(FfiConverterTypeFfiError),
+            /*caller:*/ (callStatus) => {
+                return nativeModule().ubrn_uniffi_musette_ffi_fn_func_setting_fields(
+        FfiConverterString.lower(model, nativeModule().rustbuffer_alloc),
+                callStatus);
+            },
+            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+        return FfiConverterSequenceTypeSettingField.lift(__rb);
     } finally {
         nativeModule().rustbuffer_free(__rb);
     }
@@ -374,6 +189,61 @@ const stringConverter = (() => {
 })();
 const FfiConverterString = uniffiCreateFfiConverterString(stringConverter);
 
+export type Activity = {
+    id: string,
+    startTime?: bigint,
+    localTime: boolean,
+    size?: bigint,
+    synced?: boolean
+}
+
+/**
+ * Generated factory for {@link Activity} record objects.
+ */
+export const Activity = (() => {
+    const defaults = () => ({
+    });
+    const create = (() => {
+        return uniffiCreateRecord<Activity, ReturnType<typeof defaults>>(defaults);
+    })();
+    return Object.freeze({
+        create,
+        new: create,
+        defaults: () => Object.freeze(defaults()) as Partial<Activity>,
+    });
+})();
+
+const FfiConverterTypeActivity = (() => {
+    type TypeName = Activity;
+    class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+        readFromCursor(c: Cursor): TypeName {
+            return {
+                id: FfiConverterString.readFromCursor(c), 
+                startTime: FfiConverterOptionalInt64.readFromCursor(c), 
+                localTime: FfiConverterBool.readFromCursor(c), 
+                size: FfiConverterOptionalUInt64.readFromCursor(c), 
+                synced: FfiConverterOptionalBoolean.readFromCursor(c)
+            };
+        }
+        writeIntoCursor(value: TypeName, c: Cursor): void {
+            FfiConverterString.writeIntoCursor(value.id, c);
+            FfiConverterOptionalInt64.writeIntoCursor(value.startTime, c);
+            FfiConverterBool.writeIntoCursor(value.localTime, c);
+            FfiConverterOptionalUInt64.writeIntoCursor(value.size, c);
+            FfiConverterOptionalBoolean.writeIntoCursor(value.synced, c);
+        }
+        allocationSize(value: TypeName): number {
+            return FfiConverterString.allocationSize(value.id) +
+             FfiConverterOptionalInt64.allocationSize(value.startTime) +
+             FfiConverterBool.allocationSize(value.localTime) +
+             FfiConverterOptionalUInt64.allocationSize(value.size) +
+             FfiConverterOptionalBoolean.allocationSize(value.synced);
+            
+        }
+    };
+    return new FFIConverter();
+})();
+
 export type ActivityRef = {
     id: string,
     size?: bigint
@@ -417,421 +287,114 @@ const FfiConverterTypeActivityRef = (() => {
     return new FFIConverter();
 })();
 
-export type BrytonRide = {
-    id: string,
-    timeS: number,
-    distanceM: number,
-    sport: number
+export type Capabilities = {
+    downloadActivities: boolean,
+    uploadRoute: boolean,
+    routeCorridorMap: boolean,
+    climbsOnDevice: boolean,
+    settings: boolean,
+    sensors: boolean,
+    wifiSync: boolean
 }
 
 /**
- * Generated factory for {@link BrytonRide} record objects.
+ * Generated factory for {@link Capabilities} record objects.
  */
-export const BrytonRide = (() => {
+export const Capabilities = (() => {
     const defaults = () => ({
     });
     const create = (() => {
-        return uniffiCreateRecord<BrytonRide, ReturnType<typeof defaults>>(defaults);
+        return uniffiCreateRecord<Capabilities, ReturnType<typeof defaults>>(defaults);
     })();
     return Object.freeze({
         create,
         new: create,
-        defaults: () => Object.freeze(defaults()) as Partial<BrytonRide>,
+        defaults: () => Object.freeze(defaults()) as Partial<Capabilities>,
     });
 })();
 
-const FfiConverterTypeBrytonRide = (() => {
-    type TypeName = BrytonRide;
+const FfiConverterTypeCapabilities = (() => {
+    type TypeName = Capabilities;
     class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
         readFromCursor(c: Cursor): TypeName {
             return {
-                id: FfiConverterString.readFromCursor(c), 
-                timeS: FfiConverterUInt32.readFromCursor(c), 
-                distanceM: FfiConverterUInt32.readFromCursor(c), 
-                sport: FfiConverterUInt8.readFromCursor(c)
+                downloadActivities: FfiConverterBool.readFromCursor(c), 
+                uploadRoute: FfiConverterBool.readFromCursor(c), 
+                routeCorridorMap: FfiConverterBool.readFromCursor(c), 
+                climbsOnDevice: FfiConverterBool.readFromCursor(c), 
+                settings: FfiConverterBool.readFromCursor(c), 
+                sensors: FfiConverterBool.readFromCursor(c), 
+                wifiSync: FfiConverterBool.readFromCursor(c)
             };
         }
         writeIntoCursor(value: TypeName, c: Cursor): void {
-            FfiConverterString.writeIntoCursor(value.id, c);
-            FfiConverterUInt32.writeIntoCursor(value.timeS, c);
-            FfiConverterUInt32.writeIntoCursor(value.distanceM, c);
-            FfiConverterUInt8.writeIntoCursor(value.sport, c);
-        }
-        allocationSize(value: TypeName): number {
-            return FfiConverterString.allocationSize(value.id) +
-             FfiConverterUInt32.allocationSize(value.timeS) +
-             FfiConverterUInt32.allocationSize(value.distanceM) +
-             FfiConverterUInt8.allocationSize(value.sport);
-            
-        }
-    };
-    return new FFIConverter();
-})();
-
-export type BrytonInfo = {
-    id: string,
-    firmware: string,
-    model: string,
-    recording: boolean,
-    settings: boolean
-}
-
-/**
- * Generated factory for {@link BrytonInfo} record objects.
- */
-export const BrytonInfo = (() => {
-    const defaults = () => ({
-    });
-    const create = (() => {
-        return uniffiCreateRecord<BrytonInfo, ReturnType<typeof defaults>>(defaults);
-    })();
-    return Object.freeze({
-        create,
-        new: create,
-        defaults: () => Object.freeze(defaults()) as Partial<BrytonInfo>,
-    });
-})();
-
-const FfiConverterTypeBrytonInfo = (() => {
-    type TypeName = BrytonInfo;
-    class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-        readFromCursor(c: Cursor): TypeName {
-            return {
-                id: FfiConverterString.readFromCursor(c), 
-                firmware: FfiConverterString.readFromCursor(c), 
-                model: FfiConverterString.readFromCursor(c), 
-                recording: FfiConverterBool.readFromCursor(c), 
-                settings: FfiConverterBool.readFromCursor(c)
-            };
-        }
-        writeIntoCursor(value: TypeName, c: Cursor): void {
-            FfiConverterString.writeIntoCursor(value.id, c);
-            FfiConverterString.writeIntoCursor(value.firmware, c);
-            FfiConverterString.writeIntoCursor(value.model, c);
-            FfiConverterBool.writeIntoCursor(value.recording, c);
+            FfiConverterBool.writeIntoCursor(value.downloadActivities, c);
+            FfiConverterBool.writeIntoCursor(value.uploadRoute, c);
+            FfiConverterBool.writeIntoCursor(value.routeCorridorMap, c);
+            FfiConverterBool.writeIntoCursor(value.climbsOnDevice, c);
             FfiConverterBool.writeIntoCursor(value.settings, c);
+            FfiConverterBool.writeIntoCursor(value.sensors, c);
+            FfiConverterBool.writeIntoCursor(value.wifiSync, c);
         }
         allocationSize(value: TypeName): number {
-            return FfiConverterString.allocationSize(value.id) +
-             FfiConverterString.allocationSize(value.firmware) +
-             FfiConverterString.allocationSize(value.model) +
-             FfiConverterBool.allocationSize(value.recording) +
-             FfiConverterBool.allocationSize(value.settings);
+            return FfiConverterBool.allocationSize(value.downloadActivities) +
+             FfiConverterBool.allocationSize(value.uploadRoute) +
+             FfiConverterBool.allocationSize(value.routeCorridorMap) +
+             FfiConverterBool.allocationSize(value.climbsOnDevice) +
+             FfiConverterBool.allocationSize(value.settings) +
+             FfiConverterBool.allocationSize(value.sensors) +
+             FfiConverterBool.allocationSize(value.wifiSync);
             
         }
     };
     return new FFIConverter();
 })();
 
-export type BrytonEvent = {
-    kind: string,
-    message: string,
-    bytes: ArrayBuffer,
-    done: number,
-    total: number,
-    cmd: number,
-    status: number,
-    rides: Array<BrytonRide>,
-    info?: BrytonInfo
+export type Channel = {
+    service: string,
+    characteristic: string,
+    withResponse: boolean,
+    split: boolean
 }
 
 /**
- * Generated factory for {@link BrytonEvent} record objects.
+ * Generated factory for {@link Channel} record objects.
  */
-export const BrytonEvent = (() => {
+export const Channel = (() => {
     const defaults = () => ({
     });
     const create = (() => {
-        return uniffiCreateRecord<BrytonEvent, ReturnType<typeof defaults>>(defaults);
+        return uniffiCreateRecord<Channel, ReturnType<typeof defaults>>(defaults);
     })();
     return Object.freeze({
         create,
         new: create,
-        defaults: () => Object.freeze(defaults()) as Partial<BrytonEvent>,
+        defaults: () => Object.freeze(defaults()) as Partial<Channel>,
     });
 })();
 
-const FfiConverterTypeBrytonEvent = (() => {
-    type TypeName = BrytonEvent;
+const FfiConverterTypeChannel = (() => {
+    type TypeName = Channel;
     class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
         readFromCursor(c: Cursor): TypeName {
             return {
-                kind: FfiConverterString.readFromCursor(c), 
-                message: FfiConverterString.readFromCursor(c), 
-                bytes: FfiConverterArrayBuffer.readFromCursor(c), 
-                done: FfiConverterUInt32.readFromCursor(c), 
-                total: FfiConverterUInt32.readFromCursor(c), 
-                cmd: FfiConverterUInt8.readFromCursor(c), 
-                status: FfiConverterUInt8.readFromCursor(c), 
-                rides: FfiConverterSequenceTypeBrytonRide.readFromCursor(c), 
-                info: FfiConverterOptionalTypeBrytonInfo.readFromCursor(c)
+                service: FfiConverterString.readFromCursor(c), 
+                characteristic: FfiConverterString.readFromCursor(c), 
+                withResponse: FfiConverterBool.readFromCursor(c), 
+                split: FfiConverterBool.readFromCursor(c)
             };
         }
         writeIntoCursor(value: TypeName, c: Cursor): void {
-            FfiConverterString.writeIntoCursor(value.kind, c);
-            FfiConverterString.writeIntoCursor(value.message, c);
-            FfiConverterArrayBuffer.writeIntoCursor(value.bytes, c);
-            FfiConverterUInt32.writeIntoCursor(value.done, c);
-            FfiConverterUInt32.writeIntoCursor(value.total, c);
-            FfiConverterUInt8.writeIntoCursor(value.cmd, c);
-            FfiConverterUInt8.writeIntoCursor(value.status, c);
-            FfiConverterSequenceTypeBrytonRide.writeIntoCursor(value.rides, c);
-            FfiConverterOptionalTypeBrytonInfo.writeIntoCursor(value.info, c);
+            FfiConverterString.writeIntoCursor(value.service, c);
+            FfiConverterString.writeIntoCursor(value.characteristic, c);
+            FfiConverterBool.writeIntoCursor(value.withResponse, c);
+            FfiConverterBool.writeIntoCursor(value.split, c);
         }
         allocationSize(value: TypeName): number {
-            return FfiConverterString.allocationSize(value.kind) +
-             FfiConverterString.allocationSize(value.message) +
-             FfiConverterArrayBuffer.allocationSize(value.bytes) +
-             FfiConverterUInt32.allocationSize(value.done) +
-             FfiConverterUInt32.allocationSize(value.total) +
-             FfiConverterUInt8.allocationSize(value.cmd) +
-             FfiConverterUInt8.allocationSize(value.status) +
-             FfiConverterSequenceTypeBrytonRide.allocationSize(value.rides) +
-             FfiConverterOptionalTypeBrytonInfo.allocationSize(value.info);
-            
-        }
-    };
-    return new FFIConverter();
-})();
-
-export type BrytonField = {
-    key: string,
-    /**
-     * `bool`, `choice`, `number` or `text`.
-     */
-    kind: string,
-    choices: Array<string>,
-    writable: boolean
-}
-
-/**
- * Generated factory for {@link BrytonField} record objects.
- */
-export const BrytonField = (() => {
-    const defaults = () => ({
-    });
-    const create = (() => {
-        return uniffiCreateRecord<BrytonField, ReturnType<typeof defaults>>(defaults);
-    })();
-    return Object.freeze({
-        create,
-        new: create,
-        defaults: () => Object.freeze(defaults()) as Partial<BrytonField>,
-    });
-})();
-
-const FfiConverterTypeBrytonField = (() => {
-    type TypeName = BrytonField;
-    class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-        readFromCursor(c: Cursor): TypeName {
-            return {
-                key: FfiConverterString.readFromCursor(c), 
-                kind: FfiConverterString.readFromCursor(c), 
-                choices: FfiConverterSequenceString.readFromCursor(c), 
-                writable: FfiConverterBool.readFromCursor(c)
-            };
-        }
-        writeIntoCursor(value: TypeName, c: Cursor): void {
-            FfiConverterString.writeIntoCursor(value.key, c);
-            FfiConverterString.writeIntoCursor(value.kind, c);
-            FfiConverterSequenceString.writeIntoCursor(value.choices, c);
-            FfiConverterBool.writeIntoCursor(value.writable, c);
-        }
-        allocationSize(value: TypeName): number {
-            return FfiConverterString.allocationSize(value.key) +
-             FfiConverterString.allocationSize(value.kind) +
-             FfiConverterSequenceString.allocationSize(value.choices) +
-             FfiConverterBool.allocationSize(value.writable);
-            
-        }
-    };
-    return new FFIConverter();
-})();
-
-export type BrytonWrite = {
-    /**
-     * 0 command, 1 data (write without response), 2 setting.
-     */
-    channel: number,
-    bytes: ArrayBuffer
-}
-
-/**
- * Generated factory for {@link BrytonWrite} record objects.
- */
-export const BrytonWrite = (() => {
-    const defaults = () => ({
-    });
-    const create = (() => {
-        return uniffiCreateRecord<BrytonWrite, ReturnType<typeof defaults>>(defaults);
-    })();
-    return Object.freeze({
-        create,
-        new: create,
-        defaults: () => Object.freeze(defaults()) as Partial<BrytonWrite>,
-    });
-})();
-
-const FfiConverterTypeBrytonWrite = (() => {
-    type TypeName = BrytonWrite;
-    class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-        readFromCursor(c: Cursor): TypeName {
-            return {
-                channel: FfiConverterUInt8.readFromCursor(c), 
-                bytes: FfiConverterArrayBuffer.readFromCursor(c)
-            };
-        }
-        writeIntoCursor(value: TypeName, c: Cursor): void {
-            FfiConverterUInt8.writeIntoCursor(value.channel, c);
-            FfiConverterArrayBuffer.writeIntoCursor(value.bytes, c);
-        }
-        allocationSize(value: TypeName): number {
-            return FfiConverterUInt8.allocationSize(value.channel) +
-             FfiConverterArrayBuffer.allocationSize(value.bytes);
-            
-        }
-    };
-    return new FFIConverter();
-})();
-
-export type BrytonStep = {
-    writes: Array<BrytonWrite>,
-    events: Array<BrytonEvent>
-}
-
-/**
- * Generated factory for {@link BrytonStep} record objects.
- */
-export const BrytonStep = (() => {
-    const defaults = () => ({
-    });
-    const create = (() => {
-        return uniffiCreateRecord<BrytonStep, ReturnType<typeof defaults>>(defaults);
-    })();
-    return Object.freeze({
-        create,
-        new: create,
-        defaults: () => Object.freeze(defaults()) as Partial<BrytonStep>,
-    });
-})();
-
-const FfiConverterTypeBrytonStep = (() => {
-    type TypeName = BrytonStep;
-    class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-        readFromCursor(c: Cursor): TypeName {
-            return {
-                writes: FfiConverterSequenceTypeBrytonWrite.readFromCursor(c), 
-                events: FfiConverterSequenceTypeBrytonEvent.readFromCursor(c)
-            };
-        }
-        writeIntoCursor(value: TypeName, c: Cursor): void {
-            FfiConverterSequenceTypeBrytonWrite.writeIntoCursor(value.writes, c);
-            FfiConverterSequenceTypeBrytonEvent.writeIntoCursor(value.events, c);
-        }
-        allocationSize(value: TypeName): number {
-            return FfiConverterSequenceTypeBrytonWrite.allocationSize(value.writes) +
-             FfiConverterSequenceTypeBrytonEvent.allocationSize(value.events);
-            
-        }
-    };
-    return new FFIConverter();
-})();
-
-export type BrytonValue = {
-    number?: number,
-    text: string
-}
-
-/**
- * Generated factory for {@link BrytonValue} record objects.
- */
-export const BrytonValue = (() => {
-    const defaults = () => ({
-    });
-    const create = (() => {
-        return uniffiCreateRecord<BrytonValue, ReturnType<typeof defaults>>(defaults);
-    })();
-    return Object.freeze({
-        create,
-        new: create,
-        defaults: () => Object.freeze(defaults()) as Partial<BrytonValue>,
-    });
-})();
-
-const FfiConverterTypeBrytonValue = (() => {
-    type TypeName = BrytonValue;
-    class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-        readFromCursor(c: Cursor): TypeName {
-            return {
-                number: FfiConverterOptionalFloat64.readFromCursor(c), 
-                text: FfiConverterString.readFromCursor(c)
-            };
-        }
-        writeIntoCursor(value: TypeName, c: Cursor): void {
-            FfiConverterOptionalFloat64.writeIntoCursor(value.number, c);
-            FfiConverterString.writeIntoCursor(value.text, c);
-        }
-        allocationSize(value: TypeName): number {
-            return FfiConverterOptionalFloat64.allocationSize(value.number) +
-             FfiConverterString.allocationSize(value.text);
-            
-        }
-    };
-    return new FFIConverter();
-})();
-
-export type Cc600Field = {
-    key: string,
-    /**
-     * `onOff`, `range`, `choice`, `tz` or `sensor`.
-     */
-    kind: string,
-    min?: number,
-    max?: number,
-    options: Array<string>
-}
-
-/**
- * Generated factory for {@link Cc600Field} record objects.
- */
-export const Cc600Field = (() => {
-    const defaults = () => ({
-    });
-    const create = (() => {
-        return uniffiCreateRecord<Cc600Field, ReturnType<typeof defaults>>(defaults);
-    })();
-    return Object.freeze({
-        create,
-        new: create,
-        defaults: () => Object.freeze(defaults()) as Partial<Cc600Field>,
-    });
-})();
-
-const FfiConverterTypeCc600Field = (() => {
-    type TypeName = Cc600Field;
-    class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-        readFromCursor(c: Cursor): TypeName {
-            return {
-                key: FfiConverterString.readFromCursor(c), 
-                kind: FfiConverterString.readFromCursor(c), 
-                min: FfiConverterOptionalUInt8.readFromCursor(c), 
-                max: FfiConverterOptionalUInt8.readFromCursor(c), 
-                options: FfiConverterSequenceString.readFromCursor(c)
-            };
-        }
-        writeIntoCursor(value: TypeName, c: Cursor): void {
-            FfiConverterString.writeIntoCursor(value.key, c);
-            FfiConverterString.writeIntoCursor(value.kind, c);
-            FfiConverterOptionalUInt8.writeIntoCursor(value.min, c);
-            FfiConverterOptionalUInt8.writeIntoCursor(value.max, c);
-            FfiConverterSequenceString.writeIntoCursor(value.options, c);
-        }
-        allocationSize(value: TypeName): number {
-            return FfiConverterString.allocationSize(value.key) +
-             FfiConverterString.allocationSize(value.kind) +
-             FfiConverterOptionalUInt8.allocationSize(value.min) +
-             FfiConverterOptionalUInt8.allocationSize(value.max) +
-             FfiConverterSequenceString.allocationSize(value.options);
+            return FfiConverterString.allocationSize(value.service) +
+             FfiConverterString.allocationSize(value.characteristic) +
+             FfiConverterBool.allocationSize(value.withResponse) +
+             FfiConverterBool.allocationSize(value.split);
             
         }
     };
@@ -897,51 +460,188 @@ const FfiConverterTypeClimb = (() => {
     return new FFIConverter();
 })();
 
-export type DecodedFrame = {
-    op: number,
-    seq: number,
-    payload: ArrayBuffer,
-    consumed: number
+export type SettingField = {
+    key: string,
+    /**
+     * `bool`, `number`, `choice` or `text`.
+     */
+    kind: string,
+    min?: number,
+    max?: number,
+    options: Array<string>,
+    labels: Array<string>,
+    writable: boolean
 }
 
 /**
- * Generated factory for {@link DecodedFrame} record objects.
+ * Generated factory for {@link SettingField} record objects.
  */
-export const DecodedFrame = (() => {
+export const SettingField = (() => {
     const defaults = () => ({
     });
     const create = (() => {
-        return uniffiCreateRecord<DecodedFrame, ReturnType<typeof defaults>>(defaults);
+        return uniffiCreateRecord<SettingField, ReturnType<typeof defaults>>(defaults);
     })();
     return Object.freeze({
         create,
         new: create,
-        defaults: () => Object.freeze(defaults()) as Partial<DecodedFrame>,
+        defaults: () => Object.freeze(defaults()) as Partial<SettingField>,
     });
 })();
 
-const FfiConverterTypeDecodedFrame = (() => {
-    type TypeName = DecodedFrame;
+const FfiConverterTypeSettingField = (() => {
+    type TypeName = SettingField;
     class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
         readFromCursor(c: Cursor): TypeName {
             return {
-                op: FfiConverterUInt8.readFromCursor(c), 
-                seq: FfiConverterUInt8.readFromCursor(c), 
-                payload: FfiConverterArrayBuffer.readFromCursor(c), 
-                consumed: FfiConverterUInt32.readFromCursor(c)
+                key: FfiConverterString.readFromCursor(c), 
+                kind: FfiConverterString.readFromCursor(c), 
+                min: FfiConverterOptionalFloat64.readFromCursor(c), 
+                max: FfiConverterOptionalFloat64.readFromCursor(c), 
+                options: FfiConverterSequenceString.readFromCursor(c), 
+                labels: FfiConverterSequenceString.readFromCursor(c), 
+                writable: FfiConverterBool.readFromCursor(c)
             };
         }
         writeIntoCursor(value: TypeName, c: Cursor): void {
-            FfiConverterUInt8.writeIntoCursor(value.op, c);
-            FfiConverterUInt8.writeIntoCursor(value.seq, c);
-            FfiConverterArrayBuffer.writeIntoCursor(value.payload, c);
-            FfiConverterUInt32.writeIntoCursor(value.consumed, c);
+            FfiConverterString.writeIntoCursor(value.key, c);
+            FfiConverterString.writeIntoCursor(value.kind, c);
+            FfiConverterOptionalFloat64.writeIntoCursor(value.min, c);
+            FfiConverterOptionalFloat64.writeIntoCursor(value.max, c);
+            FfiConverterSequenceString.writeIntoCursor(value.options, c);
+            FfiConverterSequenceString.writeIntoCursor(value.labels, c);
+            FfiConverterBool.writeIntoCursor(value.writable, c);
         }
         allocationSize(value: TypeName): number {
-            return FfiConverterUInt8.allocationSize(value.op) +
-             FfiConverterUInt8.allocationSize(value.seq) +
-             FfiConverterArrayBuffer.allocationSize(value.payload) +
-             FfiConverterUInt32.allocationSize(value.consumed);
+            return FfiConverterString.allocationSize(value.key) +
+             FfiConverterString.allocationSize(value.kind) +
+             FfiConverterOptionalFloat64.allocationSize(value.min) +
+             FfiConverterOptionalFloat64.allocationSize(value.max) +
+             FfiConverterSequenceString.allocationSize(value.options) +
+             FfiConverterSequenceString.allocationSize(value.labels) +
+             FfiConverterBool.allocationSize(value.writable);
+            
+        }
+    };
+    return new FFIConverter();
+})();
+
+export type Setting = {
+    key: string,
+    number?: number,
+    text: string
+}
+
+/**
+ * Generated factory for {@link Setting} record objects.
+ */
+export const Setting = (() => {
+    const defaults = () => ({
+    });
+    const create = (() => {
+        return uniffiCreateRecord<Setting, ReturnType<typeof defaults>>(defaults);
+    })();
+    return Object.freeze({
+        create,
+        new: create,
+        defaults: () => Object.freeze(defaults()) as Partial<Setting>,
+    });
+})();
+
+const FfiConverterTypeSetting = (() => {
+    type TypeName = Setting;
+    class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+        readFromCursor(c: Cursor): TypeName {
+            return {
+                key: FfiConverterString.readFromCursor(c), 
+                number: FfiConverterOptionalFloat64.readFromCursor(c), 
+                text: FfiConverterString.readFromCursor(c)
+            };
+        }
+        writeIntoCursor(value: TypeName, c: Cursor): void {
+            FfiConverterString.writeIntoCursor(value.key, c);
+            FfiConverterOptionalFloat64.writeIntoCursor(value.number, c);
+            FfiConverterString.writeIntoCursor(value.text, c);
+        }
+        allocationSize(value: TypeName): number {
+            return FfiConverterString.allocationSize(value.key) +
+             FfiConverterOptionalFloat64.allocationSize(value.number) +
+             FfiConverterString.allocationSize(value.text);
+            
+        }
+    };
+    return new FFIConverter();
+})();
+
+/**
+ * `musette_core::Outcome` in one record: `kind` (`done`, `info`,
+ * `activities`, `file`, `settings`, `failed`) says which fields count.
+ */
+export type Outcome = {
+    kind: string,
+    name: string,
+    recording: boolean,
+    activities: Array<Activity>,
+    bytes: ArrayBuffer,
+    fields: Array<SettingField>,
+    values: Array<Setting>,
+    code: string,
+    detail: string
+}
+
+/**
+ * Generated factory for {@link Outcome} record objects.
+ */
+export const Outcome = (() => {
+    const defaults = () => ({
+    });
+    const create = (() => {
+        return uniffiCreateRecord<Outcome, ReturnType<typeof defaults>>(defaults);
+    })();
+    return Object.freeze({
+        create,
+        new: create,
+        defaults: () => Object.freeze(defaults()) as Partial<Outcome>,
+    });
+})();
+
+const FfiConverterTypeOutcome = (() => {
+    type TypeName = Outcome;
+    class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+        readFromCursor(c: Cursor): TypeName {
+            return {
+                kind: FfiConverterString.readFromCursor(c), 
+                name: FfiConverterString.readFromCursor(c), 
+                recording: FfiConverterBool.readFromCursor(c), 
+                activities: FfiConverterSequenceTypeActivity.readFromCursor(c), 
+                bytes: FfiConverterArrayBuffer.readFromCursor(c), 
+                fields: FfiConverterSequenceTypeSettingField.readFromCursor(c), 
+                values: FfiConverterSequenceTypeSetting.readFromCursor(c), 
+                code: FfiConverterString.readFromCursor(c), 
+                detail: FfiConverterString.readFromCursor(c)
+            };
+        }
+        writeIntoCursor(value: TypeName, c: Cursor): void {
+            FfiConverterString.writeIntoCursor(value.kind, c);
+            FfiConverterString.writeIntoCursor(value.name, c);
+            FfiConverterBool.writeIntoCursor(value.recording, c);
+            FfiConverterSequenceTypeActivity.writeIntoCursor(value.activities, c);
+            FfiConverterArrayBuffer.writeIntoCursor(value.bytes, c);
+            FfiConverterSequenceTypeSettingField.writeIntoCursor(value.fields, c);
+            FfiConverterSequenceTypeSetting.writeIntoCursor(value.values, c);
+            FfiConverterString.writeIntoCursor(value.code, c);
+            FfiConverterString.writeIntoCursor(value.detail, c);
+        }
+        allocationSize(value: TypeName): number {
+            return FfiConverterString.allocationSize(value.kind) +
+             FfiConverterString.allocationSize(value.name) +
+             FfiConverterBool.allocationSize(value.recording) +
+             FfiConverterSequenceTypeActivity.allocationSize(value.activities) +
+             FfiConverterArrayBuffer.allocationSize(value.bytes) +
+             FfiConverterSequenceTypeSettingField.allocationSize(value.fields) +
+             FfiConverterSequenceTypeSetting.allocationSize(value.values) +
+             FfiConverterString.allocationSize(value.code) +
+             FfiConverterString.allocationSize(value.detail);
             
         }
     };
@@ -1062,43 +762,98 @@ const FfiConverterTypeRouteAnalysis = (() => {
     return new FFIConverter();
 })();
 
-export type Setting = {
-    key: string,
-    value: string
+export type Write = {
+    channel: number,
+    bytes: ArrayBuffer
 }
 
 /**
- * Generated factory for {@link Setting} record objects.
+ * Generated factory for {@link Write} record objects.
  */
-export const Setting = (() => {
+export const Write = (() => {
     const defaults = () => ({
     });
     const create = (() => {
-        return uniffiCreateRecord<Setting, ReturnType<typeof defaults>>(defaults);
+        return uniffiCreateRecord<Write, ReturnType<typeof defaults>>(defaults);
     })();
     return Object.freeze({
         create,
         new: create,
-        defaults: () => Object.freeze(defaults()) as Partial<Setting>,
+        defaults: () => Object.freeze(defaults()) as Partial<Write>,
     });
 })();
 
-const FfiConverterTypeSetting = (() => {
-    type TypeName = Setting;
+const FfiConverterTypeWrite = (() => {
+    type TypeName = Write;
     class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
         readFromCursor(c: Cursor): TypeName {
             return {
-                key: FfiConverterString.readFromCursor(c), 
-                value: FfiConverterString.readFromCursor(c)
+                channel: FfiConverterUInt8.readFromCursor(c), 
+                bytes: FfiConverterArrayBuffer.readFromCursor(c)
             };
         }
         writeIntoCursor(value: TypeName, c: Cursor): void {
-            FfiConverterString.writeIntoCursor(value.key, c);
-            FfiConverterString.writeIntoCursor(value.value, c);
+            FfiConverterUInt8.writeIntoCursor(value.channel, c);
+            FfiConverterArrayBuffer.writeIntoCursor(value.bytes, c);
         }
         allocationSize(value: TypeName): number {
-            return FfiConverterString.allocationSize(value.key) +
-             FfiConverterString.allocationSize(value.value);
+            return FfiConverterUInt8.allocationSize(value.channel) +
+             FfiConverterArrayBuffer.allocationSize(value.bytes);
+            
+        }
+    };
+    return new FFIConverter();
+})();
+
+export type Step = {
+    subscribe: ArrayBuffer,
+    writes: Array<Write>,
+    progress?: number,
+    waitMs?: number,
+    outcome?: Outcome
+}
+
+/**
+ * Generated factory for {@link Step} record objects.
+ */
+export const Step = (() => {
+    const defaults = () => ({
+    });
+    const create = (() => {
+        return uniffiCreateRecord<Step, ReturnType<typeof defaults>>(defaults);
+    })();
+    return Object.freeze({
+        create,
+        new: create,
+        defaults: () => Object.freeze(defaults()) as Partial<Step>,
+    });
+})();
+
+const FfiConverterTypeStep = (() => {
+    type TypeName = Step;
+    class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+        readFromCursor(c: Cursor): TypeName {
+            return {
+                subscribe: FfiConverterArrayBuffer.readFromCursor(c), 
+                writes: FfiConverterSequenceTypeWrite.readFromCursor(c), 
+                progress: FfiConverterOptionalFloat64.readFromCursor(c), 
+                waitMs: FfiConverterOptionalUInt32.readFromCursor(c), 
+                outcome: FfiConverterOptionalTypeOutcome.readFromCursor(c)
+            };
+        }
+        writeIntoCursor(value: TypeName, c: Cursor): void {
+            FfiConverterArrayBuffer.writeIntoCursor(value.subscribe, c);
+            FfiConverterSequenceTypeWrite.writeIntoCursor(value.writes, c);
+            FfiConverterOptionalFloat64.writeIntoCursor(value.progress, c);
+            FfiConverterOptionalUInt32.writeIntoCursor(value.waitMs, c);
+            FfiConverterOptionalTypeOutcome.writeIntoCursor(value.outcome, c);
+        }
+        allocationSize(value: TypeName): number {
+            return FfiConverterArrayBuffer.allocationSize(value.subscribe) +
+             FfiConverterSequenceTypeWrite.allocationSize(value.writes) +
+             FfiConverterOptionalFloat64.allocationSize(value.progress) +
+             FfiConverterOptionalUInt32.allocationSize(value.waitMs) +
+             FfiConverterOptionalTypeOutcome.allocationSize(value.outcome);
             
         }
     };
@@ -1207,133 +962,415 @@ const FfiConverterTypeFfiError = (() => {
 })();
 
 /**
- * One Bryton BLE connection: write what it returns, give it every
- * notification (`on_notify`).
+ * A CC600 in memory (demo without a device).
  */
-export interface BrytonSessionLike {
+export interface Cc600SimulatorLike {
     
-    acknowledge(id: string) /*throws*/: BrytonWrite;
-    download(id: string) /*throws*/: BrytonWrite;
-    listRides(): BrytonWrite;
-    newApp(): BrytonWrite;
+    acked(): Array<number>;
 /**
- * `channel`: 0 command, 1 data, 2 setting.
+ * `start_time` in Unix seconds.
  */
-    onNotify(channel: number, bytes: ArrayBuffer): BrytonStep;
-    readDeviceInfo(): BrytonWrite;
-    sendRoute(fit: ArrayBuffer, deviceId: string): BrytonWrite;
-    sendRouteName(name: string): BrytonWrite;
-    settingGet(key: string) /*throws*/: BrytonWrite;
-    settingSet(key: string, value: bigint) /*throws*/: BrytonWrite;
+    addActivity(id: number, startTime: bigint, fit: ArrayBuffer): void;
+    chunkBytes(): number;
+    committed(): ArrayBuffer | undefined;
+    disconnect(): void;
+    received(): number;
+    settings(): string;
+    settingsWrites(): Array<string>;
+/**
+ * The frames the device answers.
+ */
+    write(bytes: ArrayBuffer): Array<ArrayBuffer>;
 }
 /**
- * @deprecated Use `BrytonSessionLike` instead.
+ * @deprecated Use `Cc600SimulatorLike` instead.
  */
-export type BrytonSessionInterface = BrytonSessionLike;
+export type Cc600SimulatorInterface = Cc600SimulatorLike;
 
 
 /**
- * One Bryton BLE connection: write what it returns, give it every
- * notification (`on_notify`).
+ * A CC600 in memory (demo without a device).
  */
-export class BrytonSession extends UniffiAbstractObject implements BrytonSessionLike {
+export class Cc600Simulator extends UniffiAbstractObject implements Cc600SimulatorLike {
 
-    readonly [uniffiTypeNameSymbol] = "BrytonSession";
+    readonly [uniffiTypeNameSymbol] = "Cc600Simulator";
     readonly [destructorGuardSymbol]: UniffiGcObject;
     readonly [pointerLiteralSymbol]: UniffiHandle;
-    constructor() {
+    constructor(window: number, free: number, settings: string, loseChunks: Array<number>, loseAcks: Array<number>) {
         super();
         const pointer =
             uniffiCaller.rustCall(
             /*caller:*/ (callStatus) => {
-                return nativeModule().ubrn_uniffi_musette_ffi_fn_constructor_brytonsession_new(
+                return nativeModule().ubrn_uniffi_musette_ffi_fn_constructor_cc600simulator_new(
+        FfiConverterUInt16.lower(window, nativeModule().rustbuffer_alloc),
+        FfiConverterUInt32.lower(free, nativeModule().rustbuffer_alloc),
+        FfiConverterString.lower(settings, nativeModule().rustbuffer_alloc),
+        FfiConverterSequenceUInt32.lower(loseChunks, nativeModule().rustbuffer_alloc),
+        FfiConverterSequenceUInt32.lower(loseAcks, nativeModule().rustbuffer_alloc),
                 callStatus);
             },
             /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
     );
         this[pointerLiteralSymbol] = pointer;
-        this[destructorGuardSymbol] = uniffiTypeBrytonSessionObjectFactory.bless(pointer);
+        this[destructorGuardSymbol] = uniffiTypeCc600SimulatorObjectFactory.bless(pointer);
     }
 
     
 
     
-    acknowledge(id: string): BrytonWrite /*throws*/ {
-    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
-            /*liftError:*/ FfiConverterTypeFfiError.lift.bind(FfiConverterTypeFfiError),
-            /*caller:*/ (callStatus) => {
-                return nativeModule().ubrn_uniffi_musette_ffi_fn_method_brytonsession_acknowledge(
-                uniffiTypeBrytonSessionObjectFactory.clonePointer(this),
-        FfiConverterString.lower(id, nativeModule().rustbuffer_alloc),
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-        return FfiConverterTypeBrytonWrite.lift(__rb);
-    } finally {
-        nativeModule().rustbuffer_free(__rb);
-    }
-    }
-    
-    download(id: string): BrytonWrite /*throws*/ {
-    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
-            /*liftError:*/ FfiConverterTypeFfiError.lift.bind(FfiConverterTypeFfiError),
-            /*caller:*/ (callStatus) => {
-                return nativeModule().ubrn_uniffi_musette_ffi_fn_method_brytonsession_download(
-                uniffiTypeBrytonSessionObjectFactory.clonePointer(this),
-        FfiConverterString.lower(id, nativeModule().rustbuffer_alloc),
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-        return FfiConverterTypeBrytonWrite.lift(__rb);
-    } finally {
-        nativeModule().rustbuffer_free(__rb);
-    }
-    }
-    
-    listRides(): BrytonWrite {
+    acked(): Array<number> {
     const __rb: Uint8Array = uniffiCaller.rustCall(
             /*caller:*/ (callStatus) => {
-                return nativeModule().ubrn_uniffi_musette_ffi_fn_method_brytonsession_list_rides(
-                uniffiTypeBrytonSessionObjectFactory.clonePointer(this),
+                return nativeModule().ubrn_uniffi_musette_ffi_fn_method_cc600simulator_acked(
+                uniffiTypeCc600SimulatorObjectFactory.clonePointer(this),
                 callStatus);
             },
             /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
     );
     try {
-        return FfiConverterTypeBrytonWrite.lift(__rb);
-    } finally {
-        nativeModule().rustbuffer_free(__rb);
-    }
-    }
-    
-    newApp(): BrytonWrite {
-    const __rb: Uint8Array = uniffiCaller.rustCall(
-            /*caller:*/ (callStatus) => {
-                return nativeModule().ubrn_uniffi_musette_ffi_fn_method_brytonsession_new_app(
-                uniffiTypeBrytonSessionObjectFactory.clonePointer(this),
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-        return FfiConverterTypeBrytonWrite.lift(__rb);
+        return FfiConverterSequenceUInt32.lift(__rb);
     } finally {
         nativeModule().rustbuffer_free(__rb);
     }
     }
     
 /**
- * `channel`: 0 command, 1 data, 2 setting.
+ * `start_time` in Unix seconds.
  */
-    onNotify(channel: number, bytes: ArrayBuffer): BrytonStep {
+    addActivity(id: number, startTime: bigint, fit: ArrayBuffer): void {uniffiCaller.rustCall(
+            /*caller:*/ (callStatus) => { nativeModule().ubrn_uniffi_musette_ffi_fn_method_cc600simulator_add_activity(
+                uniffiTypeCc600SimulatorObjectFactory.clonePointer(this),
+        FfiConverterUInt32.lower(id, nativeModule().rustbuffer_alloc),
+        FfiConverterInt64.lower(startTime, nativeModule().rustbuffer_alloc),
+        FfiConverterArrayBuffer.lower(fit, nativeModule().rustbuffer_alloc),
+                callStatus);
+            },
+            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    }
+    
+    chunkBytes(): number {
+    return FfiConverterUInt32.lift(uniffiCaller.rustCall(
+            /*caller:*/ (callStatus) => {
+                return nativeModule().ubrn_uniffi_musette_ffi_fn_method_cc600simulator_chunk_bytes(
+                uniffiTypeCc600SimulatorObjectFactory.clonePointer(this),
+                callStatus);
+            },
+            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    ));
+    }
+    
+    committed(): ArrayBuffer | undefined {
     const __rb: Uint8Array = uniffiCaller.rustCall(
             /*caller:*/ (callStatus) => {
-                return nativeModule().ubrn_uniffi_musette_ffi_fn_method_brytonsession_on_notify(
-                uniffiTypeBrytonSessionObjectFactory.clonePointer(this),
+                return nativeModule().ubrn_uniffi_musette_ffi_fn_method_cc600simulator_committed(
+                uniffiTypeCc600SimulatorObjectFactory.clonePointer(this),
+                callStatus);
+            },
+            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+        return FfiConverterOptionalBytes.lift(__rb);
+    } finally {
+        nativeModule().rustbuffer_free(__rb);
+    }
+    }
+    
+    disconnect(): void {uniffiCaller.rustCall(
+            /*caller:*/ (callStatus) => { nativeModule().ubrn_uniffi_musette_ffi_fn_method_cc600simulator_disconnect(
+                uniffiTypeCc600SimulatorObjectFactory.clonePointer(this),
+                callStatus);
+            },
+            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    }
+    
+    received(): number {
+    return FfiConverterUInt32.lift(uniffiCaller.rustCall(
+            /*caller:*/ (callStatus) => {
+                return nativeModule().ubrn_uniffi_musette_ffi_fn_method_cc600simulator_received(
+                uniffiTypeCc600SimulatorObjectFactory.clonePointer(this),
+                callStatus);
+            },
+            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    ));
+    }
+    
+    settings(): string {
+    const __rb: Uint8Array = uniffiCaller.rustCall(
+            /*caller:*/ (callStatus) => {
+                return nativeModule().ubrn_uniffi_musette_ffi_fn_method_cc600simulator_settings(
+                uniffiTypeCc600SimulatorObjectFactory.clonePointer(this),
+                callStatus);
+            },
+            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+        return FfiConverterString.lift(__rb);
+    } finally {
+        nativeModule().rustbuffer_free(__rb);
+    }
+    }
+    
+    settingsWrites(): Array<string> {
+    const __rb: Uint8Array = uniffiCaller.rustCall(
+            /*caller:*/ (callStatus) => {
+                return nativeModule().ubrn_uniffi_musette_ffi_fn_method_cc600simulator_settings_writes(
+                uniffiTypeCc600SimulatorObjectFactory.clonePointer(this),
+                callStatus);
+            },
+            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+        return FfiConverterSequenceString.lift(__rb);
+    } finally {
+        nativeModule().rustbuffer_free(__rb);
+    }
+    }
+    
+/**
+ * The frames the device answers.
+ */
+    write(bytes: ArrayBuffer): Array<ArrayBuffer> {
+    const __rb: Uint8Array = uniffiCaller.rustCall(
+            /*caller:*/ (callStatus) => {
+                return nativeModule().ubrn_uniffi_musette_ffi_fn_method_cc600simulator_write(
+                uniffiTypeCc600SimulatorObjectFactory.clonePointer(this),
+        FfiConverterArrayBuffer.lower(bytes, nativeModule().rustbuffer_alloc),
+                callStatus);
+            },
+            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+        return FfiConverterSequenceBytes.lift(__rb);
+    } finally {
+        nativeModule().rustbuffer_free(__rb);
+    }
+    }
+    
+
+    uniffiDestroy(): void {
+        const ptr = (this as any)[destructorGuardSymbol];
+        if (ptr !== undefined) {
+            const pointer = uniffiTypeCc600SimulatorObjectFactory.pointer(this);
+            uniffiTypeCc600SimulatorObjectFactory.freePointer(pointer);
+            uniffiTypeCc600SimulatorObjectFactory.unbless(ptr);
+            delete (this as any)[destructorGuardSymbol];
+        }
+    }
+
+    static instanceOf(obj_: any): obj_ is Cc600Simulator {
+        return uniffiTypeCc600SimulatorObjectFactory.isConcreteType(obj_);
+    }
+
+    
+}
+
+const uniffiTypeCc600SimulatorObjectFactory: UniffiObjectFactory<Cc600SimulatorLike> = (() => {
+    
+    return {
+    create(pointer: UniffiHandle): Cc600SimulatorLike {
+        const instance = Object.create(Cc600Simulator.prototype);
+        instance[pointerLiteralSymbol] = pointer;
+        instance[destructorGuardSymbol] = this.bless(pointer);
+        instance[uniffiTypeNameSymbol] = "Cc600Simulator";
+        return instance;
+    },
+
+    
+    bless(p: UniffiHandle): UniffiGcObject {
+        return uniffiCaller.rustCall(
+            /*caller:*/ (status) =>
+                nativeModule().ubrn_uniffi_internal_fn_method_cc600simulator_ffi__bless_pointer(p, status),
+            /*liftString:*/ FfiConverterString.lift
+        );
+    },
+
+    unbless(ptr_: UniffiGcObject) {
+        ptr_.markDestroyed();
+    },
+
+    pointer(obj_: Cc600SimulatorLike): UniffiHandle {
+        if ((obj_ as any)[destructorGuardSymbol] === undefined) {
+            throw new UniffiInternalError.UnexpectedNullPointer();
+        }
+        return (obj_ as any)[pointerLiteralSymbol];
+    },
+
+    clonePointer(obj_: Cc600SimulatorLike): UniffiHandle {
+        const pointer = this.pointer(obj_);
+        return uniffiCaller.rustCall(
+            /*caller:*/ (callStatus) => nativeModule().ubrn_uniffi_musette_ffi_fn_clone_cc600simulator(pointer, callStatus),
+            /*liftString:*/ FfiConverterString.lift
+        );
+    },
+
+    freePointer(pointer: UniffiHandle): void {
+        uniffiCaller.rustCall(
+            /*caller:*/ (callStatus) => nativeModule().ubrn_uniffi_musette_ffi_fn_free_cc600simulator(pointer, callStatus),
+            /*liftString:*/ FfiConverterString.lift
+        );
+    },
+
+    isConcreteType(obj_: any): obj_ is Cc600SimulatorLike {
+        return obj_[destructorGuardSymbol] && obj_[uniffiTypeNameSymbol] === "Cc600Simulator";
+    },
+}})();
+const FfiConverterTypeCc600Simulator = new FfiConverterObject(uniffiTypeCc600SimulatorObjectFactory);
+
+/**
+ * One connection to a device (`musette_core::Session`).
+ */
+export interface SessionLike {
+    
+    acknowledge(id: string) /*throws*/: Step;
+    channels(): Array<Channel>;
+    connect() /*throws*/: Step;
+    download(id: string, size: bigint | undefined) /*throws*/: Step;
+    listActivities() /*throws*/: Step;
+    onNotify(channel: number, bytes: ArrayBuffer): Step;
+    onTimeout(): Step;
+    readSettings() /*throws*/: Step;
+/**
+ * `kind`: `route` or `map`.
+ */
+    sendFile(kind: string, bytes: ArrayBuffer) /*throws*/: Step;
+/**
+ * `eles` uses NaN for missing elevation.
+ */
+    sendRoute(name: string, lats: Array<number>, lons: Array<number>, eles: Array<number>) /*throws*/: Step;
+    writeSettings(changes: Array<Setting>) /*throws*/: Step;
+}
+/**
+ * @deprecated Use `SessionLike` instead.
+ */
+export type SessionInterface = SessionLike;
+
+
+/**
+ * One connection to a device (`musette_core::Session`).
+ */
+export class Session extends UniffiAbstractObject implements SessionLike {
+
+    readonly [uniffiTypeNameSymbol] = "Session";
+    readonly [destructorGuardSymbol]: UniffiGcObject;
+    readonly [pointerLiteralSymbol]: UniffiHandle;
+/**
+ * The model's own timing, unless given (tests).
+ */
+    constructor(model: string, requestMs: number | undefined, shortMs: number | undefined) /*throws*/ {
+        super();
+        const pointer =
+            uniffiCaller.rustCallWithError(
+            /*liftError:*/ FfiConverterTypeFfiError.lift.bind(FfiConverterTypeFfiError),
+            /*caller:*/ (callStatus) => {
+                return nativeModule().ubrn_uniffi_musette_ffi_fn_constructor_session_new(
+        FfiConverterString.lower(model, nativeModule().rustbuffer_alloc),
+        FfiConverterOptionalUInt32.lower(requestMs, nativeModule().rustbuffer_alloc),
+        FfiConverterOptionalUInt32.lower(shortMs, nativeModule().rustbuffer_alloc),
+                callStatus);
+            },
+            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+        this[pointerLiteralSymbol] = pointer;
+        this[destructorGuardSymbol] = uniffiTypeSessionObjectFactory.bless(pointer);
+    }
+
+    
+
+    
+    acknowledge(id: string): Step /*throws*/ {
+    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
+            /*liftError:*/ FfiConverterTypeFfiError.lift.bind(FfiConverterTypeFfiError),
+            /*caller:*/ (callStatus) => {
+                return nativeModule().ubrn_uniffi_musette_ffi_fn_method_session_acknowledge(
+                uniffiTypeSessionObjectFactory.clonePointer(this),
+        FfiConverterString.lower(id, nativeModule().rustbuffer_alloc),
+                callStatus);
+            },
+            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+        return FfiConverterTypeStep.lift(__rb);
+    } finally {
+        nativeModule().rustbuffer_free(__rb);
+    }
+    }
+    
+    channels(): Array<Channel> {
+    const __rb: Uint8Array = uniffiCaller.rustCall(
+            /*caller:*/ (callStatus) => {
+                return nativeModule().ubrn_uniffi_musette_ffi_fn_method_session_channels(
+                uniffiTypeSessionObjectFactory.clonePointer(this),
+                callStatus);
+            },
+            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+        return FfiConverterSequenceTypeChannel.lift(__rb);
+    } finally {
+        nativeModule().rustbuffer_free(__rb);
+    }
+    }
+    
+    connect(): Step /*throws*/ {
+    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
+            /*liftError:*/ FfiConverterTypeFfiError.lift.bind(FfiConverterTypeFfiError),
+            /*caller:*/ (callStatus) => {
+                return nativeModule().ubrn_uniffi_musette_ffi_fn_method_session_connect(
+                uniffiTypeSessionObjectFactory.clonePointer(this),
+                callStatus);
+            },
+            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+        return FfiConverterTypeStep.lift(__rb);
+    } finally {
+        nativeModule().rustbuffer_free(__rb);
+    }
+    }
+    
+    download(id: string, size: bigint | undefined): Step /*throws*/ {
+    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
+            /*liftError:*/ FfiConverterTypeFfiError.lift.bind(FfiConverterTypeFfiError),
+            /*caller:*/ (callStatus) => {
+                return nativeModule().ubrn_uniffi_musette_ffi_fn_method_session_download(
+                uniffiTypeSessionObjectFactory.clonePointer(this),
+        FfiConverterString.lower(id, nativeModule().rustbuffer_alloc),
+        FfiConverterOptionalUInt64.lower(size, nativeModule().rustbuffer_alloc),
+                callStatus);
+            },
+            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+        return FfiConverterTypeStep.lift(__rb);
+    } finally {
+        nativeModule().rustbuffer_free(__rb);
+    }
+    }
+    
+    listActivities(): Step /*throws*/ {
+    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
+            /*liftError:*/ FfiConverterTypeFfiError.lift.bind(FfiConverterTypeFfiError),
+            /*caller:*/ (callStatus) => {
+                return nativeModule().ubrn_uniffi_musette_ffi_fn_method_session_list_activities(
+                uniffiTypeSessionObjectFactory.clonePointer(this),
+                callStatus);
+            },
+            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+        return FfiConverterTypeStep.lift(__rb);
+    } finally {
+        nativeModule().rustbuffer_free(__rb);
+    }
+    }
+    
+    onNotify(channel: number, bytes: ArrayBuffer): Step {
+    const __rb: Uint8Array = uniffiCaller.rustCall(
+            /*caller:*/ (callStatus) => {
+                return nativeModule().ubrn_uniffi_musette_ffi_fn_method_session_on_notify(
+                uniffiTypeSessionObjectFactory.clonePointer(this),
         FfiConverterUInt8.lower(channel, nativeModule().rustbuffer_alloc),
         FfiConverterArrayBuffer.lower(bytes, nativeModule().rustbuffer_alloc),
                 callStatus);
@@ -1341,95 +1378,104 @@ export class BrytonSession extends UniffiAbstractObject implements BrytonSession
             /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
     );
     try {
-        return FfiConverterTypeBrytonStep.lift(__rb);
+        return FfiConverterTypeStep.lift(__rb);
     } finally {
         nativeModule().rustbuffer_free(__rb);
     }
     }
     
-    readDeviceInfo(): BrytonWrite {
+    onTimeout(): Step {
     const __rb: Uint8Array = uniffiCaller.rustCall(
             /*caller:*/ (callStatus) => {
-                return nativeModule().ubrn_uniffi_musette_ffi_fn_method_brytonsession_read_device_info(
-                uniffiTypeBrytonSessionObjectFactory.clonePointer(this),
+                return nativeModule().ubrn_uniffi_musette_ffi_fn_method_session_on_timeout(
+                uniffiTypeSessionObjectFactory.clonePointer(this),
                 callStatus);
             },
             /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
     );
     try {
-        return FfiConverterTypeBrytonWrite.lift(__rb);
+        return FfiConverterTypeStep.lift(__rb);
     } finally {
         nativeModule().rustbuffer_free(__rb);
     }
     }
     
-    sendRoute(fit: ArrayBuffer, deviceId: string): BrytonWrite {
-    const __rb: Uint8Array = uniffiCaller.rustCall(
+    readSettings(): Step /*throws*/ {
+    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
+            /*liftError:*/ FfiConverterTypeFfiError.lift.bind(FfiConverterTypeFfiError),
             /*caller:*/ (callStatus) => {
-                return nativeModule().ubrn_uniffi_musette_ffi_fn_method_brytonsession_send_route(
-                uniffiTypeBrytonSessionObjectFactory.clonePointer(this),
-        FfiConverterArrayBuffer.lower(fit, nativeModule().rustbuffer_alloc),
-        FfiConverterString.lower(deviceId, nativeModule().rustbuffer_alloc),
+                return nativeModule().ubrn_uniffi_musette_ffi_fn_method_session_read_settings(
+                uniffiTypeSessionObjectFactory.clonePointer(this),
                 callStatus);
             },
             /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
     );
     try {
-        return FfiConverterTypeBrytonWrite.lift(__rb);
+        return FfiConverterTypeStep.lift(__rb);
     } finally {
         nativeModule().rustbuffer_free(__rb);
     }
     }
     
-    sendRouteName(name: string): BrytonWrite {
-    const __rb: Uint8Array = uniffiCaller.rustCall(
+/**
+ * `kind`: `route` or `map`.
+ */
+    sendFile(kind: string, bytes: ArrayBuffer): Step /*throws*/ {
+    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
+            /*liftError:*/ FfiConverterTypeFfiError.lift.bind(FfiConverterTypeFfiError),
             /*caller:*/ (callStatus) => {
-                return nativeModule().ubrn_uniffi_musette_ffi_fn_method_brytonsession_send_route_name(
-                uniffiTypeBrytonSessionObjectFactory.clonePointer(this),
+                return nativeModule().ubrn_uniffi_musette_ffi_fn_method_session_send_file(
+                uniffiTypeSessionObjectFactory.clonePointer(this),
+        FfiConverterString.lower(kind, nativeModule().rustbuffer_alloc),
+        FfiConverterArrayBuffer.lower(bytes, nativeModule().rustbuffer_alloc),
+                callStatus);
+            },
+            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+        return FfiConverterTypeStep.lift(__rb);
+    } finally {
+        nativeModule().rustbuffer_free(__rb);
+    }
+    }
+    
+/**
+ * `eles` uses NaN for missing elevation.
+ */
+    sendRoute(name: string, lats: Array<number>, lons: Array<number>, eles: Array<number>): Step /*throws*/ {
+    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
+            /*liftError:*/ FfiConverterTypeFfiError.lift.bind(FfiConverterTypeFfiError),
+            /*caller:*/ (callStatus) => {
+                return nativeModule().ubrn_uniffi_musette_ffi_fn_method_session_send_route(
+                uniffiTypeSessionObjectFactory.clonePointer(this),
         FfiConverterString.lower(name, nativeModule().rustbuffer_alloc),
+        FfiConverterSequenceFloat64.lower(lats, nativeModule().rustbuffer_alloc),
+        FfiConverterSequenceFloat64.lower(lons, nativeModule().rustbuffer_alloc),
+        FfiConverterSequenceFloat64.lower(eles, nativeModule().rustbuffer_alloc),
                 callStatus);
             },
             /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
     );
     try {
-        return FfiConverterTypeBrytonWrite.lift(__rb);
+        return FfiConverterTypeStep.lift(__rb);
     } finally {
         nativeModule().rustbuffer_free(__rb);
     }
     }
     
-    settingGet(key: string): BrytonWrite /*throws*/ {
+    writeSettings(changes: Array<Setting>): Step /*throws*/ {
     const __rb: Uint8Array = uniffiCaller.rustCallWithError(
             /*liftError:*/ FfiConverterTypeFfiError.lift.bind(FfiConverterTypeFfiError),
             /*caller:*/ (callStatus) => {
-                return nativeModule().ubrn_uniffi_musette_ffi_fn_method_brytonsession_setting_get(
-                uniffiTypeBrytonSessionObjectFactory.clonePointer(this),
-        FfiConverterString.lower(key, nativeModule().rustbuffer_alloc),
+                return nativeModule().ubrn_uniffi_musette_ffi_fn_method_session_write_settings(
+                uniffiTypeSessionObjectFactory.clonePointer(this),
+        FfiConverterSequenceTypeSetting.lower(changes, nativeModule().rustbuffer_alloc),
                 callStatus);
             },
             /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
     );
     try {
-        return FfiConverterTypeBrytonWrite.lift(__rb);
-    } finally {
-        nativeModule().rustbuffer_free(__rb);
-    }
-    }
-    
-    settingSet(key: string, value: bigint): BrytonWrite /*throws*/ {
-    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
-            /*liftError:*/ FfiConverterTypeFfiError.lift.bind(FfiConverterTypeFfiError),
-            /*caller:*/ (callStatus) => {
-                return nativeModule().ubrn_uniffi_musette_ffi_fn_method_brytonsession_setting_set(
-                uniffiTypeBrytonSessionObjectFactory.clonePointer(this),
-        FfiConverterString.lower(key, nativeModule().rustbuffer_alloc),
-        FfiConverterInt64.lower(value, nativeModule().rustbuffer_alloc),
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-        return FfiConverterTypeBrytonWrite.lift(__rb);
+        return FfiConverterTypeStep.lift(__rb);
     } finally {
         nativeModule().rustbuffer_free(__rb);
     }
@@ -1439,28 +1485,28 @@ export class BrytonSession extends UniffiAbstractObject implements BrytonSession
     uniffiDestroy(): void {
         const ptr = (this as any)[destructorGuardSymbol];
         if (ptr !== undefined) {
-            const pointer = uniffiTypeBrytonSessionObjectFactory.pointer(this);
-            uniffiTypeBrytonSessionObjectFactory.freePointer(pointer);
-            uniffiTypeBrytonSessionObjectFactory.unbless(ptr);
+            const pointer = uniffiTypeSessionObjectFactory.pointer(this);
+            uniffiTypeSessionObjectFactory.freePointer(pointer);
+            uniffiTypeSessionObjectFactory.unbless(ptr);
             delete (this as any)[destructorGuardSymbol];
         }
     }
 
-    static instanceOf(obj_: any): obj_ is BrytonSession {
-        return uniffiTypeBrytonSessionObjectFactory.isConcreteType(obj_);
+    static instanceOf(obj_: any): obj_ is Session {
+        return uniffiTypeSessionObjectFactory.isConcreteType(obj_);
     }
 
     
 }
 
-const uniffiTypeBrytonSessionObjectFactory: UniffiObjectFactory<BrytonSessionLike> = (() => {
+const uniffiTypeSessionObjectFactory: UniffiObjectFactory<SessionLike> = (() => {
     
     return {
-    create(pointer: UniffiHandle): BrytonSessionLike {
-        const instance = Object.create(BrytonSession.prototype);
+    create(pointer: UniffiHandle): SessionLike {
+        const instance = Object.create(Session.prototype);
         instance[pointerLiteralSymbol] = pointer;
         instance[destructorGuardSymbol] = this.bless(pointer);
-        instance[uniffiTypeNameSymbol] = "BrytonSession";
+        instance[uniffiTypeNameSymbol] = "Session";
         return instance;
     },
 
@@ -1468,7 +1514,7 @@ const uniffiTypeBrytonSessionObjectFactory: UniffiObjectFactory<BrytonSessionLik
     bless(p: UniffiHandle): UniffiGcObject {
         return uniffiCaller.rustCall(
             /*caller:*/ (status) =>
-                nativeModule().ubrn_uniffi_internal_fn_method_brytonsession_ffi__bless_pointer(p, status),
+                nativeModule().ubrn_uniffi_internal_fn_method_session_ffi__bless_pointer(p, status),
             /*liftString:*/ FfiConverterString.lift
         );
     },
@@ -1477,477 +1523,57 @@ const uniffiTypeBrytonSessionObjectFactory: UniffiObjectFactory<BrytonSessionLik
         ptr_.markDestroyed();
     },
 
-    pointer(obj_: BrytonSessionLike): UniffiHandle {
+    pointer(obj_: SessionLike): UniffiHandle {
         if ((obj_ as any)[destructorGuardSymbol] === undefined) {
             throw new UniffiInternalError.UnexpectedNullPointer();
         }
         return (obj_ as any)[pointerLiteralSymbol];
     },
 
-    clonePointer(obj_: BrytonSessionLike): UniffiHandle {
+    clonePointer(obj_: SessionLike): UniffiHandle {
         const pointer = this.pointer(obj_);
         return uniffiCaller.rustCall(
-            /*caller:*/ (callStatus) => nativeModule().ubrn_uniffi_musette_ffi_fn_clone_brytonsession(pointer, callStatus),
+            /*caller:*/ (callStatus) => nativeModule().ubrn_uniffi_musette_ffi_fn_clone_session(pointer, callStatus),
             /*liftString:*/ FfiConverterString.lift
         );
     },
 
     freePointer(pointer: UniffiHandle): void {
         uniffiCaller.rustCall(
-            /*caller:*/ (callStatus) => nativeModule().ubrn_uniffi_musette_ffi_fn_free_brytonsession(pointer, callStatus),
+            /*caller:*/ (callStatus) => nativeModule().ubrn_uniffi_musette_ffi_fn_free_session(pointer, callStatus),
             /*liftString:*/ FfiConverterString.lift
         );
     },
 
-    isConcreteType(obj_: any): obj_ is BrytonSessionLike {
-        return obj_[destructorGuardSymbol] && obj_[uniffiTypeNameSymbol] === "BrytonSession";
+    isConcreteType(obj_: any): obj_ is SessionLike {
+        return obj_[destructorGuardSymbol] && obj_[uniffiTypeNameSymbol] === "Session";
     },
 }})();
-const FfiConverterTypeBrytonSession = new FfiConverterObject(uniffiTypeBrytonSessionObjectFactory);
+const FfiConverterTypeSession = new FfiConverterObject(uniffiTypeSessionObjectFactory);
 
-/**
- * Device side of a file transfer (simulated CC600).
- */
-export interface Cc600ReceiverLike {
-    
-/**
- * The last file committed by `TransferEnd`.
- */
-    committed(): ArrayBuffer | undefined;
-/**
- * The link dropped: the partial file stays, as on the device.
- */
-    disconnect(): void;
-/**
- * Handles a transfer request; returns the answer as `[op, ...payload]`,
- * or none when there is none.
- */
-    handle(op: number, payload: ArrayBuffer) /*throws*/: ArrayBuffer | undefined;
-/**
- * Bytes of the partial file held so far.
- */
-    received(): number;
-}
-/**
- * @deprecated Use `Cc600ReceiverLike` instead.
- */
-export type Cc600ReceiverInterface = Cc600ReceiverLike;
-
-
-/**
- * Device side of a file transfer (simulated CC600).
- */
-export class Cc600Receiver extends UniffiAbstractObject implements Cc600ReceiverLike {
-
-    readonly [uniffiTypeNameSymbol] = "Cc600Receiver";
-    readonly [destructorGuardSymbol]: UniffiGcObject;
-    readonly [pointerLiteralSymbol]: UniffiHandle;
-    constructor(window: number, free: number) {
-        super();
-        const pointer =
-            uniffiCaller.rustCall(
-            /*caller:*/ (callStatus) => {
-                return nativeModule().ubrn_uniffi_musette_ffi_fn_constructor_cc600receiver_new(
-        FfiConverterUInt16.lower(window, nativeModule().rustbuffer_alloc),
-        FfiConverterUInt32.lower(free, nativeModule().rustbuffer_alloc),
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-        this[pointerLiteralSymbol] = pointer;
-        this[destructorGuardSymbol] = uniffiTypeCc600ReceiverObjectFactory.bless(pointer);
-    }
-
-    
-
-    
-/**
- * The last file committed by `TransferEnd`.
- */
-    committed(): ArrayBuffer | undefined {
-    const __rb: Uint8Array = uniffiCaller.rustCall(
-            /*caller:*/ (callStatus) => {
-                return nativeModule().ubrn_uniffi_musette_ffi_fn_method_cc600receiver_committed(
-                uniffiTypeCc600ReceiverObjectFactory.clonePointer(this),
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-        return FfiConverterOptionalBytes.lift(__rb);
-    } finally {
-        nativeModule().rustbuffer_free(__rb);
-    }
-    }
-    
-/**
- * The link dropped: the partial file stays, as on the device.
- */
-    disconnect(): void {uniffiCaller.rustCall(
-            /*caller:*/ (callStatus) => { nativeModule().ubrn_uniffi_musette_ffi_fn_method_cc600receiver_disconnect(
-                uniffiTypeCc600ReceiverObjectFactory.clonePointer(this),
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    }
-    
-/**
- * Handles a transfer request; returns the answer as `[op, ...payload]`,
- * or none when there is none.
- */
-    handle(op: number, payload: ArrayBuffer): ArrayBuffer | undefined /*throws*/ {
-    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
-            /*liftError:*/ FfiConverterTypeFfiError.lift.bind(FfiConverterTypeFfiError),
-            /*caller:*/ (callStatus) => {
-                return nativeModule().ubrn_uniffi_musette_ffi_fn_method_cc600receiver_handle(
-                uniffiTypeCc600ReceiverObjectFactory.clonePointer(this),
-        FfiConverterUInt8.lower(op, nativeModule().rustbuffer_alloc),
-        FfiConverterArrayBuffer.lower(payload, nativeModule().rustbuffer_alloc),
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-        return FfiConverterOptionalBytes.lift(__rb);
-    } finally {
-        nativeModule().rustbuffer_free(__rb);
-    }
-    }
-    
-/**
- * Bytes of the partial file held so far.
- */
-    received(): number {
-    return FfiConverterUInt32.lift(uniffiCaller.rustCall(
-            /*caller:*/ (callStatus) => {
-                return nativeModule().ubrn_uniffi_musette_ffi_fn_method_cc600receiver_received(
-                uniffiTypeCc600ReceiverObjectFactory.clonePointer(this),
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    ));
-    }
-    
-
-    uniffiDestroy(): void {
-        const ptr = (this as any)[destructorGuardSymbol];
-        if (ptr !== undefined) {
-            const pointer = uniffiTypeCc600ReceiverObjectFactory.pointer(this);
-            uniffiTypeCc600ReceiverObjectFactory.freePointer(pointer);
-            uniffiTypeCc600ReceiverObjectFactory.unbless(ptr);
-            delete (this as any)[destructorGuardSymbol];
-        }
-    }
-
-    static instanceOf(obj_: any): obj_ is Cc600Receiver {
-        return uniffiTypeCc600ReceiverObjectFactory.isConcreteType(obj_);
-    }
-
-    
-}
-
-const uniffiTypeCc600ReceiverObjectFactory: UniffiObjectFactory<Cc600ReceiverLike> = (() => {
-    
-    return {
-    create(pointer: UniffiHandle): Cc600ReceiverLike {
-        const instance = Object.create(Cc600Receiver.prototype);
-        instance[pointerLiteralSymbol] = pointer;
-        instance[destructorGuardSymbol] = this.bless(pointer);
-        instance[uniffiTypeNameSymbol] = "Cc600Receiver";
-        return instance;
-    },
-
-    
-    bless(p: UniffiHandle): UniffiGcObject {
-        return uniffiCaller.rustCall(
-            /*caller:*/ (status) =>
-                nativeModule().ubrn_uniffi_internal_fn_method_cc600receiver_ffi__bless_pointer(p, status),
-            /*liftString:*/ FfiConverterString.lift
-        );
-    },
-
-    unbless(ptr_: UniffiGcObject) {
-        ptr_.markDestroyed();
-    },
-
-    pointer(obj_: Cc600ReceiverLike): UniffiHandle {
-        if ((obj_ as any)[destructorGuardSymbol] === undefined) {
-            throw new UniffiInternalError.UnexpectedNullPointer();
-        }
-        return (obj_ as any)[pointerLiteralSymbol];
-    },
-
-    clonePointer(obj_: Cc600ReceiverLike): UniffiHandle {
-        const pointer = this.pointer(obj_);
-        return uniffiCaller.rustCall(
-            /*caller:*/ (callStatus) => nativeModule().ubrn_uniffi_musette_ffi_fn_clone_cc600receiver(pointer, callStatus),
-            /*liftString:*/ FfiConverterString.lift
-        );
-    },
-
-    freePointer(pointer: UniffiHandle): void {
-        uniffiCaller.rustCall(
-            /*caller:*/ (callStatus) => nativeModule().ubrn_uniffi_musette_ffi_fn_free_cc600receiver(pointer, callStatus),
-            /*liftString:*/ FfiConverterString.lift
-        );
-    },
-
-    isConcreteType(obj_: any): obj_ is Cc600ReceiverLike {
-        return obj_[destructorGuardSymbol] && obj_[uniffiTypeNameSymbol] === "Cc600Receiver";
-    },
-}})();
-const FfiConverterTypeCc600Receiver = new FfiConverterObject(uniffiTypeCc600ReceiverObjectFactory);
-
-/**
- * App side of a file transfer: what to send next, given the device's answers.
- */
-export interface Cc600SenderLike {
-    
-/**
- * Applies a `TransferAck` payload.
- */
-    ack(payload: ArrayBuffer) /*throws*/: void;
-/**
- * Everything was sent and acknowledged.
- */
-    done(): boolean;
-/**
- * `[offset, length]` of the next chunk (at most `max` bytes), or none
- * when the window is full or everything was sent.
- */
-    nextChunk(max: number): Array<number> | undefined;
-/**
- * Share of the file the device holds, 0..=1000.
- */
-    permille(): number;
-/**
- * Applies a `TransferReady` payload; returns the offset to start from.
- */
-    ready(payload: ArrayBuffer) /*throws*/: number;
-/**
- * Applies a `TransferResend` payload.
- */
-    resend(payload: ArrayBuffer) /*throws*/: void;
-}
-/**
- * @deprecated Use `Cc600SenderLike` instead.
- */
-export type Cc600SenderInterface = Cc600SenderLike;
-
-
-/**
- * App side of a file transfer: what to send next, given the device's answers.
- */
-export class Cc600Sender extends UniffiAbstractObject implements Cc600SenderLike {
-
-    readonly [uniffiTypeNameSymbol] = "Cc600Sender";
-    readonly [destructorGuardSymbol]: UniffiGcObject;
-    readonly [pointerLiteralSymbol]: UniffiHandle;
-    constructor(size: number) {
-        super();
-        const pointer =
-            uniffiCaller.rustCall(
-            /*caller:*/ (callStatus) => {
-                return nativeModule().ubrn_uniffi_musette_ffi_fn_constructor_cc600sender_new(
-        FfiConverterUInt32.lower(size, nativeModule().rustbuffer_alloc),
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-        this[pointerLiteralSymbol] = pointer;
-        this[destructorGuardSymbol] = uniffiTypeCc600SenderObjectFactory.bless(pointer);
-    }
-
-    
-
-    
-/**
- * Applies a `TransferAck` payload.
- */
-    ack(payload: ArrayBuffer): void /*throws*/ {uniffiCaller.rustCallWithError(
-            /*liftError:*/ FfiConverterTypeFfiError.lift.bind(FfiConverterTypeFfiError),
-            /*caller:*/ (callStatus) => { nativeModule().ubrn_uniffi_musette_ffi_fn_method_cc600sender_ack(
-                uniffiTypeCc600SenderObjectFactory.clonePointer(this),
-        FfiConverterArrayBuffer.lower(payload, nativeModule().rustbuffer_alloc),
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    }
-    
-/**
- * Everything was sent and acknowledged.
- */
-    done(): boolean {
-    return FfiConverterBool.lift(uniffiCaller.rustCall(
-            /*caller:*/ (callStatus) => {
-                return nativeModule().ubrn_uniffi_musette_ffi_fn_method_cc600sender_done(
-                uniffiTypeCc600SenderObjectFactory.clonePointer(this),
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    ));
-    }
-    
-/**
- * `[offset, length]` of the next chunk (at most `max` bytes), or none
- * when the window is full or everything was sent.
- */
-    nextChunk(max: number): Array<number> | undefined {
-    const __rb: Uint8Array = uniffiCaller.rustCall(
-            /*caller:*/ (callStatus) => {
-                return nativeModule().ubrn_uniffi_musette_ffi_fn_method_cc600sender_next_chunk(
-                uniffiTypeCc600SenderObjectFactory.clonePointer(this),
-        FfiConverterUInt32.lower(max, nativeModule().rustbuffer_alloc),
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-        return FfiConverterOptionalSequenceUInt32.lift(__rb);
-    } finally {
-        nativeModule().rustbuffer_free(__rb);
-    }
-    }
-    
-/**
- * Share of the file the device holds, 0..=1000.
- */
-    permille(): number {
-    return FfiConverterUInt32.lift(uniffiCaller.rustCall(
-            /*caller:*/ (callStatus) => {
-                return nativeModule().ubrn_uniffi_musette_ffi_fn_method_cc600sender_permille(
-                uniffiTypeCc600SenderObjectFactory.clonePointer(this),
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    ));
-    }
-    
-/**
- * Applies a `TransferReady` payload; returns the offset to start from.
- */
-    ready(payload: ArrayBuffer): number /*throws*/ {
-    return FfiConverterUInt32.lift(uniffiCaller.rustCallWithError(
-            /*liftError:*/ FfiConverterTypeFfiError.lift.bind(FfiConverterTypeFfiError),
-            /*caller:*/ (callStatus) => {
-                return nativeModule().ubrn_uniffi_musette_ffi_fn_method_cc600sender_ready(
-                uniffiTypeCc600SenderObjectFactory.clonePointer(this),
-        FfiConverterArrayBuffer.lower(payload, nativeModule().rustbuffer_alloc),
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    ));
-    }
-    
-/**
- * Applies a `TransferResend` payload.
- */
-    resend(payload: ArrayBuffer): void /*throws*/ {uniffiCaller.rustCallWithError(
-            /*liftError:*/ FfiConverterTypeFfiError.lift.bind(FfiConverterTypeFfiError),
-            /*caller:*/ (callStatus) => { nativeModule().ubrn_uniffi_musette_ffi_fn_method_cc600sender_resend(
-                uniffiTypeCc600SenderObjectFactory.clonePointer(this),
-        FfiConverterArrayBuffer.lower(payload, nativeModule().rustbuffer_alloc),
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    }
-    
-
-    uniffiDestroy(): void {
-        const ptr = (this as any)[destructorGuardSymbol];
-        if (ptr !== undefined) {
-            const pointer = uniffiTypeCc600SenderObjectFactory.pointer(this);
-            uniffiTypeCc600SenderObjectFactory.freePointer(pointer);
-            uniffiTypeCc600SenderObjectFactory.unbless(ptr);
-            delete (this as any)[destructorGuardSymbol];
-        }
-    }
-
-    static instanceOf(obj_: any): obj_ is Cc600Sender {
-        return uniffiTypeCc600SenderObjectFactory.isConcreteType(obj_);
-    }
-
-    
-}
-
-const uniffiTypeCc600SenderObjectFactory: UniffiObjectFactory<Cc600SenderLike> = (() => {
-    
-    return {
-    create(pointer: UniffiHandle): Cc600SenderLike {
-        const instance = Object.create(Cc600Sender.prototype);
-        instance[pointerLiteralSymbol] = pointer;
-        instance[destructorGuardSymbol] = this.bless(pointer);
-        instance[uniffiTypeNameSymbol] = "Cc600Sender";
-        return instance;
-    },
-
-    
-    bless(p: UniffiHandle): UniffiGcObject {
-        return uniffiCaller.rustCall(
-            /*caller:*/ (status) =>
-                nativeModule().ubrn_uniffi_internal_fn_method_cc600sender_ffi__bless_pointer(p, status),
-            /*liftString:*/ FfiConverterString.lift
-        );
-    },
-
-    unbless(ptr_: UniffiGcObject) {
-        ptr_.markDestroyed();
-    },
-
-    pointer(obj_: Cc600SenderLike): UniffiHandle {
-        if ((obj_ as any)[destructorGuardSymbol] === undefined) {
-            throw new UniffiInternalError.UnexpectedNullPointer();
-        }
-        return (obj_ as any)[pointerLiteralSymbol];
-    },
-
-    clonePointer(obj_: Cc600SenderLike): UniffiHandle {
-        const pointer = this.pointer(obj_);
-        return uniffiCaller.rustCall(
-            /*caller:*/ (callStatus) => nativeModule().ubrn_uniffi_musette_ffi_fn_clone_cc600sender(pointer, callStatus),
-            /*liftString:*/ FfiConverterString.lift
-        );
-    },
-
-    freePointer(pointer: UniffiHandle): void {
-        uniffiCaller.rustCall(
-            /*caller:*/ (callStatus) => nativeModule().ubrn_uniffi_musette_ffi_fn_free_cc600sender(pointer, callStatus),
-            /*liftString:*/ FfiConverterString.lift
-        );
-    },
-
-    isConcreteType(obj_: any): obj_ is Cc600SenderLike {
-        return obj_[destructorGuardSymbol] && obj_[uniffiTypeNameSymbol] === "Cc600Sender";
-    },
-}})();
-const FfiConverterTypeCc600Sender = new FfiConverterObject(uniffiTypeCc600SenderObjectFactory);
+// FfiConverter for bigint | undefined
+const FfiConverterOptionalInt64 = new FfiConverterOptional(FfiConverterInt64);
 
 // FfiConverter for bigint | undefined
 const FfiConverterOptionalUInt64 = new FfiConverterOptional(FfiConverterUInt64);
 
-// FfiConverter for Array<BrytonRide>
-const FfiConverterSequenceTypeBrytonRide = new FfiConverterArray(FfiConverterTypeBrytonRide);
+// FfiConverter for boolean | undefined
+const FfiConverterOptionalBoolean = new FfiConverterOptional(FfiConverterBool);
 
-// FfiConverter for BrytonInfo | undefined
-const FfiConverterOptionalTypeBrytonInfo = new FfiConverterOptional(FfiConverterTypeBrytonInfo);
-
-// FfiConverter for Array<string>
-const FfiConverterSequenceString = new FfiConverterArray(FfiConverterString);
-
-// FfiConverter for Array<BrytonWrite>
-const FfiConverterSequenceTypeBrytonWrite = new FfiConverterArray(FfiConverterTypeBrytonWrite);
-
-// FfiConverter for Array<BrytonEvent>
-const FfiConverterSequenceTypeBrytonEvent = new FfiConverterArray(FfiConverterTypeBrytonEvent);
+// FfiConverter for Array<Activity>
+const FfiConverterSequenceTypeActivity = new FfiConverterArray(FfiConverterTypeActivity);
 
 // FfiConverter for number | undefined
 const FfiConverterOptionalFloat64 = new FfiConverterOptional(FfiConverterFloat64);
 
-// FfiConverter for number | undefined
-const FfiConverterOptionalUInt8 = new FfiConverterOptional(FfiConverterUInt8);
+// FfiConverter for Array<string>
+const FfiConverterSequenceString = new FfiConverterArray(FfiConverterString);
+
+// FfiConverter for Array<SettingField>
+const FfiConverterSequenceTypeSettingField = new FfiConverterArray(FfiConverterTypeSettingField);
+
+// FfiConverter for Array<Setting>
+const FfiConverterSequenceTypeSetting = new FfiConverterArray(FfiConverterTypeSetting);
 
 // FfiConverter for Array<number>
 const FfiConverterSequenceFloat64 = new FfiConverterArray(FfiConverterFloat64);
@@ -1958,29 +1584,26 @@ const FfiConverterSequenceTypeClimb = new FfiConverterArray(FfiConverterTypeClim
 // FfiConverter for Array<number>
 const FfiConverterSequenceUInt32 = new FfiConverterArray(FfiConverterUInt32);
 
+// FfiConverter for Array<Write>
+const FfiConverterSequenceTypeWrite = new FfiConverterArray(FfiConverterTypeWrite);
+
+// FfiConverter for number | undefined
+const FfiConverterOptionalUInt32 = new FfiConverterOptional(FfiConverterUInt32);
+
+// FfiConverter for Outcome | undefined
+const FfiConverterOptionalTypeOutcome = new FfiConverterOptional(FfiConverterTypeOutcome);
+
 // FfiConverter for ArrayBuffer | undefined
 const FfiConverterOptionalBytes = new FfiConverterOptional(FfiConverterArrayBuffer);
 
-// FfiConverter for Array<number> | undefined
-const FfiConverterOptionalSequenceUInt32 = new FfiConverterOptional(FfiConverterSequenceUInt32);
+// FfiConverter for Array<ArrayBuffer>
+const FfiConverterSequenceBytes = new FfiConverterArray(FfiConverterArrayBuffer);
+
+// FfiConverter for Array<Channel>
+const FfiConverterSequenceTypeChannel = new FfiConverterArray(FfiConverterTypeChannel);
 
 // FfiConverter for Array<ActivityRef>
 const FfiConverterSequenceTypeActivityRef = new FfiConverterArray(FfiConverterTypeActivityRef);
-
-// FfiConverter for Array<BrytonField>
-const FfiConverterSequenceTypeBrytonField = new FfiConverterArray(FfiConverterTypeBrytonField);
-
-// FfiConverter for BrytonValue | undefined
-const FfiConverterOptionalTypeBrytonValue = new FfiConverterOptional(FfiConverterTypeBrytonValue);
-
-// FfiConverter for DecodedFrame | undefined
-const FfiConverterOptionalTypeDecodedFrame = new FfiConverterOptional(FfiConverterTypeDecodedFrame);
-
-// FfiConverter for Array<Cc600Field>
-const FfiConverterSequenceTypeCc600Field = new FfiConverterArray(FfiConverterTypeCc600Field);
-
-// FfiConverter for Array<Setting>
-const FfiConverterSequenceTypeSetting = new FfiConverterArray(FfiConverterTypeSetting);
 
 
 /**
@@ -2004,116 +1627,86 @@ function uniffiEnsureInitialized() {
     if (nativeModule().ubrn_uniffi_musette_ffi_checksum_func_analyze_route() !== 60828) {
         throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_func_analyze_route");
     }
-    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_func_bryton_build_route() !== 33528) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_func_bryton_build_route");
-    }
     if (nativeModule().ubrn_uniffi_musette_ffi_checksum_func_bryton_find_activities() !== 23236) {
         throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_func_bryton_find_activities");
     }
-    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_func_bryton_setting_fields() !== 40429) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_func_bryton_setting_fields");
-    }
-    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_func_bryton_setting_value() !== 1975) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_func_bryton_setting_value");
-    }
-    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_func_cc600_build_route() !== 50199) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_func_cc600_build_route");
-    }
-    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_func_cc600_decode() !== 27159) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_func_cc600_decode");
-    }
-    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_func_cc600_encode() !== 1890) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_func_cc600_encode");
-    }
-    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_func_cc600_settings_apply() !== 41854) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_func_cc600_settings_apply");
-    }
-    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_func_cc600_settings_fields() !== 5994) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_func_cc600_settings_fields");
-    }
-    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_func_cc600_settings_parse() !== 51063) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_func_cc600_settings_parse");
-    }
-    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_func_cc600_transfer_begin() !== 47133) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_func_cc600_transfer_begin");
-    }
-    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_func_cc600_transfer_chunk() !== 15) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_func_cc600_transfer_chunk");
+    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_func_capabilities() !== 14003) {
+        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_func_capabilities");
     }
     if (nativeModule().ubrn_uniffi_musette_ffi_checksum_func_parse_gpx() !== 56866) {
         throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_func_parse_gpx");
     }
+    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_func_setting_fields() !== 58397) {
+        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_func_setting_fields");
+    }
     if (nativeModule().ubrn_uniffi_musette_ffi_checksum_func_verify_fit() !== 1446) {
         throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_func_verify_fit");
     }
-    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_constructor_brytonsession_new() !== 20287) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_constructor_brytonsession_new");
+    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_constructor_cc600simulator_new() !== 52965) {
+        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_constructor_cc600simulator_new");
     }
-    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_brytonsession_acknowledge() !== 21171) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_brytonsession_acknowledge");
+    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_cc600simulator_acked() !== 21378) {
+        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_cc600simulator_acked");
     }
-    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_brytonsession_download() !== 41584) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_brytonsession_download");
+    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_cc600simulator_add_activity() !== 8589) {
+        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_cc600simulator_add_activity");
     }
-    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_brytonsession_list_rides() !== 18576) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_brytonsession_list_rides");
+    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_cc600simulator_chunk_bytes() !== 7579) {
+        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_cc600simulator_chunk_bytes");
     }
-    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_brytonsession_new_app() !== 25258) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_brytonsession_new_app");
+    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_cc600simulator_committed() !== 50474) {
+        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_cc600simulator_committed");
     }
-    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_brytonsession_on_notify() !== 20028) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_brytonsession_on_notify");
+    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_cc600simulator_disconnect() !== 18781) {
+        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_cc600simulator_disconnect");
     }
-    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_brytonsession_read_device_info() !== 19304) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_brytonsession_read_device_info");
+    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_cc600simulator_received() !== 28209) {
+        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_cc600simulator_received");
     }
-    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_brytonsession_send_route() !== 61722) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_brytonsession_send_route");
+    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_cc600simulator_settings() !== 20577) {
+        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_cc600simulator_settings");
     }
-    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_brytonsession_send_route_name() !== 9871) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_brytonsession_send_route_name");
+    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_cc600simulator_settings_writes() !== 41834) {
+        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_cc600simulator_settings_writes");
     }
-    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_brytonsession_setting_get() !== 400) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_brytonsession_setting_get");
+    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_cc600simulator_write() !== 20092) {
+        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_cc600simulator_write");
     }
-    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_brytonsession_setting_set() !== 10530) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_brytonsession_setting_set");
+    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_constructor_session_new() !== 65021) {
+        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_constructor_session_new");
     }
-    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_constructor_cc600receiver_new() !== 2276) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_constructor_cc600receiver_new");
+    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_session_acknowledge() !== 56594) {
+        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_session_acknowledge");
     }
-    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_cc600receiver_committed() !== 51956) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_cc600receiver_committed");
+    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_session_channels() !== 51308) {
+        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_session_channels");
     }
-    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_cc600receiver_disconnect() !== 27585) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_cc600receiver_disconnect");
+    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_session_connect() !== 43107) {
+        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_session_connect");
     }
-    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_cc600receiver_handle() !== 63183) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_cc600receiver_handle");
+    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_session_download() !== 65026) {
+        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_session_download");
     }
-    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_cc600receiver_received() !== 26069) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_cc600receiver_received");
+    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_session_list_activities() !== 126) {
+        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_session_list_activities");
     }
-    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_constructor_cc600sender_new() !== 6005) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_constructor_cc600sender_new");
+    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_session_on_notify() !== 36811) {
+        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_session_on_notify");
     }
-    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_cc600sender_ack() !== 65453) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_cc600sender_ack");
+    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_session_on_timeout() !== 6217) {
+        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_session_on_timeout");
     }
-    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_cc600sender_done() !== 58969) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_cc600sender_done");
+    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_session_read_settings() !== 9229) {
+        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_session_read_settings");
     }
-    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_cc600sender_next_chunk() !== 59241) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_cc600sender_next_chunk");
+    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_session_send_file() !== 15390) {
+        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_session_send_file");
     }
-    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_cc600sender_permille() !== 18939) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_cc600sender_permille");
+    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_session_send_route() !== 26903) {
+        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_session_send_route");
     }
-    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_cc600sender_ready() !== 33422) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_cc600sender_ready");
-    }
-    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_cc600sender_resend() !== 62176) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_cc600sender_resend");
+    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_session_write_settings() !== 42763) {
+        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_session_write_settings");
     }
 
     }
@@ -2121,23 +1714,20 @@ function uniffiEnsureInitialized() {
 export default Object.freeze({
   initialize: uniffiEnsureInitialized,
   converters: {
+    FfiConverterTypeActivity,
     FfiConverterTypeActivityRef,
-    FfiConverterTypeBrytonEvent,
-    FfiConverterTypeBrytonField,
-    FfiConverterTypeBrytonInfo,
-    FfiConverterTypeBrytonRide,
-    FfiConverterTypeBrytonSession,
-    FfiConverterTypeBrytonStep,
-    FfiConverterTypeBrytonValue,
-    FfiConverterTypeBrytonWrite,
-    FfiConverterTypeCc600Field,
-    FfiConverterTypeCc600Receiver,
-    FfiConverterTypeCc600Sender,
+    FfiConverterTypeCapabilities,
+    FfiConverterTypeCc600Simulator,
+    FfiConverterTypeChannel,
     FfiConverterTypeClimb,
-    FfiConverterTypeDecodedFrame,
     FfiConverterTypeFfiError,
+    FfiConverterTypeOutcome,
     FfiConverterTypeParsedRoute,
     FfiConverterTypeRouteAnalysis,
+    FfiConverterTypeSession,
     FfiConverterTypeSetting,
+    FfiConverterTypeSettingField,
+    FfiConverterTypeStep,
+    FfiConverterTypeWrite,
   }
 });

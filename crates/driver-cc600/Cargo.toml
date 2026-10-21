@@ -1,0 +1,11 @@
+[package]
+name = "driver-cc600"
+description = "App side of the OpenCC600 protocol (sans-IO session), and a CC600 in memory"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+protocol-cc600.workspace = true
+settings-cc600.workspace = true

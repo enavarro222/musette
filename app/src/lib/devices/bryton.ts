@@ -1,7 +1,7 @@
 import { loadCore } from '../core';
 import type { FileTransport } from '../transport/types';
 import { rideStart } from './brytonBle';
-import type { ActivityRef, Capabilities, Device } from './types';
+import { NO_CAPABILITIES, type ActivityRef, type Capabilities, type Device } from './types';
 
 /**
  * Bryton Rider 750 with stock firmware, connected over USB (mass storage).
@@ -9,15 +9,7 @@ import type { ActivityRef, Capabilities, Device } from './types';
  */
 export class BrytonUsbDevice implements Device {
   readonly model = 'bryton-rider-750' as const;
-  readonly capabilities: Capabilities = {
-    downloadActivities: true,
-    uploadRoute: false, // pending the USB route-copy test
-    routeCorridorMap: false,
-    climbsOnDevice: false,
-    settings: false,
-    sensors: false,
-    wifiSync: false,
-  };
+  capabilities: Capabilities = NO_CAPABILITIES;
 
   /** Ride id → path on the drive, from the last listing. */
   private paths = new Map<string, string>();
@@ -28,8 +20,9 @@ export class BrytonUsbDevice implements Device {
     return 'Bryton Rider 750';
   }
 
-  connect(): Promise<void> {
-    return this.transport.connect();
+  async connect(): Promise<void> {
+    this.capabilities = (await loadCore()).capabilities(this.model, 'usbFiles');
+    await this.transport.connect();
   }
 
   disconnect(): Promise<void> {

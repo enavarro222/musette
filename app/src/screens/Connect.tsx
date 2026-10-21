@@ -10,7 +10,7 @@ import type { BlePeer } from '../lib/transport/types';
 /** A search stops by itself after this long; the user can start it again. */
 const SCAN_MS = 20_000;
 
-const { ble, bleScan, blePick } = platform.transports;
+const { gatt, bleScan, blePick } = platform.transports;
 const WANTED = BLE_MODELS.map((m) => m.ble!.options);
 const HINTS = BLE_MODELS.map((m) => m.ble!.hint ?? m.connectHint).join(' ');
 const OTHERS = MODELS.filter((m) => m.create);
@@ -24,7 +24,7 @@ export default function Connect() {
   const { connecting } = useApp();
   const router = useRouter();
   const [peers, setPeers] = useState<BlePeer[]>([]);
-  const [scanning, setScanning] = useState(!!(ble && bleScan));
+  const [scanning, setScanning] = useState(!!(gatt && bleScan));
 
   useEffect(() => {
     if (!scanning || !bleScan) return;
@@ -66,7 +66,7 @@ export default function Connect() {
   return (
     <Screen title="Connecter un compteur" noDeviceStatus>
       <Section title="Bluetooth">
-        {!ble ? (
+        {!gatt ? (
           <Muted>{platform.unsupported}</Muted>
         ) : blePick ? (
           <Button
@@ -106,7 +106,7 @@ export default function Connect() {
             ) : null}
           </>
         )}
-        {ble ? <Muted>{HINTS}</Muted> : null}
+        {gatt ? <Muted>{HINTS}</Muted> : null}
         {blePick ? <Muted>Dans le navigateur, il faut resélectionner le compteur à chaque visite.</Muted> : null}
       </Section>
 

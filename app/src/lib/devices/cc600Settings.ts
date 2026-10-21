@@ -1,5 +1,6 @@
-import type { Cc600Field } from '../core';
-import type { SettingField, SettingGroup, SettingValue, SettingValues } from '../settings';
+import type { DeviceField, DeviceSetting } from '../core';
+import type { SettingField, SettingGroup, SettingValue } from '../settings';
+import { settingValue } from './bleDevice';
 
 interface Presentation {
   label: string;
@@ -65,47 +66,27 @@ export function sensorLabel(v: string): string {
 }
 
 /** The generic field of a CC600 setting. `current` is its value on the device. */
-export function toField(f: Cc600Field, current: string): SettingField {
+export function toField(f: DeviceField, current: string): SettingField {
   const p = CC600_SETTINGS[f.key] ?? { label: f.key, group: 'system' };
   const base = { key: f.key, label: p.label, group: p.group, help: p.help };
+  if (!f.writable) return { ...base, type: 'text', readOnly: true }; // a sensor, paired from the device
+  if (f.key === 'tz') {
+    const zones = { ...(current in TIME_ZONES ? {} : { [current]: current }), ...TIME_ZONES };
+    return { ...base, type: 'choice', options: Object.entries(zones).map(([value, label]) => ({ value, label })) };
+  }
   switch (f.kind) {
-    case 'onOff':
+    case 'bool':
       return { ...base, type: 'toggle' };
-    case 'range':
+    case 'number':
       return { ...base, type: 'number', min: f.min ?? 0, max: f.max ?? 0, step: p.step, unit: p.unit };
     case 'choice':
       return { ...base, type: 'choice', options: f.options.map((value) => ({ value, label: p.options?.[value] ?? value })) };
-    case 'tz': {
-      const zones = { ...(current in TIME_ZONES ? {} : { [current]: current }), ...TIME_ZONES };
-      return { ...base, type: 'choice', options: Object.entries(zones).map(([value, label]) => ({ value, label })) };
-    }
-    case 'sensor':
-      return { ...base, type: 'text', readOnly: true };
-  }
-}
-
-/** A device value (text) as the app shows it. */
-export function toValue(f: Cc600Field, raw: string): SettingValue {
-  switch (f.kind) {
-    case 'onOff':
-      return raw === 'on';
-    case 'range':
-      return Number(raw);
-    case 'sensor':
-      return sensorLabel(raw);
     default:
-      return raw;
+      return { ...base, type: 'text' };
   }
 }
 
-/** Changed values as the `key=value` lines `SetSettings` carries. Read-only settings are never sent. */
-export function toLines(fields: Cc600Field[], changes: SettingValues): string {
-  return Object.entries(changes)
-    .map(([key, v]) => {
-      const f = fields.find((x) => x.key === key);
-      if (!f || f.kind === 'sensor') throw new Error(`Réglage non modifiable : ${key}`);
-      const text = typeof v === 'boolean' ? (v ? 'on' : 'off') : typeof v === 'number' ? String(Math.round(v)) : v;
-      return `${key}=${text}\n`;
-    })
-    .join('');
+/** A device value as the app shows it. */
+export function toValue(f: DeviceField, v: DeviceSetting): SettingValue {
+  return f.writable ? settingValue(f, v) : sensorLabel(v.text);
 }

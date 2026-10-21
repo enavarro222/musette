@@ -1,12 +1,11 @@
 import { Platform } from 'react-native';
 import type { MusettePlatform } from './platform.types';
-import { BlePlxGattTransport, BlePlxTransport, scanBle } from './transport/blePlx';
+import { BlePlxGattTransport, scanBle } from './transport/blePlx';
 
 /** iOS and Android: native Bluetooth. USB drives are not read yet. */
 export const platform: MusettePlatform = {
   name: Platform.OS === 'ios' ? 'ios' : 'android',
   transports: {
-    ble: (peer) => new BlePlxTransport(peer),
     gatt: (peer) => new BlePlxGattTransport(peer),
     bleScan: scanBle,
   },

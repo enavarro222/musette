@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 930" width="1040" role="img" aria-labelledby="title">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 944" width="1040" role="img" aria-labelledby="title">
 <title id="title">Musette architecture: one TypeScript app, one door to the Rust core</title>
 <style>
   svg { --bg:#ffffff; --ink:#15171a; --muted:#5e636b; --line:#9aa0a6; --zone:#f4f5f2; --box:#ffffff; --accent:#0b6e69; --shared:#c2701f; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
@@ -25,7 +25,7 @@
 <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="h" d="M0 0 10 5 0 10z"/></marker>
 <marker id="arrs" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="hs" d="M0 0 10 5 0 10z"/></marker>
 </defs>
-<rect class="bg" width="1040" height="930"/>
+<rect class="bg" width="1040" height="944"/>
 <rect class="zone" x="20" y="40" width="800" height="384" rx="14"/>
 <text class="zl" x="36" y="62">app/src · TypeScript, the same code on web, Android and iOS</text>
 <rect class="box" x="40" y="90" width="200" height="72" rx="9"/>
@@ -53,13 +53,13 @@
 <text class="s" x="52" y="370">lib/core · load.ts, load.native.ts</text>
 <text class="s" x="52" y="385">the only door to Rust</text>
 <rect class="box" x="320" y="330" width="200" height="72" rx="9"/>
-<text class="t" x="332" y="352">Device drivers</text>
-<text class="s" x="332" y="370">lib/devices: Cc600Device,</text>
-<text class="s" x="332" y="385">BrytonBle/UsbDevice · registry</text>
+<text class="t" x="332" y="352">Devices</text>
+<text class="s" x="332" y="370">lib/devices: BleDevice runs</text>
+<text class="s" x="332" y="385">any session · words · registry</text>
 <rect class="box" x="600" y="330" width="200" height="72" rx="9"/>
 <text class="t" x="612" y="352">Transports</text>
-<text class="s" x="612" y="370">lib/transport: Web Bluetooth,</text>
-<text class="s" x="612" y="385">BLE (ble-plx) · USB drive</text>
+<text class="s" x="612" y="370">lib/transport: GATT · files</text>
+<text class="s" x="612" y="385">Web Bluetooth · ble-plx · USB drive</text>
 <rect class="ext" x="860" y="90" width="160" height="72" rx="9"/>
 <text class="t" x="872" y="112">OpenFreeMap</text>
 <text class="s" x="872" y="130">map tiles</text>
@@ -84,7 +84,7 @@
 <line class="a" x1="330" y1="282" x2="200" y2="326"/>
 <text class="v" x="300" y="304" text-anchor="end">analyse routes with</text>
 <line class="a" x1="320" y1="366" x2="244" y2="366"/>
-<text class="v" x="282.0" y="360.0" text-anchor="middle">decode with</text>
+<text class="v" x="282.0" y="360.0" text-anchor="middle">run sessions</text>
 <line class="a" x1="520" y1="366" x2="596" y2="366"/>
 <text class="v" x="558.0" y="360.0" text-anchor="middle">send via</text>
 <line class="a" x1="800" y1="366" x2="856" y2="366"/>
@@ -101,37 +101,45 @@
 <text class="v" x="118" y="446" text-anchor="start">loads (web)</text>
 <line class="a" x1="200" y1="402" x2="400" y2="476"/>
 <text class="v" x="322" y="438" text-anchor="start">loads (iOS, Android)</text>
-<rect class="zone" x="20" y="586" width="800" height="292" rx="14"/>
+<rect class="zone" x="20" y="586" width="800" height="306" rx="14"/>
 <text class="zl" x="804" y="608" text-anchor="end">crates/ · Rust</text>
 <rect class="key" x="40" y="616" width="580" height="56" rx="9"/>
 <text class="t" x="52" y="638">musette-core</text>
-<text class="s" x="52" y="656">what the app asks, the same on every platform</text>
+<text class="s" x="52" y="656">what the app asks, the same on every platform · one device session for every model</text>
 <line class="a" x1="140" y1="542" x2="140" y2="612"/>
 <text class="v" x="148" y="600" text-anchor="start">wraps</text>
 <line class="a" x1="470" y1="542" x2="470" y2="612"/>
 <text class="v" x="478" y="600" text-anchor="start">wraps</text>
-<rect class="sub" x="30" y="694" width="610" height="172" rx="14"/>
-<rect class="box" x="45" y="706" width="105" height="34" rx="8"/><text class="t" x="97" y="728" text-anchor="middle" style="font-size:12.5px">fit</text>
-<rect class="box" x="162" y="706" width="105" height="34" rx="8"/><text class="t" x="214" y="728" text-anchor="middle" style="font-size:12.5px">track</text>
-<rect class="box" x="279" y="706" width="105" height="34" rx="8"/><text class="t" x="331" y="728" text-anchor="middle" style="font-size:12.5px">climbs</text>
-<rect class="box" x="396" y="706" width="105" height="34" rx="8"/><text class="t" x="448" y="728" text-anchor="middle" style="font-size:12.5px">device</text>
-<rect class="box" x="513" y="706" width="105" height="34" rx="8"/><text class="t" x="565" y="728" text-anchor="middle" style="font-size:12.5px">driver-bryton</text>
-<rect class="shared" x="40" y="752" width="590" height="104" rx="10"/>
-<text class="sl" x="54" y="772">Shared with the firmware: MIT, no_std, the only copy of these formats</text>
-<rect class="box" x="54" y="784" width="176" height="56" rx="8"/><text class="t" x="142" y="808" text-anchor="middle" style="font-size:12.5px">protocol-cc600</text>
-<rect class="box" x="244" y="784" width="176" height="56" rx="8"/><text class="t" x="332" y="808" text-anchor="middle" style="font-size:12.5px">route-cc600</text>
-<rect class="box" x="434" y="784" width="176" height="56" rx="8"/><text class="t" x="522" y="808" text-anchor="middle" style="font-size:12.5px">settings-cc600</text>
-<text class="s" x="142" y="826" text-anchor="middle">BLE frames, transfers</text>
-<text class="s" x="332" y="826" text-anchor="middle">route file</text>
-<text class="s" x="522" y="826" text-anchor="middle">settings file</text>
+<rect class="sub" x="30" y="694" width="610" height="186" rx="14"/>
+<rect class="box" x="45" y="706" width="95" height="48" rx="8"/><text class="t" x="92.5" y="726" text-anchor="middle" style="font-size:12.5px">fit</text><text class="s" x="92.5" y="743" text-anchor="middle" style="font-size:10.5px">FIT checks</text>
+<rect class="box" x="144" y="706" width="95" height="48" rx="8"/><text class="t" x="191.5" y="726" text-anchor="middle" style="font-size:12.5px">track</text><text class="s" x="191.5" y="743" text-anchor="middle" style="font-size:10.5px">distance, profile</text>
+<rect class="box" x="243" y="706" width="95" height="48" rx="8"/><text class="t" x="290.5" y="726" text-anchor="middle" style="font-size:12.5px">climbs</text><text class="s" x="290.5" y="743" text-anchor="middle" style="font-size:10.5px">climb finder</text>
+<rect class="box" x="342" y="706" width="95" height="48" rx="8"/><text class="t" x="389.5" y="726" text-anchor="middle" style="font-size:12.5px">device</text><text class="s" x="389.5" y="743" text-anchor="middle" style="font-size:10.5px">what models do</text>
+<rect class="box" x="441" y="706" width="95" height="48" rx="8"/><text class="t" x="488.5" y="726" text-anchor="middle" style="font-size:12.5px">driver-bryton</text><text class="s" x="488.5" y="743" text-anchor="middle" style="font-size:10.5px">Bryton BLE, USB</text>
+<rect class="box" x="540" y="706" width="95" height="48" rx="8"/><text class="t" x="587.5" y="726" text-anchor="middle" style="font-size:12.5px">driver-cc600</text><text class="s" x="587.5" y="743" text-anchor="middle" style="font-size:10.5px">app side, simulator</text>
+<rect class="shared" x="40" y="766" width="590" height="104" rx="10"/>
+<text class="sl" x="54" y="786">CC600 formats · shared with the firmware: MIT, no_std, the only copy of these formats</text>
+<rect class="box" x="54" y="798" width="176" height="56" rx="8"/><text class="t" x="142" y="822" text-anchor="middle" style="font-size:12.5px">protocol-cc600</text>
+<rect class="box" x="244" y="798" width="176" height="56" rx="8"/><text class="t" x="332" y="822" text-anchor="middle" style="font-size:12.5px">route-cc600</text>
+<rect class="box" x="434" y="798" width="176" height="56" rx="8"/><text class="t" x="522" y="822" text-anchor="middle" style="font-size:12.5px">settings-cc600</text>
+<text class="s" x="142" y="840" text-anchor="middle">BLE frames, transfers</text>
+<text class="s" x="332" y="840" text-anchor="middle">route file</text>
+<text class="s" x="522" y="840" text-anchor="middle">settings file</text>
 <line class="a" x1="330" y1="672" x2="330" y2="690"/>
 <text class="v" x="338" y="686" text-anchor="start">uses all of these</text>
-<rect class="ext" x="860" y="784" width="160" height="72" rx="9"/>
-<text class="t" x="872" y="806">OpenCC600</text>
-<text class="s" x="872" y="824">firmware · GPL</text>
-<text class="s" x="872" y="839">its own repository</text>
-<line class="ad" x1="860" y1="820" x2="634" y2="820"/>
-<text class="sl" x="747" y="812" text-anchor="middle">depends (git) on</text>
-<text class="n" x="20" y="904">Arrows point from the caller to the callee, labelled with what the caller does. One box per folder: files are not shown.</text>
-<text class="n" x="20" y="922">Platform differences live in sibling files (x.web.ts, x.ts / x.native.ts), never in Platform.OS checks spread through screens.</text>
+<rect class="box" x="676" y="686" width="134" height="88" rx="9"/>
+<text class="t" x="688" y="708">musette-cli</text>
+<text class="s" x="688" y="726">tries a device from</text>
+<text class="s" x="688" y="741">the shell (btleplug),</text>
+<text class="s" x="688" y="756">with the app's session</text>
+<line class="a" x1="676" y1="723" x2="644" y2="723"/>
+<text class="v" x="660" y="714" text-anchor="middle">uses</text>
+<rect class="ext" x="860" y="798" width="160" height="72" rx="9"/>
+<text class="t" x="872" y="820">OpenCC600</text>
+<text class="s" x="872" y="838">firmware · GPL</text>
+<text class="s" x="872" y="853">its own repository</text>
+<line class="ad" x1="860" y1="834" x2="634" y2="834"/>
+<text class="sl" x="747" y="826" text-anchor="middle">depends (git) on</text>
+<text class="n" x="20" y="918">Arrows point from the caller to the callee, labelled with what the caller does. One box per folder: files are not shown.</text>
+<text class="n" x="20" y="936">Platform differences live in sibling files (x.web.ts, x.ts / x.native.ts), never in Platform.OS checks spread through screens.</text>
 </svg>

@@ -34,122 +34,165 @@ export interface ParsedRoute {
   eles: number[];
 }
 
-export interface DecodedFrame {
-  op: number;
-  seq: number;
-  payload: Uint8Array;
-  /** Bytes of the input the frame took. */
-  consumed: number;
+/** Mirrors `crates/device` (`Model::id`). */
+export type ModelId = 'open-cc600' | 'bryton-rider-750';
+
+/** How the app reaches a device. */
+export type Link = 'ble' | 'usbFiles';
+
+/** Files a device can receive. */
+export type FileKind = 'route' | 'map';
+
+/** What a device can do over a link (`crates/device`). */
+export interface Capabilities {
+  downloadActivities: boolean;
+  uploadRoute: boolean;
+  routeCorridorMap: boolean;
+  climbsOnDevice: boolean;
+  settings: boolean;
+  sensors: boolean;
+  wifiSync: boolean;
 }
 
-/** A CC600 setting as `settings-cc600` describes it. */
-export interface Cc600Field {
-  key: string;
-  kind: 'onOff' | 'range' | 'choice' | 'tz' | 'sensor';
-  min?: number;
-  max?: number;
-  options: string[];
+/** A GATT characteristic of a session; its index is its channel number. UUIDs in lower case. */
+export interface Channel {
+  service: string;
+  characteristic: string;
+  withResponse: boolean;
+  /** A write may be cut into packets of the link's size. */
+  split: boolean;
 }
 
-/** App side of a CC600 file transfer (`protocol_cc600::transfer::Sender`). */
-export interface Cc600Sender {
-  /** Applies a `TransferReady` payload; returns the offset to start from. */
-  ready(payload: Uint8Array): number;
-  ack(payload: Uint8Array): void;
-  resend(payload: Uint8Array): void;
-  /** `[offset, length]` of the next chunk, or undefined when the window is full or all was sent. */
-  nextChunk(max: number): [number, number] | undefined;
-  /** Everything was sent and acknowledged. */
-  done(): boolean;
-  /** Share of the file the device holds, 0..=1000. */
-  permille(): number;
-  /** Frees the Rust object. */
-  free(): void;
-}
-
-/** Device side of a CC600 file transfer, file in memory (simulated CC600). */
-export interface Cc600Receiver {
-  /** The answer to a transfer request as `[op, ...payload]`, or undefined. */
-  handle(op: number, payload: Uint8Array): Uint8Array | undefined;
-  disconnect(): void;
-  received(): number;
-  committed(): Uint8Array | undefined;
-}
-
-/** Bytes to write to a Bryton characteristic: 0 command, 1 data, 2 setting. */
-export interface BrytonWrite {
+export interface Write {
   channel: number;
   bytes: Uint8Array;
 }
 
-/** A ride in a Bryton's "not synced" list. */
-export interface BrytonRide {
-  /** `yyMMddHHmmss`, local time: also its file name over USB. */
+/** A ride on the device, as the session lists it. */
+export interface DeviceActivity {
   id: string;
-  timeS: number;
-  distanceM: number;
-  sport: number;
+  /** Unix seconds. */
+  startTime?: number;
+  /** `startTime` is the device's wall clock read as UTC. */
+  localTime: boolean;
+  size?: number;
+  synced?: boolean;
 }
 
-export interface BrytonInfo {
-  /** The first 4 digits are the product code (1902: Rider 750). */
-  id: string;
-  firmware: string;
-  model: string;
-  recording: boolean;
-  /** It has the setting channel (settings, acknowledgement, routes). */
-  settings: boolean;
-}
-
-/** What happened (`BrytonSession.onNotify`); `kind` says which fields count. */
-export interface BrytonEvent {
-  kind: 'info' | 'ready' | 'rides' | 'progress' | 'file' | 'sent' | 'routeNamed' | 'settingAck' | 'setting' | 'failed';
-  /** `failed`, in English. */
-  message: string;
-  /** `file`: the ride; `setting`: the whole frame. */
-  bytes: Uint8Array;
-  done: number;
-  total: number;
-  /** `settingAck`, `setting`: the setting command; `settingAck`: its status (10 = ok). */
-  cmd: number;
-  status: number;
-  rides: BrytonRide[];
-  info?: BrytonInfo;
-}
-
-export interface BrytonStep {
-  /** Write them in order. */
-  writes: BrytonWrite[];
-  events: BrytonEvent[];
-}
-
-/** One Bryton BLE connection (`musette_core::BrytonSession`). */
-export interface BrytonSession {
-  readDeviceInfo(): BrytonWrite;
-  newApp(): BrytonWrite;
-  listRides(): BrytonWrite;
-  download(id: string): BrytonWrite;
-  acknowledge(id: string): BrytonWrite;
-  sendRoute(fit: Uint8Array, deviceId: string): BrytonWrite;
-  sendRouteName(name: string): BrytonWrite;
-  settingGet(key: string): BrytonWrite;
-  settingSet(key: string, value: number): BrytonWrite;
-  onNotify(channel: number, bytes: Uint8Array): BrytonStep;
-  free(): void;
-}
-
-export interface BrytonField {
-  /** `user.height`, `bike0.auto_pause`... */
+/** A setting's value: `number` for a bool (0, 1) and a number, `text` for a choice and a text. */
+export interface DeviceSetting {
   key: string;
-  kind: 'bool' | 'choice' | 'number' | 'text';
-  /** `choice`: labels indexed by value (English). */
-  choices: string[];
+  number?: number;
+  text: string;
+}
+
+/** What a setting takes, as the device says. */
+export interface DeviceField {
+  key: string;
+  kind: 'bool' | 'number' | 'choice' | 'text';
+  min?: number;
+  max?: number;
+  /** `choice`: the values, and their names in English. */
+  options: string[];
+  labels: string[];
   writable: boolean;
 }
 
-export interface BrytonValue {
-  number?: number;
-  text: string;
+/** Why a request failed (`musette_core::session::Failure`). */
+export interface Failure {
+  code:
+    | 'timeout'
+    | 'stalled'
+    | 'refused'
+    | 'badSetting'
+    | 'corrupted'
+    | 'interrupted'
+    | 'recording'
+    | 'badRequest'
+    | 'noSpace'
+    | 'noTransfer'
+    | 'incomplete'
+    | 'badCrc'
+    | 'busy'
+    | 'storage';
+  detail: string;
+}
+
+/** How a request ended. */
+export type Outcome =
+  | { kind: 'done' }
+  | { kind: 'info'; name: string; recording: boolean }
+  | { kind: 'activities'; activities: DeviceActivity[] }
+  | { kind: 'file'; bytes: Uint8Array }
+  | { kind: 'settings'; fields: DeviceField[]; values: DeviceSetting[] }
+  | ({ kind: 'failed' } & Failure);
+
+/** What to do after a request or a notification. */
+export interface Step {
+  /** Channels to subscribe to, before the writes. */
+  subscribe: number[];
+  /** In order. */
+  writes: Write[];
+  /** Share of the request done, 0..1. */
+  progress?: number;
+  /** Call `onTimeout` after this long: 0 no timer, undefined keep the current one. */
+  waitMs?: number;
+  /** The request is over. */
+  outcome?: Outcome;
+}
+
+/** How long a device may stay silent (the model's own when not given). */
+export interface Timing {
+  requestMs: number;
+  /** Where silence means something: a CC600 transfer asks where the device is. */
+  shortMs: number;
+}
+
+/** One connection to a device of any model (`musette_core::Session`). One request at a time. */
+export interface Session {
+  channels(): Channel[];
+  connect(): Step;
+  listActivities(): Step;
+  download(id: string, size?: number): Step;
+  acknowledge(id: string): Step;
+  sendRoute(route: ParsedRoute): Step;
+  sendFile(kind: FileKind, bytes: Uint8Array): Step;
+  readSettings(): Step;
+  /** Throws, before anything is sent, on the first change the device cannot take. */
+  writeSettings(changes: DeviceSetting[]): Step;
+  onNotify(channel: number, bytes: Uint8Array): Step;
+  onTimeout(): Step;
+  /** Frees the Rust object. */
+  free(): void;
+}
+
+export interface SimulatorOptions {
+  /** Transfer window (default 2048). */
+  window?: number;
+  /** Free bytes for a file (default 1 MiB). */
+  free?: number;
+  /** The settings file (`key=value` lines). */
+  settings?: string;
+  /** `TransferChunk`s lost (1-based, over the device's life). */
+  loseChunks?: number[];
+  /** `TransferAck`s lost. */
+  loseAcks?: number[];
+}
+
+/** A CC600 in memory: frames in, frames out (`musette_core::Cc600Simulator`). */
+export interface Cc600Simulator {
+  /** `startTime` in Unix seconds. */
+  addActivity(id: number, startTime: number, fit: Uint8Array): void;
+  /** The frames the device answers. */
+  write(bytes: Uint8Array): Uint8Array[];
+  /** The link dropped: the partial file stays. */
+  disconnect(): void;
+  received(): number;
+  committed(): Uint8Array | undefined;
+  chunkBytes(): number;
+  acked(): number[];
+  settings(): string;
+  settingsWrites(): string[];
 }
 
 export interface Core {
@@ -160,25 +203,8 @@ export interface Core {
   verifyFit(bytes: Uint8Array): number;
   brytonFindActivities(paths: string[], sizes: number[]): { id: string; size?: number }[];
 
-  cc600Encode(op: number, seq: number, payload: Uint8Array): Uint8Array;
-  /** Undefined when more bytes are needed. */
-  cc600Decode(bytes: Uint8Array): DecodedFrame | undefined;
-  cc600BuildRoute(name: string, lats: number[], lons: number[], eles: number[]): Uint8Array;
-  cc600TransferBegin(kind: number, bytes: Uint8Array): Uint8Array;
-  cc600TransferChunk(offset: number, data: Uint8Array): Uint8Array;
-  cc600Sender(size: number): Cc600Sender;
-  cc600Receiver(window: number, free: number): Cc600Receiver;
-
-  cc600SettingsFields(): Cc600Field[];
-  /** Every key, values as text. */
-  cc600SettingsParse(text: string): Record<string, string>;
-  /** The new settings file; throws an Error whose message is the refused key. */
-  cc600SettingsApply(current: string, changes: string): string;
-
-  brytonSession(): BrytonSession;
-  /** A Bryton route file (start and arrival turns only). */
-  brytonBuildRoute(lats: number[], lons: number[], eles: number[]): Uint8Array;
-  brytonSettingFields(): BrytonField[];
-  /** Decodes the answer to the get of `key` (a `setting` event's bytes). */
-  brytonSettingValue(key: string, frame: Uint8Array): BrytonValue | undefined;
+  capabilities(model: ModelId, link: Link): Capabilities;
+  settingFields(model: ModelId): DeviceField[];
+  session(model: ModelId, timing?: Timing): Session;
+  cc600Simulator(options?: SimulatorOptions): Cc600Simulator;
 }

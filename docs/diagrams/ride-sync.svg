@@ -36,7 +36,7 @@
 <line x1="300" y1="80" x2="300" y2="570" style="stroke:var(--line);stroke-dasharray:3 4"/>
 <rect class="box" x="430" y="30" width="160" height="50" rx="9"/>
 <text class="t" x="510" y="52" text-anchor="middle">Device driver</text>
-<text class="s" x="510" y="69" text-anchor="middle">lib/devices + Rust (fit)</text>
+<text class="s" x="510" y="69" text-anchor="middle">lib/devices + Rust core</text>
 <line x1="510" y1="80" x2="510" y2="570" style="stroke:var(--line);stroke-dasharray:3 4"/>
 <rect class="box" x="630" y="30" width="160" height="50" rx="9"/>
 <text class="t" x="710" y="52" text-anchor="middle">Storage</text>
@@ -78,6 +78,6 @@
 <line class="a" x1="514" y1="530" x2="896" y2="530" style="" marker-end="url(#arr)"/>
 <text class="v" x="705.0" y="523" text-anchor="middle">acknowledges: the device may free it</text>
 <text class="n" x="20" y="604">The order is the rule: download → verify → store → acknowledge. A failure at any step stops before ⑥,</text>
-<text class="n" x="20" y="622">so the device never frees a ride the app does not hold, verified. Code: lib/sync.ts; verification inside each driver.</text>
+<text class="n" x="20" y="622">so the device never frees a ride the app does not hold, verified. Code: lib/sync.ts; verification in the Rust session.</text>
 <text class="n" x="20" y="640">Simplified: progress messages and the Bryton USB path (same order, files instead of BLE frames) are not shown.</text>
 </svg>

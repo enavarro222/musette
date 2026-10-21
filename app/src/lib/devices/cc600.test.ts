@@ -1,15 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { FakeCc600, fitFile } from '../../test/fakeCc600';
-import { Cc600Device } from './cc600';
+import { BleDevice } from './bleDevice';
+import { CC600 } from './cc600';
 
-const FAST = { requestMs: 300, stallMs: 50 };
+const FAST = { requestMs: 300, shortMs: 50 };
 
 function file(n: number): Uint8Array {
   return Uint8Array.from({ length: n }, (_, i) => (i * 7 + (i >> 8)) & 0xff);
 }
 
 async function connected(fake: FakeCc600) {
-  const device = new Cc600Device(fake, FAST);
+  const device = new BleDevice(CC600, fake, FAST);
   await device.connect();
   return device;
 }
@@ -21,27 +22,27 @@ describe('CC600 file upload', () => {
     const data = file(20_000);
     const progress: number[] = [];
     await device.uploadFile('route', data, (r) => progress.push(r));
-    expect(fake.receiver.committed()).toEqual(data);
-    expect(fake.chunkBytes).toBe(data.length);
+    expect(fake.device.committed()).toEqual(data);
+    expect(fake.device.chunkBytes()).toBe(data.length);
     expect(progress.at(-1)).toBe(1);
     expect(progress).toEqual([...progress].sort((a, b) => a - b));
   });
 
   it('resends lost chunks', async () => {
     const lost = new Set([2, 3, 30, 31, 32, 60]);
-    const fake = new FakeCc600({ dropChunk: (n) => lost.has(n) });
+    const fake = new FakeCc600({ loseChunks: [...lost] });
     const device = await connected(fake);
     const data = file(20_000);
     await device.uploadFile('map', data);
-    expect(fake.receiver.committed()).toEqual(data);
+    expect(fake.device.committed()).toEqual(data);
   });
 
   it('asks the device where it is when an ack is lost', async () => {
-    const fake = new FakeCc600({ dropAck: (n) => n === 3 });
+    const fake = new FakeCc600({ loseAcks: [3] });
     const device = await connected(fake);
     const data = file(20_000);
     await device.uploadFile('map', data);
-    expect(fake.receiver.committed()).toEqual(data);
+    expect(fake.device.committed()).toEqual(data);
   });
 
   it('resumes after the link dropped instead of starting over', async () => {
@@ -56,15 +57,15 @@ describe('CC600 file upload', () => {
       }
     });
     await expect(first).rejects.toThrow();
-    const kept = fake.receiver.received();
+    const kept = fake.device.received();
     expect(kept).toBeGreaterThan(data.length / 2);
     expect(kept).toBeLessThan(data.length);
 
     await fake.connect();
-    const sentBefore = fake.chunkBytes;
+    const sentBefore = fake.device.chunkBytes();
     await device.uploadFile('route', data);
-    expect(fake.receiver.committed()).toEqual(data);
-    expect(fake.chunkBytes - sentBefore).toBe(data.length - kept);
+    expect(fake.device.committed()).toEqual(data);
+    expect(fake.device.chunkBytes() - sentBefore).toBe(data.length - kept);
   });
 
   it('says in plain words that the device is full', async () => {
@@ -87,7 +88,7 @@ describe('CC600 file upload', () => {
     await fake.connect();
     const other = file(12_000).reverse();
     await device.uploadFile('route', other);
-    expect(fake.receiver.committed()).toEqual(other);
+    expect(fake.device.committed()).toEqual(other);
   });
 });
 
@@ -105,7 +106,7 @@ describe('CC600 route', () => {
     };
     const progress: number[] = [];
     await device.uploadRoute(route, (r) => progress.push(r));
-    const file = fake.receiver.committed()!;
+    const file = fake.device.committed()!;
     expect(new TextDecoder().decode(file.subarray(0, 4))).toBe('OCRT');
     expect(new TextDecoder().decode(file)).toContain('Col du test');
     expect(progress.at(-1)).toBe(1);

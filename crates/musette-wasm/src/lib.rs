@@ -50,246 +50,203 @@ pub fn bryton_find_activities(paths: Vec<String>, sizes: Vec<f64>) -> Result<JsV
     to_js(&musette_core::bryton_find_activities(paths, &sizes))
 }
 
-/// Encode a CC600 protocol frame.
-#[wasm_bindgen(js_name = cc600Encode)]
-pub fn cc600_encode(op: u8, seq: u8, payload: &[u8]) -> Result<Vec<u8>, JsError> {
-    musette_core::cc600_encode(op, seq, payload).map_err(js)
-}
-
-/// Decode one CC600 frame from the start of `bytes`.
-/// Returns `undefined` if more bytes are needed.
-#[wasm_bindgen(js_name = cc600Decode)]
-pub fn cc600_decode(bytes: &[u8]) -> Result<JsValue, JsError> {
-    match musette_core::cc600_decode(bytes).map_err(js)? {
-        Some(f) => {
-            let out = js_sys::Object::new();
-            js_sys::Reflect::set(&out, &"op".into(), &f.op.into()).ok();
-            js_sys::Reflect::set(&out, &"seq".into(), &f.seq.into()).ok();
-            let payload = js_sys::Uint8Array::from(f.payload.as_slice());
-            js_sys::Reflect::set(&out, &"payload".into(), &payload).ok();
-            js_sys::Reflect::set(&out, &"consumed".into(), &f.consumed.into()).ok();
-            Ok(out.into())
-        }
-        None => Ok(JsValue::UNDEFINED),
+fn link(name: &str) -> Result<musette_core::Link, JsError> {
+    match name {
+        "ble" => Ok(musette_core::Link::Ble),
+        "usbFiles" => Ok(musette_core::Link::UsbFiles),
+        _ => Err(JsError::new(&format!("unknown link {name}"))),
     }
 }
 
-/// The CC600 route file (`OCRT`) of a route. `eles` uses NaN for missing elevation.
-#[wasm_bindgen(js_name = cc600BuildRoute)]
-pub fn cc600_build_route(
-    name: String,
-    lats: Vec<f64>,
-    lons: Vec<f64>,
-    eles: Vec<f64>,
-) -> Result<Vec<u8>, JsError> {
-    musette_core::cc600_build_route(name, &lats, &lons, &eles).map_err(js)
+/// What a model can do over a link (`ble` or `usbFiles`).
+#[wasm_bindgen]
+pub fn capabilities(model: &str, link_name: &str) -> Result<JsValue, JsError> {
+    let model = musette_core::model(model).map_err(js)?;
+    to_js(&musette_core::capabilities(model, link(link_name)?))
 }
 
-/// `TransferBegin` payload for sending `bytes` as a file of `kind`
-/// (1 route, 2 map): kind, size and CRC of the whole file.
-#[wasm_bindgen(js_name = cc600TransferBegin)]
-pub fn cc600_transfer_begin(kind: u8, bytes: &[u8]) -> Result<Vec<u8>, JsError> {
-    musette_core::cc600_transfer_begin(kind, bytes).map_err(js)
+/// The settings of a model and what each takes.
+#[wasm_bindgen(js_name = settingFields)]
+pub fn setting_fields(model: &str) -> Result<JsValue, JsError> {
+    let model = musette_core::model(model).map_err(js)?;
+    to_js(&musette_core::setting_fields(model))
 }
 
-/// `TransferChunk` payload: offset then the bytes.
-#[wasm_bindgen(js_name = cc600TransferChunk)]
-pub fn cc600_transfer_chunk(offset: u32, data: &[u8]) -> Vec<u8> {
-    musette_core::cc600_transfer_chunk(offset, data)
-}
+/// One connection to a device (`musette_core::Session`): every request and
+/// notification gives a step `{subscribe, writes, progress, waitMs, outcome}`.
+#[wasm_bindgen(js_name = Session)]
+pub struct Session(musette_core::Session);
 
-/// App side of a file transfer: what to send next, given the device's answers.
-#[wasm_bindgen(js_name = Cc600Sender)]
-pub struct Cc600Sender(musette_core::Cc600Sender);
-
-#[wasm_bindgen(js_class = Cc600Sender)]
-impl Cc600Sender {
+#[wasm_bindgen(js_class = Session)]
+impl Session {
+    /// The model's own timing, unless given (tests).
     #[wasm_bindgen(constructor)]
-    pub fn new(size: u32) -> Self {
-        Self(musette_core::Cc600Sender::new(size))
+    pub fn new(
+        model: &str,
+        request_ms: Option<u32>,
+        short_ms: Option<u32>,
+    ) -> Result<Session, JsError> {
+        let model = musette_core::model(model).map_err(js)?;
+        let t = musette_core::Timing::of(model);
+        let timing = musette_core::Timing {
+            request_ms: request_ms.unwrap_or(t.request_ms),
+            short_ms: short_ms.unwrap_or(t.short_ms),
+        };
+        Ok(Self(musette_core::Session::new(model, timing)))
     }
 
-    /// Applies a `TransferReady` payload; returns the offset to start from.
-    pub fn ready(&mut self, payload: &[u8]) -> Result<u32, JsError> {
-        self.0.ready(payload).map_err(js)
+    pub fn channels(&self) -> Result<JsValue, JsError> {
+        to_js(&self.0.channels())
     }
 
-    /// Applies a `TransferAck` payload.
-    pub fn ack(&mut self, payload: &[u8]) -> Result<(), JsError> {
-        self.0.ack(payload).map_err(js)
+    pub fn connect(&mut self) -> Result<JsValue, JsError> {
+        to_js(&self.0.connect().map_err(js)?)
     }
 
-    /// Applies a `TransferResend` payload.
-    pub fn resend(&mut self, payload: &[u8]) -> Result<(), JsError> {
-        self.0.resend(payload).map_err(js)
+    #[wasm_bindgen(js_name = listActivities)]
+    pub fn list_activities(&mut self) -> Result<JsValue, JsError> {
+        to_js(&self.0.list_activities().map_err(js)?)
     }
 
-    /// `[offset, length]` of the next chunk (at most `max` bytes), or
-    /// `undefined` when the window is full or everything was sent.
-    #[wasm_bindgen(js_name = nextChunk)]
-    pub fn next_chunk(&mut self, max: u32) -> Option<Vec<u32>> {
-        self.0.next_chunk(max).map(|(o, l)| vec![o, l])
-    }
-
-    /// Everything was sent and acknowledged.
-    pub fn done(&self) -> bool {
-        self.0.done()
-    }
-
-    /// Share of the file the device holds, 0..=1000.
-    pub fn permille(&self) -> u32 {
-        self.0.permille()
-    }
-}
-
-/// Device side of a file transfer (simulated CC600, tests).
-#[wasm_bindgen(js_name = Cc600Receiver)]
-pub struct Cc600Receiver(musette_core::Cc600Receiver);
-
-#[wasm_bindgen(js_class = Cc600Receiver)]
-impl Cc600Receiver {
-    #[wasm_bindgen(constructor)]
-    pub fn new(window: u16, free: u32) -> Self {
-        Self(musette_core::Cc600Receiver::new(window, free))
-    }
-
-    /// Handles a transfer request; returns the answer as `[op, ...payload]`,
-    /// or `undefined` when there is none.
-    pub fn handle(&mut self, op: u8, payload: &[u8]) -> Result<Option<Vec<u8>>, JsError> {
-        self.0.handle(op, payload).map_err(js)
-    }
-
-    /// The link dropped: the partial file stays, as on the device.
-    pub fn disconnect(&mut self) {
-        self.0.disconnect();
-    }
-
-    /// Bytes of the partial file held so far.
-    pub fn received(&self) -> u32 {
-        self.0.received()
-    }
-
-    /// The last file committed by `TransferEnd`.
-    pub fn committed(&self) -> Option<Vec<u8>> {
-        self.0.committed()
-    }
-}
-
-/// The CC600 settings and the values each takes (what the device accepts).
-#[wasm_bindgen(js_name = cc600SettingsFields)]
-pub fn cc600_settings_fields() -> Result<JsValue, JsError> {
-    to_js(&musette_core::cc600_settings_fields())
-}
-
-/// Reads a CC600 settings file as the device does: `{ key: value }`, every
-/// key, values as text.
-#[wasm_bindgen(js_name = cc600SettingsParse)]
-pub fn cc600_settings_parse(text: &str) -> Result<JsValue, JsError> {
-    let map: std::collections::BTreeMap<&str, String> = musette_core::cc600_settings_parse(text)
-        .into_iter()
-        .collect();
-    // A plain object, not a JS Map.
-    Ok(map.serialize(&serde_wasm_bindgen::Serializer::json_compatible())?)
-}
-
-/// Applies `key=value` changes to a settings file, all or nothing, as the
-/// device does. Returns the new file; throws an error whose message is the
-/// refused key.
-#[wasm_bindgen(js_name = cc600SettingsApply)]
-pub fn cc600_settings_apply(current: &str, changes: &str) -> Result<String, JsError> {
-    musette_core::cc600_settings_apply(current, changes).map_err(js)
-}
-
-/// One Bryton BLE connection: write what it returns (`{channel, bytes}`),
-/// give it every notification (`onNotify`).
-#[wasm_bindgen(js_name = BrytonSession)]
-pub struct BrytonSession(musette_core::BrytonSession);
-
-impl Default for BrytonSession {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[wasm_bindgen(js_class = BrytonSession)]
-impl BrytonSession {
-    #[wasm_bindgen(constructor)]
-    pub fn new() -> Self {
-        Self(musette_core::BrytonSession::new())
-    }
-
-    #[wasm_bindgen(js_name = readDeviceInfo)]
-    pub fn read_device_info(&mut self) -> Result<JsValue, JsError> {
-        to_js(&self.0.read_device_info())
-    }
-
-    #[wasm_bindgen(js_name = newApp)]
-    pub fn new_app(&mut self) -> Result<JsValue, JsError> {
-        to_js(&self.0.new_app())
-    }
-
-    #[wasm_bindgen(js_name = listRides)]
-    pub fn list_rides(&mut self) -> Result<JsValue, JsError> {
-        to_js(&self.0.list_rides())
-    }
-
-    pub fn download(&mut self, id: &str) -> Result<JsValue, JsError> {
-        to_js(&self.0.download(id).map_err(js)?)
+    pub fn download(&mut self, id: &str, size: Option<f64>) -> Result<JsValue, JsError> {
+        to_js(&self.0.download(id, size.map(|s| s as u64)).map_err(js)?)
     }
 
     pub fn acknowledge(&mut self, id: &str) -> Result<JsValue, JsError> {
         to_js(&self.0.acknowledge(id).map_err(js)?)
     }
 
+    /// `eles` uses NaN for missing elevation.
     #[wasm_bindgen(js_name = sendRoute)]
-    pub fn send_route(&mut self, fit: &[u8], device_id: &str) -> Result<JsValue, JsError> {
-        to_js(&self.0.send_route(fit, device_id))
+    pub fn send_route(
+        &mut self,
+        name: String,
+        lats: Vec<f64>,
+        lons: Vec<f64>,
+        eles: Vec<f64>,
+    ) -> Result<JsValue, JsError> {
+        let route = musette_core::ParsedRoute {
+            name,
+            lats,
+            lons,
+            eles,
+        };
+        to_js(&self.0.send_route(&route).map_err(js)?)
     }
 
-    #[wasm_bindgen(js_name = sendRouteName)]
-    pub fn send_route_name(&mut self, name: &str) -> Result<JsValue, JsError> {
-        to_js(&self.0.send_route_name(name))
+    /// `kind`: `route` or `map`.
+    #[wasm_bindgen(js_name = sendFile)]
+    pub fn send_file(&mut self, kind: &str, bytes: Vec<u8>) -> Result<JsValue, JsError> {
+        let kind = match kind {
+            "route" => musette_core::FileKind::Route,
+            "map" => musette_core::FileKind::Map,
+            _ => return Err(JsError::new(&format!("unknown file kind {kind}"))),
+        };
+        to_js(&self.0.send_file(kind, bytes).map_err(js)?)
     }
 
-    #[wasm_bindgen(js_name = settingGet)]
-    pub fn setting_get(&mut self, key: &str) -> Result<JsValue, JsError> {
-        to_js(&self.0.setting_get(key).map_err(js)?)
+    #[wasm_bindgen(js_name = readSettings)]
+    pub fn read_settings(&mut self) -> Result<JsValue, JsError> {
+        to_js(&self.0.read_settings().map_err(js)?)
     }
 
-    #[wasm_bindgen(js_name = settingSet)]
-    pub fn setting_set(&mut self, key: &str, value: f64) -> Result<JsValue, JsError> {
-        to_js(&self.0.setting_set(key, value as i64).map_err(js)?)
+    /// The changes as three arrays of the same length; NaN: no number.
+    #[wasm_bindgen(js_name = writeSettings)]
+    pub fn write_settings(
+        &mut self,
+        keys: Vec<String>,
+        numbers: Vec<f64>,
+        texts: Vec<String>,
+    ) -> Result<JsValue, JsError> {
+        let changes: Vec<musette_core::Setting> = keys
+            .into_iter()
+            .zip(numbers)
+            .zip(texts)
+            .map(|((key, n), text)| musette_core::Setting {
+                key,
+                number: (!n.is_nan()).then_some(n),
+                text,
+            })
+            .collect();
+        to_js(&self.0.write_settings(&changes).map_err(js)?)
     }
 
-    /// `{writes, events}` for a notification from `channel` (0 command,
-    /// 1 data, 2 setting).
     #[wasm_bindgen(js_name = onNotify)]
     pub fn on_notify(&mut self, channel: u8, bytes: &[u8]) -> Result<JsValue, JsError> {
         to_js(&self.0.on_notify(channel, bytes))
     }
+
+    #[wasm_bindgen(js_name = onTimeout)]
+    pub fn on_timeout(&mut self) -> Result<JsValue, JsError> {
+        to_js(&self.0.on_timeout())
+    }
 }
 
-/// A Bryton route file from track points. `eles` uses NaN for missing elevation.
-#[wasm_bindgen(js_name = brytonBuildRoute)]
-pub fn bryton_build_route(
-    lats: Vec<f64>,
-    lons: Vec<f64>,
-    eles: Vec<f64>,
-) -> Result<Vec<u8>, JsError> {
-    musette_core::bryton_build_route(&lats, &lons, &eles).map_err(js)
-}
+/// A CC600 in memory (demo without a device, tests).
+#[wasm_bindgen(js_name = Cc600Simulator)]
+pub struct Cc600Simulator(musette_core::Cc600Simulator);
 
-/// The Bryton settings Musette reads.
-#[wasm_bindgen(js_name = brytonSettingFields)]
-pub fn bryton_setting_fields() -> Result<JsValue, JsError> {
-    to_js(&musette_core::bryton_setting_fields())
-}
+#[wasm_bindgen(js_class = Cc600Simulator)]
+impl Cc600Simulator {
+    #[wasm_bindgen(constructor)]
+    pub fn new(
+        window: u16,
+        free: u32,
+        settings: String,
+        lose_chunks: Vec<u32>,
+        lose_acks: Vec<u32>,
+    ) -> Self {
+        Self(musette_core::Cc600Simulator::new(
+            window,
+            free,
+            settings,
+            lose_chunks,
+            lose_acks,
+        ))
+    }
 
-/// Decodes the answer to the get of `key`; `undefined` if it is not one.
-#[wasm_bindgen(js_name = brytonSettingValue)]
-pub fn bryton_setting_value(key: &str, frame: &[u8]) -> Result<JsValue, JsError> {
-    match musette_core::bryton_setting_value(key, frame) {
-        Some(v) => to_js(&v),
-        None => Ok(JsValue::UNDEFINED),
+    /// `start_time` in Unix seconds.
+    #[wasm_bindgen(js_name = addActivity)]
+    pub fn add_activity(&mut self, id: u32, start_time: f64, fit: Vec<u8>) {
+        self.0.add_activity(id, start_time as i64, fit);
+    }
+
+    /// The frames the device answers, as `Uint8Array`s.
+    pub fn write(&mut self, bytes: &[u8]) -> js_sys::Array {
+        self.0
+            .write(bytes)
+            .iter()
+            .map(|f| js_sys::Uint8Array::from(f.as_slice()))
+            .collect()
+    }
+
+    pub fn disconnect(&mut self) {
+        self.0.disconnect();
+    }
+
+    pub fn received(&self) -> u32 {
+        self.0.received()
+    }
+
+    pub fn committed(&self) -> Option<Vec<u8>> {
+        self.0.committed()
+    }
+
+    #[wasm_bindgen(js_name = chunkBytes)]
+    pub fn chunk_bytes(&self) -> u32 {
+        self.0.chunk_bytes()
+    }
+
+    pub fn acked(&self) -> Vec<u32> {
+        self.0.acked()
+    }
+
+    pub fn settings(&self) -> String {
+        self.0.settings()
+    }
+
+    #[wasm_bindgen(js_name = settingsWrites)]
+    pub fn settings_writes(&self) -> Vec<String> {
+        self.0.settings_writes()
     }
 }

@@ -15,7 +15,29 @@ pub enum Model {
     BrytonRider750,
 }
 
+/// How the app reaches a device: what it can do depends on it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Link {
+    Ble,
+    /// Mounted as a drive (USB mass storage).
+    UsbFiles,
+}
+
 impl Model {
+    pub const ALL: [Model; 2] = [Model::OpenCc600, Model::BrytonRider750];
+
+    /// The app's name for the model (`open-cc600`...).
+    pub fn id(self) -> &'static str {
+        match self {
+            Model::OpenCc600 => "open-cc600",
+            Model::BrytonRider750 => "bryton-rider-750",
+        }
+    }
+
+    pub fn from_id(id: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|m| m.id() == id)
+    }
+
     pub fn display_name(self) -> &'static str {
         match self {
             Model::OpenCc600 => "CC600 (OpenCC600)",
@@ -53,6 +75,20 @@ impl Model {
                 sensors: false,
                 wifi_sync: false,
             },
+        }
+    }
+
+    /// What the device can do over `link`: nothing over a link it lacks.
+    pub fn capabilities_over(self, link: Link) -> Capabilities {
+        let all = self.capabilities();
+        match (self, link) {
+            (_, Link::Ble) if all.transport.ble => all,
+            // USB drive: rides only (route copy over USB to be checked, see docs/drivers/bryton.md).
+            (_, Link::UsbFiles) if all.transport.usb_files => Capabilities {
+                download_activities: true,
+                ..Capabilities::default()
+            },
+            _ => Capabilities::default(),
         }
     }
 }
@@ -98,5 +134,12 @@ mod tests {
         let c = Model::BrytonRider750.capabilities();
         assert!(c.transport.usb_files && c.transport.ble);
         assert!(c.download_activities && !c.route_corridor_map);
+        let usb = Model::BrytonRider750.capabilities_over(Link::UsbFiles);
+        assert!(usb.download_activities && !usb.upload_route && !usb.settings);
+        assert_eq!(Model::from_id("open-cc600"), Some(Model::OpenCc600));
+        assert_eq!(
+            Model::OpenCc600.capabilities_over(Link::UsbFiles),
+            Capabilities::default()
+        );
     }
 }

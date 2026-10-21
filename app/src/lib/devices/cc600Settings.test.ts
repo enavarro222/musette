@@ -2,28 +2,28 @@ import { describe, expect, it } from 'vitest';
 import { loadCore } from '../core';
 import { changedValues, groupFields, SETTING_GROUPS } from '../settings';
 import { FakeCc600 } from '../../test/fakeCc600';
-import { Cc600Device } from './cc600';
+import { BleDevice } from './bleDevice';
+import { CC600 } from './cc600';
 import { CC600_SETTINGS, TIME_ZONES } from './cc600Settings';
 
 async function connected(fake: FakeCc600) {
-  const device = new Cc600Device(fake, { requestMs: 300, stallMs: 50 });
+  const device = new BleDevice(CC600, fake, { requestMs: 300, shortMs: 50 });
   await device.connect();
   return device;
 }
 
 describe('CC600 settings', () => {
   it('presents every setting the device has, and nothing else', async () => {
-    const keys = (await loadCore()).cc600SettingsFields().map((f) => f.key);
+    const keys = (await loadCore()).settingFields('open-cc600').map((f) => f.key);
     expect(Object.keys(CC600_SETTINGS).sort()).toEqual([...keys].sort());
     const groups: string[] = SETTING_GROUPS.map((g) => g.id);
     for (const p of Object.values(CC600_SETTINGS)) expect(groups).toContain(p.group);
   });
 
   it('offers only time zones the device accepts', async () => {
-    const core = await loadCore();
-    for (const tz of Object.keys(TIME_ZONES)) {
-      expect(() => core.cc600SettingsApply('', `tz=${tz}\n`), tz).not.toThrow();
-    }
+    const device = await connected(new FakeCc600());
+    for (const tz of Object.keys(TIME_ZONES)) await device.writeSettings({ tz });
+    expect((await device.readSettings()).values.tz).toBe('UTC0');
   });
 
   it('reads the settings as typed values, in Musette groups', async () => {
@@ -52,7 +52,7 @@ describe('CC600 settings', () => {
     const { values } = await device.readSettings();
     const edited = { ...values, sound: false, backlight: 30, theme: 'night' };
     await device.writeSettings(changedValues(values, edited));
-    expect(fake.settingsWrites).toEqual(['sound=off\ntheme=night\nbacklight=30\n']);
+    expect(fake.device.settingsWrites()).toEqual(['sound=off\ntheme=night\nbacklight=30\n']);
     const after = await device.readSettings();
     expect(after.values).toEqual(edited);
   });
@@ -60,17 +60,17 @@ describe('CC600 settings', () => {
   it('changes nothing when the device refuses a value, and names the setting', async () => {
     const fake = new FakeCc600();
     const device = await connected(fake);
-    const before = fake.settings;
+    const before = fake.device.settings();
     await expect(device.writeSettings({ sound: false, scroll_s: 99 })).rejects.toThrow(
       'Le compteur a refusé le réglage « Défilement des pages »',
     );
-    expect(fake.settings).toBe(before);
+    expect(fake.device.settings()).toBe(before);
   });
 
   it('never sends a read-only setting', async () => {
     const fake = new FakeCc600();
     const device = await connected(fake);
     await expect(device.writeSettings({ hr: 'Aucun' })).rejects.toThrow();
-    expect(fake.settingsWrites).toEqual([]);
+    expect(fake.device.settingsWrites()).toEqual([]);
   });
 });

@@ -1,6 +1,6 @@
 import { PermissionsAndroid, Platform } from 'react-native';
 import { BleManager, State, type Device, type Subscription } from 'react-native-ble-plx';
-import { matchBle, packetUuids, type BleOptions, type BlePeer, type GattTransport, type PacketTransport } from './types';
+import { matchBle, type BleOptions, type BlePeer, type GattTransport } from './types';
 
 /**
  * Native Bluetooth (iOS, Android) through react-native-ble-plx.
@@ -8,65 +8,11 @@ import { matchBle, packetUuids, type BleOptions, type BlePeer, type GattTranspor
  * There is no device chooser as in the browser: the app lists the devices
  * `scanBle` finds and connects to the one the user picks.
  */
-export class BlePlxTransport implements PacketTransport {
-  readonly kind = 'packet' as const;
-  peerName?: string;
-
-  private device?: Device;
-  private monitor?: Subscription;
-  private listeners = new Set<(bytes: Uint8Array) => void>();
-  /** Bytes per write: the negotiated MTU less the ATT header. */
-  private chunkSize = 20;
-
-  private readonly options: BleOptions;
-
-  constructor(private readonly peer: BlePeer) {
-    this.options = peer.options;
-  }
-
-  async connect(): Promise<void> {
-    const ble = manager();
-    await ready(ble);
-    const device = await ble.connectToDevice(this.peer.id, { requestMTU: 247 });
-    await device.discoverAllServicesAndCharacteristics();
-    this.device = device;
-    this.peerName = device.name ?? device.localName ?? undefined;
-    this.chunkSize = Math.max(20, Math.min(device.mtu - 3, 244));
-    this.monitor = device.monitorCharacteristicForService(this.options.serviceUuid, packetUuids(this.options).txUuid, (error, c) => {
-      if (error || !c?.value) return;
-      const bytes = fromBase64(c.value);
-      this.listeners.forEach((l) => l(bytes));
-    });
-  }
-
-  async disconnect(): Promise<void> {
-    this.monitor?.remove();
-    this.monitor = undefined;
-    await this.device?.cancelConnection().catch(() => undefined);
-    this.device = undefined;
-  }
-
-  async send(bytes: Uint8Array): Promise<void> {
-    if (!this.device) throw new Error('Non connecté');
-    for (let i = 0; i < bytes.length; i += this.chunkSize) {
-      await this.device.writeCharacteristicWithoutResponseForService(
-        this.options.serviceUuid,
-        packetUuids(this.options).rxUuid,
-        toBase64(bytes.subarray(i, i + this.chunkSize)),
-      );
-    }
-  }
-
-  onData(listener: (bytes: Uint8Array) => void): () => void {
-    this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
-  }
-}
-
-/** Native Bluetooth with several characteristics (see `GattTransport`). */
 export class BlePlxGattTransport implements GattTransport {
   readonly kind = 'gatt' as const;
   peerName?: string;
+  /** The negotiated MTU less the ATT header. */
+  maxWrite = 20;
 
   private device?: Device;
   private monitors: Subscription[] = [];
@@ -81,6 +27,7 @@ export class BlePlxGattTransport implements GattTransport {
     await device.discoverAllServicesAndCharacteristics();
     this.device = device;
     this.peerName = device.name ?? device.localName ?? undefined;
+    this.maxWrite = Math.max(20, Math.min(device.mtu - 3, 244));
   }
 
   async disconnect(): Promise<void> {

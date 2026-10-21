@@ -13,7 +13,9 @@ serde = ["dep:serde"]
 fit.workspace = true
 track.workspace = true
 climbs.workspace = true
+device.workspace = true
 driver-bryton.workspace = true
+driver-cc600.workspace = true
 protocol-cc600.workspace = true
 route-cc600 = { workspace = true, features = ["build"] }
 settings-cc600.workspace = true

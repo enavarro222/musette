@@ -1,21 +1,18 @@
-import type { ParsedRoute } from '../core';
+import type { Capabilities, FileKind, ModelId, ParsedRoute } from '../core';
 import type { DeviceSettings, SettingValues } from '../settings';
 
-/** Mirrors `crates/device`. */
-export type ModelId = 'open-cc600' | 'bryton-rider-750';
+export type { Capabilities, FileKind, ModelId } from '../core';
 
-/** Files a device can receive. */
-export type FileKind = 'route' | 'map';
-
-export interface Capabilities {
-  downloadActivities: boolean;
-  uploadRoute: boolean;
-  routeCorridorMap: boolean;
-  climbsOnDevice: boolean;
-  settings: boolean;
-  sensors: boolean;
-  wifiSync: boolean;
-}
+/** Before the device is connected: it does nothing yet. */
+export const NO_CAPABILITIES: Capabilities = {
+  downloadActivities: false,
+  uploadRoute: false,
+  routeCorridorMap: false,
+  climbsOnDevice: false,
+  settings: false,
+  sensors: false,
+  wifiSync: false,
+};
 
 export interface ActivityRef {
   id: string;
@@ -28,6 +25,7 @@ export interface ActivityRef {
 export interface Device {
   readonly model: ModelId;
   readonly name: string;
+  /** From the Rust core (`crates/device`), once connected. */
   readonly capabilities: Capabilities;
   connect(): Promise<void>;
   disconnect(): Promise<void>;

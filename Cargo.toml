@@ -9,6 +9,7 @@ members = [
     "crates/climbs",
     "crates/device",
     "crates/driver-bryton",
+    "crates/driver-cc600",
     "crates/musette-core",
     "crates/musette-wasm",
     "crates/musette-ffi",
@@ -31,6 +32,7 @@ track = { path = "crates/track" }
 climbs = { path = "crates/climbs" }
 device = { path = "crates/device" }
 driver-bryton = { path = "crates/driver-bryton" }
+driver-cc600 = { path = "crates/driver-cc600" }
 musette-core = { path = "crates/musette-core" }
 
 wasm-bindgen = "0.2"

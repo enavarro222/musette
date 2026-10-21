@@ -394,6 +394,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "driver-cc600"
+version = "0.1.0"
+dependencies = [
+ "protocol-cc600",
+ "settings-cc600",
+]
+
+[[package]]
 name = "either"
 version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -765,6 +773,8 @@ dependencies = [
  "driver-bryton",
  "fit",
  "futures",
+ "musette-core",
+ "protocol-cc600",
  "tokio",
  "track",
  "uuid",
@@ -775,7 +785,9 @@ name = "musette-core"
 version = "0.1.0"
 dependencies = [
  "climbs",
+ "device",
  "driver-bryton",
+ "driver-cc600",
  "fit",
  "protocol-cc600",
  "route-cc600",

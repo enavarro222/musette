@@ -3,13 +3,14 @@ import { describe, expect, it } from 'vitest';
 import { fitFile } from '../../test/fakeCc600';
 import { FakeBryton, type FakeBrytonOptions } from '../../test/fakeBryton';
 import { loadCore } from '../core';
-import { BrytonBleDevice, rideStart } from './brytonBle';
+import { BleDevice } from './bleDevice';
+import { BRYTON, rideStart } from './brytonBle';
 
-const FAST = { requestMs: 500, readyMs: 300 };
+const FAST = { requestMs: 500, shortMs: 300 };
 
 async function connected(options: FakeBrytonOptions = {}) {
   const fake = new FakeBryton(options);
-  const device = new BrytonBleDevice(fake, FAST);
+  const device = new BleDevice(BRYTON, fake, FAST);
   await device.connect();
   return { fake, device };
 }
@@ -23,8 +24,8 @@ function bikeName(slot: number, name: string): number[] {
 describe('Bryton over Bluetooth', () => {
   it('connects as the app does: device info, then "new app" for the handshake', async () => {
     const { fake, device } = await connected();
-    expect(device.info).toMatchObject({ model: 'Rider750', settings: true, recording: false });
     expect(device.name).toBe('Rider750');
+    expect(device.capabilities).toMatchObject({ settings: true, uploadRoute: true });
     expect(fake.sent('command').slice(0, 2)).toEqual([
       [6, 0x04], // read device info
       [6, 0x44, 3], // action 3: the device sends the data only then
@@ -126,6 +127,6 @@ describe('Bryton over Bluetooth', () => {
     const { fake, device } = await connected({ rides: [{ id: '260922125127', fit: fitFile(new Uint8Array(10)) }] });
     fake.write = async () => undefined; // the link is gone
     await expect(device.listActivities()).rejects.toThrow(/ne répond pas/);
-    expect((await loadCore()).brytonSettingFields().length).toBeGreaterThan(10);
+    expect((await loadCore()).settingFields('bryton-rider-750').length).toBeGreaterThan(10);
   });
 });
