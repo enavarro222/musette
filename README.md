@@ -6,19 +6,60 @@
 
 Musette is first built to use and share the [OpenCC600](https://github.com/enavarro222/opencc600) firmware (GEOID CC600) while it is being developed, and is designed to support other bike computers too: the Bryton Rider 750 with its stock firmware is the second one.
 
-## What it does
+**Try it:** [enavarro222.github.io/musette](https://enavarro222.github.io/musette/) (Chrome or Edge for Bluetooth). The interface is in French for now.
 
-| | OpenCC600 (Bluetooth) | Bryton Rider 750 (Bluetooth, USB) |
+<p align="center">
+  <img src="docs/screenshots/route.png" width="200" alt="A route: map, elevation profile and detected climbs">
+  <img src="docs/screenshots/map.png" width="200" alt="The route on a full-screen map, climbs in orange">
+  <img src="docs/screenshots/rides.png" width="200" alt="Rides downloaded from the bike computer">
+  <img src="docs/screenshots/device.png" width="200" alt="The connected bike computer and its settings groups">
+</p>
+
+## Features
+
+### Rides
+
+Connect your bike computer and download the new rides as FIT files. Each ride is copied, its integrity checked (FIT header and CRC), stored on your phone or in your browser, and only then acknowledged to the device: a ride is never lost because a transfer went wrong. Stored rides can be shared or saved to any other app (Strava, intervals.icu, a folder…).
+
+### Routes
+
+Open a GPX (from Komoot, RideWithGPS, BRouter…): Musette shows it on a map with its elevation profile, detects the climbs and gives each one its length, average and maximum gradient and category (4 to HC). Then send it to the bike computer in one tap. The CC600 receives the climbs with the route, to show them while riding; an interrupted transfer resumes where it stopped.
+
+### Device settings
+
+<img src="docs/screenshots/settings.png" width="200" align="right" alt="Display settings of a CC600">
+
+Change the bike computer's settings from the phone: display, backlight, ride, navigation, sounds, energy, time zone. Each change is written to the device at once. On the CC600, the paired sensors (heart rate, speed and cadence, power; ANT+ and Bluetooth) are listed too.
+
+### Supported bike computers
+
+| | OpenCC600 | Bryton Rider 750 (stock firmware) |
 |---|---|---|
-| Download rides (FIT), verified before being acknowledged | ✓ | ✓ (USB: folder heuristics to confirm) |
-| Open a GPX, elevation profile, climb detection | ✓ | ✓ |
-| Send a route to the device | ✓ with its climbs | ✓ Bluetooth (start and arrival turns only) |
+| Connection | Bluetooth | Bluetooth |
+| Download rides (FIT), verified before being acknowledged | ✓ | ✓ |
+| Send a route | ✓ with its climbs | ✓ Bluetooth (start and arrival turns only) |
 | Device settings | ✓ | ✓ Bluetooth |
+| Paired sensors | ✓ | |
 
-Where it runs:
+Adding a device is described in [docs/adding-a-device.md](docs/adding-a-device.md): start with ride download, the app shows only what a driver supports.
 
-- **Web**: Chrome / Edge (desktop and Android) for Bluetooth; desktop Chrome / Edge for USB drives. Safari and Firefox do not support Web Bluetooth.
-- **Android, iOS**: native app (Bluetooth). USB drives are not read yet. Android is used with a real CC600 and a Rider 750; iOS is not tried yet.
+### Where it runs
+
+- **Web**: Chrome / Edge (desktop and Android) for Bluetooth. Safari and Firefox do not support Web Bluetooth. Rides and routes are kept in the browser.
+- **Android**: native app (Bluetooth), used with a real CC600 and a Rider 750.
+- **iOS**: native app from the same code base, not tried yet.
+- **Command line** (`musette-cli`): the same sessions from a PC — list, download and sync rides, send routes, read and change settings, capture BLE traffic.
+
+## Planned
+
+- **Map around the route** for the CC600: an OpenStreetMap corridor (roads, paths, water, forests, maybe contour lines) a few hundred KB in size, sent with the route. The file format is ready (`route-cc600`), the app does not build it yet.
+- **Wi-Fi transfer** for the CC600: the app gives the device its Wi-Fi credentials over Bluetooth, the device then fetches big files (maps, routes) itself.
+- **Faster ride downloads** over Bluetooth (larger reads and packets).
+- **Bryton over USB**: the device mounts as a drive (`Activities/*.fit`); the web app has a first version for rides (desktop Chrome / Edge), not tried on a device yet.
+- **A first try on iOS.**
+- **More bike computers**, and the interface in English.
+
+Ideas and bug reports are welcome in the [issues](https://github.com/enavarro222/musette/issues).
 
 ## Repository layout
 
@@ -56,6 +97,8 @@ npm run wasm                    # build the Rust core for the web (src/lib/core/
 npm test                        # app logic against a simulated CC600
 npm run web                     # http://localhost:8081 (Web Bluetooth works on localhost)
 ```
+
+In development, the device chooser also offers a **simulated CC600** (the device's own Rust code, in the page): rides, routes and settings can be tried without a bike computer. The screenshots above were taken this way.
 
 Android (needs JDK 17, the Android SDK and NDK, `cargo-ndk`, the Rust targets `aarch64-linux-android` and `x86_64-linux-android`):
 
