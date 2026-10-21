@@ -371,14 +371,16 @@ Read with `musette setting caps | read | get`, written with `musette setting set
 | 28 auto lap | `[bike]` | `[mode << 4 \| bike, f32 dist metric, f32 dist imperial, f32 lat, f32 lon]` | |
 | 29 unit | — | `[unit]` | 0 = `Unit=0` |
 | 30 user | `[0, item]` | `[0, item, value]`: 0 height and 1 weight = 2 × f32 (metric, imperial); 2 birthday = u16 year, month, day; 3 gender u8; 6 language ID (ASCII, e.g. `FRA`); 5 name = long command | all equal to `UserProfile.ini` |
-| 31 bike | `[0, item, bike 1-3]` | item 0: `[0, 0, bike, prio1, prio2, prio3]` (speed source) | |
+| 31 bike | `[seq, item, bike 0-2]` | item 0: `[0, 0, bike, prio1, prio2, prio3]` (speed source). Item 5 (name, long command): seq 0 → `[0, 5, bike, chunks=4, length=32]`, seq k → `[k, 5, bike, 14 bytes UTF-8]` | names = `Name=` in `Bike<n+1>Profile.ini` |
 | 33 / 34 / 35 zones FTP / max HR / LTHR | `[item]` | `[item, u16]`; item 0 = base value | 200 / 190 / 172 = `BaseVale` |
 | 40 GPS | `[bike]` | `[bike, mode]` | |
 | 41 log state | — | `[item, u16 hours]` | `02 ff ff` |
 | 42 trip | `[bike]` | `[bike, 4 × f32]` | |
 | 45 odometer | `[bike]` | `[bike, f32 km, f32 mi]` | 8846.786 / 5497.393 = `ODOVal` (`DeviceProfile.ini`) for bike 0 |
 
-- **[open]** Bike numbers: 27, 28, 40, 42 and 45 answer for bikes 0-2, and 31 for 1-3. Which is the device's "Bike 1"? (Auto pause seen: bike 0 on, 1 off, 2 on.)
+- **[dev] [usb] Bike slots**: every per-bike command (27, 28, 31, 40, 42, 45) takes a slot 0-2, and slot n is `System/Bike<n+1>Profile.ini` (its `Name=` and `[AutoPause] isPause=`). Checked by turning auto pause off on the device for one bike: only that slot changed over BLE, and only that file changed over USB. The device's bike menu does not list the bikes in slot order. Slot 3 and more answer empty.
+- **[open]** Odometer (45): slot 0 gave the device's global `ODOVal` (`DeviceProfile.ini`), and slots 1-2 gave 0. Per bike, or global under slot 0?
+- **[usb]** Acknowledging a ride (cmd 51) does not delete it: the file is still on the drive, unchanged.
 - **[open]** Meaning of the backlight value (seconds? an index?), of GPS mode 1, of the auto-lap mode, and of the battery bytes.
 
 ## 5. Connection sequence (as the app does it)

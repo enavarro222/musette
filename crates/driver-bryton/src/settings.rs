@@ -139,6 +139,17 @@ fn speed_source(p: &[u8]) -> Option<Value> {
     )))
 }
 
+/// Bike name, a long command: the get with seq 0 answers `[0, 5, bike,
+/// chunks, length]`, then seq `k` gives chunk `k` (14 bytes, UTF-8). This
+/// reads chunk 1 only: names up to 14 bytes.
+fn bike_name(p: &[u8]) -> Option<Value> {
+    let s = p.get(3..)?;
+    let s = s.split(|&b| b == 0).next()?;
+    Some(Value::Text(
+        String::from_utf8_lossy(s).trim_end().to_string(),
+    ))
+}
+
 /// Zones: `[item, u16]`; item 0 is the base value (FTP W, max HR, LTHR).
 fn zone_base(p: &[u8]) -> Option<Value> {
     Some(Value::Int(u16_at(p, 1)? as i64))
@@ -169,9 +180,10 @@ macro_rules! per_bike {
     };
 }
 
-/// The settings `musette setting read` shows. Commands 27, 28, 40, 42 and
-/// 45 take a bike number 0-2; cmd 31 takes 1-3 (seen on a Rider 750, the
-/// matching with the device's Bike 1-3 is not checked yet).
+/// The settings `musette setting read` shows. Per-bike commands take a
+/// bike slot 0-2: slot n is `System/Bike<n+1>Profile.ini` on the drive
+/// (checked on a Rider 750 by changing auto pause on the device). The
+/// device's menu may list the bikes in another order.
 pub fn fields() -> Vec<Field> {
     let mut v = vec![
         Field {
@@ -263,28 +275,33 @@ pub fn fields() -> Vec<Field> {
     v.extend(per_bike!("auto_lap", 28, auto_lap));
     v.extend(per_bike!("gps", 40, bike_byte));
     v.extend(per_bike!("odometer", 45, bike_pair));
-    v.extend([
-        Field {
-            key: "bike1.speed_source",
+    // Cmd 31 args: [seq, item, bike]. Name: chunk (seq) 1.
+    for (bike, name, speed) in [
+        (&[1, 5, 0], "bike0.name", &[0, 0, 0]),
+        (&[1, 5, 1], "bike1.name", &[0, 0, 1]),
+        (&[1, 5, 2], "bike2.name", &[0, 0, 2]),
+    ] {
+        v.push(Field {
+            key: name,
             cmd: 31,
-            args: &[0, 0, 1],
-            decode: speed_source,
-        },
-        Field {
-            key: "bike2.speed_source",
+            args: bike,
+            decode: bike_name,
+        });
+        v.push(Field {
+            key: SPEED_KEYS[speed[2] as usize],
             cmd: 31,
-            args: &[0, 0, 2],
+            args: speed,
             decode: speed_source,
-        },
-        Field {
-            key: "bike3.speed_source",
-            cmd: 31,
-            args: &[0, 0, 3],
-            decode: speed_source,
-        },
-    ]);
+        });
+    }
     v
 }
+
+const SPEED_KEYS: [&str; 3] = [
+    "bike0.speed_source",
+    "bike1.speed_source",
+    "bike2.speed_source",
+];
 
 /// The payload of a type-1 answer to `cmd`, without the checksum.
 pub fn answer_payload(cmd: u8, frame: &[u8]) -> Option<&[u8]> {
@@ -360,6 +377,10 @@ mod tests {
             decode("bike1.speed_source", &[0, 0, 1, 1, 0, 2]),
             Value::Text("priorities 1 0 2".into())
         );
+        let mut name = vec![1, 5, 2];
+        name.extend("Vélo X ".as_bytes());
+        name.resize(17, 0);
+        assert_eq!(decode("bike2.name", &name), Value::Text("Vélo X".into()));
     }
 
     #[test]
