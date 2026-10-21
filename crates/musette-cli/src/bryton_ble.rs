@@ -182,6 +182,41 @@ impl BrytonBle {
     }
 }
 
+impl BrytonBle {
+    /// Sends one setting frame and returns the device's frames for the same
+    /// cmd: its 2-byte ack and/or its answer (already acked). Stops at the
+    /// first answer longer than 2 bytes, or at a 2-byte ack that is not OK.
+    pub fn session_mut(&mut self) -> &mut Session {
+        &mut self.session
+    }
+
+    pub async fn setting_exchange(&mut self, w: Write) -> Result<Vec<Vec<u8>>> {
+        let cmd = w.bytes[0];
+        self.send(&[w]).await?;
+        let mut got = vec![];
+        let deadline = Instant::now() + self.opts.timeout;
+        while Instant::now() < deadline {
+            let Some((u, b)) = self.link.next(deadline - Instant::now()).await? else {
+                break;
+            };
+            if u.to_string() != uuid::SETTING_CHANNEL {
+                continue;
+            }
+            let step = self.session.on_setting(&b);
+            self.send(&step.writes).await?;
+            if b.first() != Some(&cmd) {
+                continue;
+            }
+            let done = b.len() > 2 || b.get(1) != Some(&10);
+            got.push(b);
+            if done {
+                break;
+            }
+        }
+        Ok(got)
+    }
+}
+
 impl Device for BrytonBle {
     fn model(&self) -> device::Model {
         device::Model::BrytonRider750

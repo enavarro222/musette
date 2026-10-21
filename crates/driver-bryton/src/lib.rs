@@ -16,6 +16,7 @@
 //! (`PlanTrip/`), so other top-level folders are ignored by name.
 
 pub mod ble;
+pub mod settings;
 
 use device::ActivityRef;
 

@@ -107,6 +107,13 @@ enum Cmd {
         dev: DeviceArgs,
         id: String,
     },
+    /// Bryton BLE setting channel (read only for now).
+    Setting {
+        #[command(flatten)]
+        dev: DeviceArgs,
+        #[command(subcommand)]
+        op: SettingOp,
+    },
     /// Download the rides missing from a folder, check them, store them as
     /// `<name>.fit`.
     Sync {
@@ -119,6 +126,33 @@ enum Cmd {
         ack: bool,
     },
 }
+
+#[derive(Subcommand)]
+enum SettingOp {
+    /// Send `[cmd, 2, args..., checksum]` and print the answer.
+    Get {
+        cmd: u8,
+        /// Extra bytes (decimal), e.g. the bike index.
+        args: Vec<u8>,
+    },
+    /// Ask the layout version (type 4) of each command (all known if none).
+    Caps { cmds: Vec<u8> },
+    /// Read and decode every setting Musette knows.
+    Read,
+    /// Send `[cmd, 1, payload..., checksum]`: CHANGES the device's setting.
+    Set {
+        cmd: u8,
+        /// Payload bytes (decimal), laid out as the get answer.
+        payload: Vec<u8>,
+    },
+}
+
+/// Setting command ids known from the app (ConstSettingChannel).
+const SETTING_IDS: &[u8] = &[
+    20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43,
+    44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 56, 57, 58, 59, 60, 63, 64, 65, 67, 71, 72, 73, 74,
+    75, 76, 77, 83, 84, 85, 86, 87,
+];
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -135,6 +169,7 @@ async fn main() -> Result<()> {
         Cmd::Download { dev, id, out } => {
             with_device(&dev, cli.scan_secs, trace, Action::Download(id, out)).await
         }
+        Cmd::Setting { dev, op } => setting(&dev, cli.scan_secs, trace, op).await,
         Cmd::Ack { dev, id } => with_device(&dev, cli.scan_secs, trace, Action::Ack(id)).await,
         Cmd::Sync { dev, dir, ack } => {
             with_device(&dev, cli.scan_secs, trace, Action::Sync(dir, ack)).await
@@ -231,30 +266,113 @@ async fn with_device(
         .context("--device is <driver>:<argument>, e.g. bryton-ble:Rider")?;
     match kind {
         "bryton-usb" => run(bryton_usb::BrytonUsb::open(arg)?, action).await,
-        "bryton-ble" => {
-            let adapter = ble::adapter().await?;
-            let seen = ble::find(&adapter, arg, scan_secs).await?;
-            let link = ble::Link::open(&seen, bryton_ble::CHANNEL_NAMES, trace).await?;
-            let opts = bryton_ble::Options {
-                timeout: Duration::from_secs(d.timeout),
-                handshake_wait: Duration::from_secs(d.handshake_wait),
-                force_setting: d.force_setting,
-                list_type: match d.list {
-                    ListKind::Unsynced => ListType::Unsynced,
-                    ListKind::ManageUnsynced => ListType::ManageUnsynced,
-                    ListKind::All => ListType::ManageAll,
-                    ListKind::Default => ListType::Default,
-                },
-                session: Config {
-                    chunk: d.chunk,
-                    list_answer: Some(d.list_answer),
-                    ..Config::default()
-                },
-            };
-            run(bryton_ble::BrytonBle::connect(link, opts).await?, action).await
-        }
+        "bryton-ble" => run(connect_bryton_ble(d, arg, scan_secs, trace).await?, action).await,
         _ => bail!("unknown driver '{kind}' (bryton-ble, bryton-usb)"),
     }
+}
+
+async fn connect_bryton_ble(
+    d: &DeviceArgs,
+    arg: &str,
+    scan_secs: u64,
+    trace: Arc<Trace>,
+) -> Result<bryton_ble::BrytonBle> {
+    let adapter = ble::adapter().await?;
+    let seen = ble::find(&adapter, arg, scan_secs).await?;
+    let link = ble::Link::open(&seen, bryton_ble::CHANNEL_NAMES, trace).await?;
+    let opts = bryton_ble::Options {
+        timeout: Duration::from_secs(d.timeout),
+        handshake_wait: Duration::from_secs(d.handshake_wait),
+        force_setting: d.force_setting,
+        list_type: match d.list {
+            ListKind::Unsynced => ListType::Unsynced,
+            ListKind::ManageUnsynced => ListType::ManageUnsynced,
+            ListKind::All => ListType::ManageAll,
+            ListKind::Default => ListType::Default,
+        },
+        session: Config {
+            chunk: d.chunk,
+            list_answer: Some(d.list_answer),
+            ..Config::default()
+        },
+    };
+    bryton_ble::BrytonBle::connect(link, opts).await
+}
+
+fn hex(b: &[u8]) -> String {
+    b.iter()
+        .map(|x| format!("{x:02x}"))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+async fn setting(d: &DeviceArgs, scan_secs: u64, trace: Arc<Trace>, op: SettingOp) -> Result<()> {
+    let arg = d
+        .device
+        .strip_prefix("bryton-ble:")
+        .context("settings: only bryton-ble:<device> for now")?;
+    let mut dev = connect_bryton_ble(d, arg, scan_secs, trace).await?;
+    let result = async {
+        match op {
+            SettingOp::Get { cmd, args } => {
+                let w = dev.session_mut().setting_get(cmd, &args);
+                for f in dev.setting_exchange(w).await? {
+                    println!("{}", hex(&f));
+                }
+            }
+            SettingOp::Set { cmd, payload } => {
+                let w = dev.session_mut().setting_set(cmd, &payload);
+                let got = dev.setting_exchange(w).await?;
+                match got.last().map(|f| f.as_slice()) {
+                    Some([_, 10]) => println!("ok"),
+                    Some(f) => bail!("refused: {}", hex(f)),
+                    None => bail!("no ack"),
+                }
+            }
+            SettingOp::Read => {
+                for f in driver_bryton::settings::fields() {
+                    let w = dev.session_mut().setting_get(f.cmd, f.args);
+                    let got = dev.setting_exchange(w).await?;
+                    let value = got
+                        .iter()
+                        .find_map(|fr| driver_bryton::settings::answer_payload(f.cmd, fr))
+                        .map(|p| match (f.decode)(p) {
+                            Some(v) => v.to_string(),
+                            None => format!("cannot decode {}", hex(p)),
+                        });
+                    let text = match (value, got.last()) {
+                        (Some(v), _) => v,
+                        (None, Some(fr)) => format!("no value ({})", hex(fr)),
+                        (None, None) => "no answer".into(),
+                    };
+                    println!("{:<22} {text}", f.key);
+                }
+            }
+            SettingOp::Caps { cmds } => {
+                let cmds = if cmds.is_empty() {
+                    SETTING_IDS.to_vec()
+                } else {
+                    cmds
+                };
+                for cmd in cmds {
+                    let w = dev.session_mut().setting_capability(cmd);
+                    let got = dev.setting_exchange(w).await?;
+                    let text = match got.last() {
+                        Some(f) if f.len() >= 5 && f[1] == 5 => {
+                            format!("version {}  ({})", u16::from_le_bytes([f[2], f[3]]), hex(f))
+                        }
+                        Some(f) => format!("({})", hex(f)),
+                        None => "no answer".into(),
+                    };
+                    println!("{cmd:3}: {text}");
+                }
+            }
+        }
+        Ok(())
+    }
+    .await;
+    dev.close().await?;
+    result
 }
 
 async fn run(mut dev: impl Device, action: Action) -> Result<()> {

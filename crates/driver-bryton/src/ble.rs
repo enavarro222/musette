@@ -70,7 +70,12 @@ pub mod setting {
     pub const RIDE_STORED: u8 = 51;
     pub const HANDSHAKE: u8 = 52;
     pub const ABORT: u8 = 54;
+    pub const TYPE_SET: u8 = 1;
+    pub const TYPE_GET: u8 = 2;
+    pub const TYPE_GET_CAPABILITY: u8 = 4;
+    pub const TYPE_CAPABILITY: u8 = 5;
     pub const ACK_OK: u8 = 10;
+    pub const ACK_NOT_SUPPORTED: u8 = 11;
     pub const ACK_FAIL: u8 = 0;
 }
 
@@ -719,6 +724,34 @@ impl Session {
         Write {
             channel: Channel::Setting,
             bytes: setting_frame(setting::NEW_APP, 1, &[0]),
+        }
+    }
+
+    /// Setting "get" (type 2): `[cmd, 2, args..., checksum]`. The device
+    /// answers with a type-1 frame of the same cmd.
+    pub fn setting_get(&mut self, cmd: u8, args: &[u8]) -> Write {
+        Write {
+            channel: Channel::Setting,
+            bytes: setting_frame(cmd, setting::TYPE_GET, args),
+        }
+    }
+
+    /// Setting "set" (type 1): `[cmd, 1, payload..., checksum]`. The payload
+    /// has the same layout as the answer to the matching get. The device
+    /// acks `[cmd, 10]` (or 0 = fail, 11 = not supported).
+    pub fn setting_set(&mut self, cmd: u8, payload: &[u8]) -> Write {
+        Write {
+            channel: Channel::Setting,
+            bytes: setting_frame(cmd, setting::TYPE_SET, payload),
+        }
+    }
+
+    /// Setting "get capability" (type 4): the device answers type 5 with the
+    /// command's layout version (u16 LE).
+    pub fn setting_capability(&mut self, cmd: u8) -> Write {
+        Write {
+            channel: Channel::Setting,
+            bytes: setting_frame(cmd, setting::TYPE_GET_CAPABILITY, &[]),
         }
     }
 

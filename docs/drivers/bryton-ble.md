@@ -353,6 +353,34 @@ Layout after `[52, type]` (little-endian):
 - **[app]** Version 1 has no `devTx` or `devRx`. Bytes 12-13 are there only if the frame is 15 bytes long. The version comes from the capability query (type 4 → 5).
 - **[guess]** With MTU 153, `payloadSize` should be 150 (ATT payload), which gives 148 data bytes per frame, the value of the app's `NEW_DEVICE_PAYLOAD_SIZE` constant.
 
+### 4.3 Settings, as seen on a Rider 750 [dev]
+
+Read with `musette setting caps | read | get`, written with `musette setting set` (2026-10-21). Code: `driver_bryton::settings`.
+
+- **Get**: `[cmd, 2, args..., checksum]`. **Answer**: `[cmd, 1, payload..., checksum]`. **Set**: `[cmd, 1, payload..., checksum]`, with the **same payload layout as the answer**. Ack `[cmd, 0x0a]`.
+- **Capability** (type 4 → type 5): `[cmd, 5, version u16 LE, item mask..., checksum]`. On the Rider 750, every command from 20 to 77 is version 1, except 47 (2), 58 (2), 59 (2) and 60 (3). Commands 83-87 are not supported (`[cmd, 0x0b]`). The mask lists the sub-items the device has: user 30 → `0x6f` (items 0-3, 5, 6), bike 31 → `0x21` (items 0 and 5 only: no bike weight or wheel over BLE), Wi-Fi 23 → `0x7f`, sensors 44 → `ff 07`.
+- **Commands with sub-items (user 30, bike 31) take a seq byte before the item**: `[30, 2, 0, item]`, and the answer is `[30, 1, 0, item, value...]`. jadx dropped this byte in the app's get requests.
+
+| Cmd | Get args | Answer payload | Checked against USB |
+| --- | --- | --- | --- |
+| 20 backlight | — | `[value]` | 6 = `blTime=6` (`DeviceData.ini`) |
+| 24 battery | — | `[a, b, c]` | **[open]** `00 03 01`, also pushed every 5 s |
+| 25 key tone | — | `[0/1]` | 0 = `isTone=0`; **set 1 then 0 checked** |
+| 26 sound | — | `[0/1]` | |
+| 27 auto pause | `[bike]` | `[bike, 0/1]` | |
+| 28 auto lap | `[bike]` | `[mode << 4 \| bike, f32 dist metric, f32 dist imperial, f32 lat, f32 lon]` | |
+| 29 unit | — | `[unit]` | 0 = `Unit=0` |
+| 30 user | `[0, item]` | `[0, item, value]`: 0 height and 1 weight = 2 × f32 (metric, imperial); 2 birthday = u16 year, month, day; 3 gender u8; 6 language ID (ASCII, e.g. `FRA`); 5 name = long command | all equal to `UserProfile.ini` |
+| 31 bike | `[0, item, bike 1-3]` | item 0: `[0, 0, bike, prio1, prio2, prio3]` (speed source) | |
+| 33 / 34 / 35 zones FTP / max HR / LTHR | `[item]` | `[item, u16]`; item 0 = base value | 200 / 190 / 172 = `BaseVale` |
+| 40 GPS | `[bike]` | `[bike, mode]` | |
+| 41 log state | — | `[item, u16 hours]` | `02 ff ff` |
+| 42 trip | `[bike]` | `[bike, 4 × f32]` | |
+| 45 odometer | `[bike]` | `[bike, f32 km, f32 mi]` | 8846.786 / 5497.393 = `ODOVal` (`DeviceProfile.ini`) for bike 0 |
+
+- **[open]** Bike numbers: 27, 28, 40, 42 and 45 answer for bikes 0-2, and 31 for 1-3. Which is the device's "Bike 1"? (Auto pause seen: bike 0 on, 1 off, 2 on.)
+- **[open]** Meaning of the backlight value (seconds? an index?), of GPS mode 1, of the auto-lap mode, and of the battery bytes.
+
 ## 5. Connection sequence (as the app does it)
 
 1. Connect and discover services. Turn on notifications for the command, data and notify channels. Ask for MTU 153.
