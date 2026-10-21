@@ -94,6 +94,10 @@ impl Device for BrytonUsb {
         Ok(bytes)
     }
 
+    async fn acknowledge_activity(&mut self, _id: &str) -> Result<()> {
+        anyhow::bail!("nothing to acknowledge over USB")
+    }
+
     async fn close(&mut self) -> Result<()> {
         Ok(())
     }

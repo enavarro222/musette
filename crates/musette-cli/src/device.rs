@@ -25,5 +25,8 @@ pub trait Device {
         id: &str,
         progress: &mut dyn FnMut(u64, u64),
     ) -> Result<Vec<u8>>;
+    /// Tells the device the ride is stored (it may then hide or free it).
+    /// Only after the FIT is verified and stored.
+    async fn acknowledge_activity(&mut self, id: &str) -> Result<()>;
     async fn close(&mut self) -> Result<()>;
 }

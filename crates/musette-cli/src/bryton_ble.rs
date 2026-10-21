@@ -277,6 +277,32 @@ impl Device for BrytonBle {
         .await
     }
 
+    async fn acknowledge_activity(&mut self, id: &str) -> Result<()> {
+        let file_id = file_id_from_name(id)
+            .ok_or_else(|| anyhow!("'{id}' is not a ride name (yyMMddHHmmss)"))?;
+        let w = self.session.acknowledge(file_id);
+        self.send(&[w]).await?;
+        // The device answers with a 2-byte ack [51, status] (10 = ok).
+        let deadline = Instant::now() + self.opts.timeout;
+        while Instant::now() < deadline {
+            if let Some((u, b)) = self.link.next(deadline - Instant::now()).await? {
+                let u = u.to_string();
+                if u == uuid::SETTING_CHANNEL && b.len() == 2 && b[0] == 51 {
+                    return match b[1] {
+                        10 => Ok(()),
+                        11 => bail!("the device does not support cmd 51"),
+                        s => bail!("the device refused cmd 51 (status {s})"),
+                    };
+                }
+                if u == uuid::SETTING_CHANNEL {
+                    let step = self.session.on_setting(&b);
+                    self.send(&step.writes).await?;
+                }
+            }
+        }
+        bail!("no ack for cmd 51")
+    }
+
     async fn close(&mut self) -> Result<()> {
         self.link.close().await
     }

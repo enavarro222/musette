@@ -65,6 +65,9 @@ pub mod action {
 pub mod setting {
     /// "set new app": the app says hello; the device then sends the handshake.
     pub const NEW_APP: u8 = 47;
+    /// "set btnotifydev": the app has stored this ride (fileId, u32 LE).
+    /// The app sends it after each ride it syncs.
+    pub const RIDE_STORED: u8 = 51;
     pub const HANDSHAKE: u8 = 52;
     pub const ABORT: u8 = 54;
     pub const ACK_OK: u8 = 10;
@@ -716,6 +719,16 @@ impl Session {
         Write {
             channel: Channel::Setting,
             bytes: setting_frame(setting::NEW_APP, 1, &[0]),
+        }
+    }
+
+    /// Setting cmd 51: tells the device the ride is stored by the app, so it
+    /// leaves the "not synced" list. Send it only after the FIT is verified
+    /// and stored.
+    pub fn acknowledge(&mut self, file_id: u32) -> Write {
+        Write {
+            channel: Channel::Setting,
+            bytes: setting_frame(setting::RIDE_STORED, 1, &file_id.to_le_bytes()),
         }
     }
 

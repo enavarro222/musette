@@ -101,12 +101,22 @@ enum Cmd {
         #[arg(short, long)]
         out: PathBuf,
     },
+    /// Tell the device a ride is stored (Bryton: it leaves the unsynced list).
+    Ack {
+        #[command(flatten)]
+        dev: DeviceArgs,
+        id: String,
+    },
     /// Download the rides missing from a folder, check them, store them as
-    /// `<name>.fit`. Acknowledges nothing on the device.
+    /// `<name>.fit`.
     Sync {
         #[command(flatten)]
         dev: DeviceArgs,
         dir: PathBuf,
+        /// Acknowledge each ride once verified and stored (Bryton: it leaves
+        /// the unsynced list, and Bryton Active will not sync it any more).
+        #[arg(long)]
+        ack: bool,
     },
 }
 
@@ -125,7 +135,10 @@ async fn main() -> Result<()> {
         Cmd::Download { dev, id, out } => {
             with_device(&dev, cli.scan_secs, trace, Action::Download(id, out)).await
         }
-        Cmd::Sync { dev, dir } => with_device(&dev, cli.scan_secs, trace, Action::Sync(dir)).await,
+        Cmd::Ack { dev, id } => with_device(&dev, cli.scan_secs, trace, Action::Ack(id)).await,
+        Cmd::Sync { dev, dir, ack } => {
+            with_device(&dev, cli.scan_secs, trace, Action::Sync(dir, ack)).await
+        }
     }
 }
 
@@ -202,7 +215,8 @@ enum Action {
     Info,
     List,
     Download(String, PathBuf),
-    Sync(PathBuf),
+    Ack(String),
+    Sync(PathBuf, bool),
 }
 
 async fn with_device(
@@ -289,7 +303,11 @@ async fn act(dev: &mut impl Device, action: Action) -> Result<()> {
                 ),
             }
         }
-        Action::Sync(dir) => {
+        Action::Ack(id) => {
+            dev.acknowledge_activity(&id).await?;
+            println!("{id}: acknowledged");
+        }
+        Action::Sync(dir, ack) => {
             std::fs::create_dir_all(&dir)?;
             let list = dev.list_activities().await?;
             let (mut new, mut bad) = (0, 0);
@@ -307,6 +325,10 @@ async fn act(dev: &mut impl Device, action: Action) -> Result<()> {
                 }
                 std::fs::write(&path, &bytes)?;
                 new += 1;
+                // Download → verify → store → acknowledge, never another order.
+                if ack {
+                    dev.acknowledge_activity(&a.id).await?;
+                }
             }
             println!("{new} new rides in {}, {bad} invalid", dir.display());
         }
