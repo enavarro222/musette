@@ -337,7 +337,7 @@ async fn setting(d: &DeviceArgs, scan_secs: u64, trace: Arc<Trace>, op: SettingO
                         .iter()
                         .find_map(|fr| driver_bryton::settings::answer_payload(f.cmd, fr))
                         .map(|p| match (f.decode)(p) {
-                            Some(v) => v.to_string(),
+                            Some(v) => f.show(&v),
                             None => format!("cannot decode {}", hex(p)),
                         });
                     let text = match (value, got.last()) {

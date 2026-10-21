@@ -52,7 +52,42 @@ pub struct Field {
     pub args: &'static [u8],
     /// Reads the answer payload (between `[cmd, 1]` and the checksum).
     pub decode: fn(&[u8]) -> Option<Value>,
+    /// Labels of an `Int` value, indexed by value (empty: a plain number).
+    pub choices: &'static [&'static str],
 }
+
+impl Field {
+    /// The value with its label when it has one, e.g. `Auto (6)`.
+    pub fn show(&self, v: &Value) -> String {
+        match v {
+            Value::Int(i) => match usize::try_from(*i).ok().and_then(|i| self.choices.get(i)) {
+                Some(label) => format!("{label} ({i})"),
+                None => v.to_string(),
+            },
+            _ => v.to_string(),
+        }
+    }
+}
+
+const NONE: &[&str] = &[];
+/// Backlight duration, layout version 1 (the app's default menu).
+pub const BACKLIGHT: &[&str] = &["5 s", "15 s", "30 s", "1 min", "2 min", "never", "auto"];
+/// GPS system (cmd 40). 1 is the manual's "Normal".
+pub const GPS: &[&str] = &[
+    "off",
+    "GPS + Galileo + QZSS",
+    "power saving",
+    "GPS + Glonass",
+    "GPS + Beidou",
+    "ultra high",
+    "on",
+];
+pub const UNIT: &[&str] = &["metric", "imperial"];
+pub const GENDER: &[&str] = &["female", "male"];
+/// Speed sources of cmd 31 item 0.
+pub const SPEED_SOURCE: &[&str] = &["GPS", "speed sensor", "speed/cadence sensor"];
+/// Auto-lap trigger (high nibble of cmd 28's first byte).
+pub const AUTO_LAP: &[&str] = &["off", "distance", "location"];
 
 fn f32_at(p: &[u8], i: usize) -> Option<f32> {
     Some(f32::from_le_bytes(p.get(i..i + 4)?.try_into().ok()?))
@@ -95,6 +130,7 @@ fn bike_pair(p: &[u8]) -> Option<Value> {
 /// `[mode << 4 | bike, f32 dist metric, f32 dist imperial, f32 lat, f32 lon]`
 fn auto_lap(p: &[u8]) -> Option<Value> {
     let mode = p.first()? >> 4;
+    let mode = AUTO_LAP.get(mode as usize).copied().unwrap_or("?");
     Some(Value::Text(format!(
         "mode {mode}, distance {} (imperial {}), position {} {}",
         f32_at(p, 1)?,
@@ -132,10 +168,13 @@ fn user_text(p: &[u8]) -> Option<Value> {
 
 /// Bike: `[seq, item, bike, priority1, priority2, priority3]`.
 fn speed_source(p: &[u8]) -> Option<Value> {
+    let name = |v: u8| SPEED_SOURCE.get(v as usize).copied().unwrap_or("?");
     let pr = p.get(3..6)?;
     Some(Value::Text(format!(
-        "priorities {} {} {}",
-        pr[0], pr[1], pr[2]
+        "1: {}, 2: {}, 3: {}",
+        name(pr[0]),
+        name(pr[1]),
+        name(pr[2])
     )))
 }
 
@@ -156,25 +195,28 @@ fn zone_base(p: &[u8]) -> Option<Value> {
 }
 
 macro_rules! per_bike {
-    ($key:literal, $cmd:expr, $decode:expr) => {
+    ($key:literal, $cmd:expr, $decode:expr, $choices:expr) => {
         [
             Field {
                 key: concat!("bike0.", $key),
                 cmd: $cmd,
                 args: &[0],
                 decode: $decode,
+                choices: $choices,
             },
             Field {
                 key: concat!("bike1.", $key),
                 cmd: $cmd,
                 args: &[1],
                 decode: $decode,
+                choices: $choices,
             },
             Field {
                 key: concat!("bike2.", $key),
                 cmd: $cmd,
                 args: &[2],
                 decode: $decode,
+                choices: $choices,
             },
         ]
     };
@@ -191,90 +233,104 @@ pub fn fields() -> Vec<Field> {
             cmd: 20,
             args: &[],
             decode: byte0,
+            choices: BACKLIGHT,
         },
         Field {
             key: "battery",
             cmd: 24,
             args: &[],
             decode: raw,
+            choices: NONE,
         },
         Field {
             key: "key_tone",
             cmd: 25,
             args: &[],
             decode: bool0,
+            choices: NONE,
         },
         Field {
             key: "sound",
             cmd: 26,
             args: &[],
             decode: bool0,
+            choices: NONE,
         },
         Field {
             key: "unit",
             cmd: 29,
             args: &[],
             decode: byte0,
+            choices: UNIT,
         },
         Field {
             key: "user.height",
             cmd: 30,
             args: &[0, 0],
             decode: user_pair,
+            choices: NONE,
         },
         Field {
             key: "user.weight",
             cmd: 30,
             args: &[0, 1],
             decode: user_pair,
+            choices: NONE,
         },
         Field {
             key: "user.birthday",
             cmd: 30,
             args: &[0, 2],
             decode: user_date,
+            choices: NONE,
         },
         Field {
             key: "user.gender",
             cmd: 30,
             args: &[0, 3],
             decode: user_byte,
+            choices: GENDER,
         },
         Field {
             key: "user.language",
             cmd: 30,
             args: &[0, 6],
             decode: user_text,
+            choices: NONE,
         },
         Field {
             key: "zone.ftp",
             cmd: 33,
             args: &[0],
             decode: zone_base,
+            choices: NONE,
         },
         Field {
             key: "zone.max_hr",
             cmd: 34,
             args: &[0],
             decode: zone_base,
+            choices: NONE,
         },
         Field {
             key: "zone.lthr",
             cmd: 35,
             args: &[0],
             decode: zone_base,
+            choices: NONE,
         },
         Field {
             key: "log_state",
             cmd: 41,
             args: &[],
             decode: raw,
+            choices: NONE,
         },
     ];
-    v.extend(per_bike!("auto_pause", 27, bike_bool));
-    v.extend(per_bike!("auto_lap", 28, auto_lap));
-    v.extend(per_bike!("gps", 40, bike_byte));
-    v.extend(per_bike!("odometer", 45, bike_pair));
+    v.extend(per_bike!("auto_pause", 27, bike_bool, NONE));
+    v.extend(per_bike!("auto_lap", 28, auto_lap, NONE));
+    v.extend(per_bike!("gps", 40, bike_byte, GPS));
+    v.extend(per_bike!("odometer", 45, bike_pair, NONE));
     // Cmd 31 args: [seq, item, bike]. Name: chunk (seq) 1.
     for (bike, name, speed) in [
         (&[1, 5, 0], "bike0.name", &[0, 0, 0]),
@@ -286,12 +342,14 @@ pub fn fields() -> Vec<Field> {
             cmd: 31,
             args: bike,
             decode: bike_name,
+            choices: NONE,
         });
         v.push(Field {
             key: SPEED_KEYS[speed[2] as usize],
             cmd: 31,
             args: speed,
             decode: speed_source,
+            choices: NONE,
         });
     }
     v
@@ -375,7 +433,7 @@ mod tests {
         );
         assert_eq!(
             decode("bike1.speed_source", &[0, 0, 1, 1, 0, 2]),
-            Value::Text("priorities 1 0 2".into())
+            Value::Text("1: speed sensor, 2: GPS, 3: speed/cadence sensor".into())
         );
         let mut name = vec![1, 5, 2];
         name.extend("Vélo X ".as_bytes());

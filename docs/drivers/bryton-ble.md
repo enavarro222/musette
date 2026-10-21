@@ -381,7 +381,14 @@ Read with `musette setting caps | read | get`, written with `musette setting set
 - **[dev] [usb] Bike slots**: every per-bike command (27, 28, 31, 40, 42, 45) takes a slot 0-2, and slot n is `System/Bike<n+1>Profile.ini` (its `Name=` and `[AutoPause] isPause=`). Checked by turning auto pause off on the device for one bike: only that slot changed over BLE, and only that file changed over USB. The device's bike menu does not list the bikes in slot order. Slot 3 and more answer empty.
 - **[open]** Odometer (45): slot 0 gave the device's global `ODOVal` (`DeviceProfile.ini`), and slots 1-2 gave 0. Per bike, or global under slot 0?
 - **[usb]** Acknowledging a ride (cmd 51) does not delete it: the file is still on the drive, unchanged.
-- **[open]** Meaning of the backlight value (seconds? an index?), of GPS mode 1, of the auto-lap mode, and of the battery bytes.
+- **Value labels** (from the app's menu tables `BackLightMenuUtil`, `GpsMenuUtil`, `BikeSetting.getSpeedSrcOptions` and `SyncBLEViewModel`, and the user manual's menus; checked against the Rider 750's screen for auto pause):
+  - backlight (20, version 1): 0 = 5 s, 1 = 15 s, 2 = 30 s, 3 = 1 min, 4 = 2 min, 5 = never, 6 = auto. Versions 2 and 3 have other lists (smart / stays on; on / off).
+  - GPS (40): 0 = off, 1 = GPS + Galileo + QZSS (the manual's "Normal"), 2 = power saving, 3 = GPS + Glonass, 4 = GPS + Beidou, 5 = ultra high, 6 = on.
+  - speed source (31 item 0), for each of the 3 priorities: 0 = GPS, 1 = speed sensor, 2 = speed/cadence sensor.
+  - auto lap (28) mode, high nibble: 0 = off, 1 = distance, 2 = location.
+  - unit (29): 0 = metric, 1 = imperial. Gender (30 item 3): 0 = female, 1 = male.
+- **[open]** Battery (24): `00 03 01` while on USB power, `00 03 00` on battery. So byte 2 is probably "charging" and byte 1 a level (3 of ?). Log state (41) was `02 ff ff` and later `00 ff ff`.
+- The user manual also lists per-bike **alerts** (time, distance, speed, heart rate, cadence) and system settings with no command found yet: meter colour mode, auto lock, status duration, smart recording, ODO setup, start remind, file saving, auto scroll. **[open]**
 
 ## 5. Connection sequence (as the app does it)
 
