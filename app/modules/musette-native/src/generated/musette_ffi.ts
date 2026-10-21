@@ -582,7 +582,8 @@ export type RouteAnalysis = {
     profileStepM: number,
     profile: Array<number>,
     climbs: Array<Climb>,
-    simplified: Array<number>
+    simplified: Array<number>,
+    simplifiedM: Array<number>
 }
 
 /**
@@ -611,7 +612,8 @@ const FfiConverterTypeRouteAnalysis = (() => {
                 profileStepM: FfiConverterFloat64.readFromCursor(c), 
                 profile: FfiConverterSequenceFloat64.readFromCursor(c), 
                 climbs: FfiConverterSequenceTypeClimb.readFromCursor(c), 
-                simplified: FfiConverterSequenceUInt32.readFromCursor(c)
+                simplified: FfiConverterSequenceUInt32.readFromCursor(c), 
+                simplifiedM: FfiConverterSequenceFloat64.readFromCursor(c)
             };
         }
         writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -621,6 +623,7 @@ const FfiConverterTypeRouteAnalysis = (() => {
             FfiConverterSequenceFloat64.writeIntoCursor(value.profile, c);
             FfiConverterSequenceTypeClimb.writeIntoCursor(value.climbs, c);
             FfiConverterSequenceUInt32.writeIntoCursor(value.simplified, c);
+            FfiConverterSequenceFloat64.writeIntoCursor(value.simplifiedM, c);
         }
         allocationSize(value: TypeName): number {
             return FfiConverterFloat64.allocationSize(value.distanceM) +
@@ -628,7 +631,8 @@ const FfiConverterTypeRouteAnalysis = (() => {
              FfiConverterFloat64.allocationSize(value.profileStepM) +
              FfiConverterSequenceFloat64.allocationSize(value.profile) +
              FfiConverterSequenceTypeClimb.allocationSize(value.climbs) +
-             FfiConverterSequenceUInt32.allocationSize(value.simplified);
+             FfiConverterSequenceUInt32.allocationSize(value.simplified) +
+             FfiConverterSequenceFloat64.allocationSize(value.simplifiedM);
             
         }
     };

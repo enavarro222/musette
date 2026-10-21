@@ -6,4 +6,6 @@ export const theme = {
   danger: '#C0392B',
   /** Climb bands on the elevation profile. */
   climb: 'rgba(194, 112, 31, 0.22)',
+  /** Climbs drawn on the map, over the route. */
+  climbLine: '#C2701F',
 } as const;

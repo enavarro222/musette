@@ -2,10 +2,12 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
+import { RouteMap } from '../components/RouteMap';
 import { Body, Button, Embed, ListItem, Muted, Screen, Section } from '../components/ui';
 import { confirmAction } from '../lib/ask';
 import { loadCore, type ParsedRoute, type RouteAnalysis } from '../lib/core';
 import { parseGpx } from '../lib/gpx';
+import { routeMapData } from '../lib/routeMap';
 import { routes } from '../lib/storage';
 import { reportError, useApp } from '../lib/store';
 import { theme } from '../theme';
@@ -51,6 +53,7 @@ export default function RouteDetail() {
   }, [id]);
 
   const path = useMemo(() => (analysis ? profilePath(analysis.profile) : ''), [analysis]);
+  const mapData = useMemo(() => (route && analysis ? routeMapData(route, analysis) : undefined), [route, analysis]);
   const canSend = !!device?.capabilities.uploadRoute && !!device?.uploadRoute;
 
   async function send() {
@@ -99,6 +102,11 @@ export default function RouteDetail() {
         <Body>
           {`${km(analysis.distanceM)} km · ${Math.round(analysis.ascentM)} m D+ · ${analysis.climbs.length} montée(s)`}
         </Body>
+        {mapData ? (
+          <Embed>
+            <RouteMap data={mapData} />
+          </Embed>
+        ) : null}
         {path ? (
           <Embed>
             <View style={{ width: '100%', aspectRatio: W / H }} accessibilityLabel="Profil d’altitude">

@@ -49,9 +49,10 @@
         {
           "isBackgroundEnabled": false,
           "neverForLocation": true,
-          "bluetoothAlwaysPermission": "Musette se connecte en Bluetooth \u00e0 votre compteur pour r\u00e9cup\u00e9rer vos sorties et lui envoyer des traces."
+          "bluetoothAlwaysPermission": "Musette se connecte en Bluetooth à votre compteur pour récupérer vos sorties et lui envoyer des traces."
         }
-      ]
+      ],
+      "@maplibre/maplibre-react-native"
     ],
     "experiments": {
       "typedRoutes": true,

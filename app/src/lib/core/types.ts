@@ -21,6 +21,8 @@ export interface RouteAnalysis {
   climbs: ClimbInfo[];
   /** Indices of the points kept after simplification. */
   simplified: number[];
+  /** Distance from the start at each `simplified` point, metres. */
+  simplifiedM: number[];
 }
 
 /** A route read from a GPX file, device-neutral. */

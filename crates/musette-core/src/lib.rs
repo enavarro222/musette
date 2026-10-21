@@ -49,6 +49,8 @@ pub struct RouteAnalysis {
     pub climbs: Vec<Climb>,
     /// Indices of points kept after simplification (5 m tolerance).
     pub simplified: Vec<u32>,
+    /// Distance from the start at each `simplified` point, metres (to place climbs on a map).
+    pub simplified_m: Vec<f64>,
 }
 
 fn check_lengths(lats: &[f64], lons: &[f64], eles: &[f64]) -> Result<()> {
@@ -68,14 +70,11 @@ pub fn analyze_route(lats: &[f64], lons: &[f64], eles: &[f64]) -> Result<RouteAn
         .map(|((&lat, &lon), &e)| track::Point::new(lat, lon, (!e.is_nan()).then_some(e)))
         .collect();
 
-    let distance_m = track::cumulative_distance(&points)
-        .last()
-        .copied()
-        .unwrap_or(0.0);
-    let simplified = track::simplify(&points, 5.0)
-        .into_iter()
-        .map(|i| i as u32)
-        .collect();
+    let cumulative = track::cumulative_distance(&points);
+    let distance_m = cumulative.last().copied().unwrap_or(0.0);
+    let kept = track::simplify(&points, 5.0);
+    let simplified_m = kept.iter().map(|&i| cumulative[i]).collect();
+    let simplified = kept.into_iter().map(|i| i as u32).collect();
 
     let (profile_step_m, profile, ascent_m, climbs) = match track::profile(&points, 20.0) {
         Some(p) => {
@@ -103,6 +102,7 @@ pub fn analyze_route(lats: &[f64], lons: &[f64], eles: &[f64]) -> Result<RouteAn
         profile,
         climbs,
         simplified,
+        simplified_m,
     })
 }
 
@@ -502,6 +502,17 @@ mod tests {
         assert_eq!(r.eles[0], 200.0);
         assert!(r.eles[1].is_nan());
         assert_eq!(parse_gpx("<gpx></gpx>"), Err(Error("noPoints".into())));
+    }
+
+    #[test]
+    fn simplified_points_carry_their_distance() {
+        // Three points on a meridian, ~1.1 km apart: the middle one is dropped.
+        let a = analyze_route(&[45.0, 45.01, 45.02], &[5.0; 3], &[f64::NAN; 3]).unwrap();
+        assert_eq!(a.simplified, [0, 2]);
+        assert_eq!(a.simplified_m.len(), 2);
+        assert_eq!(a.simplified_m[0], 0.0);
+        assert_eq!(a.simplified_m[1], a.distance_m);
+        assert!((a.distance_m - 2224.0).abs() < 5.0);
     }
 
     #[test]

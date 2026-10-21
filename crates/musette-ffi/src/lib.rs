@@ -49,6 +49,7 @@ pub struct RouteAnalysis {
     pub profile: Vec<f64>,
     pub climbs: Vec<Climb>,
     pub simplified: Vec<u32>,
+    pub simplified_m: Vec<f64>,
 }
 
 /// Analyse a route. `eles` uses NaN for missing elevation.
@@ -73,6 +74,7 @@ pub fn analyze_route(lats: Vec<f64>, lons: Vec<f64>, eles: Vec<f64>) -> Result<R
             })
             .collect(),
         simplified: a.simplified,
+        simplified_m: a.simplified_m,
     })
 }
 
