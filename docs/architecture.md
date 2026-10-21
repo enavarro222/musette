@@ -3,28 +3,16 @@
 ## Principles
 
 1. **Rides are never lost.** A ride is acknowledged to the device only after it has been downloaded, verified (`fit::verify`: header + CRC) and stored. Order: download → verify → store → acknowledge.
+
+   ![Fetching rides: list, skip the rides already kept, then for each new ride download, verify, store, and only then acknowledge](diagrams/ride-sync.svg)
+
 2. **Local first.** No account, no server. Activities live on the device the app runs on (IndexedDB in the browser, app files on iOS and Android) and are exported as FIT files.
 3. **One app, many devices.** The UI shows only what the connected device can do (`Capabilities`).
 4. **Explicit actions.** Destructive or irreversible actions (replacing the device's route, deleting a ride) are always confirmed.
 
 ## Layers
 
-```
-┌──────────────── app/ (Expo, React Native) ───────────────┐
-│ screens: Compteur · Sorties · Traces · Projet            │  @expo/ui: SwiftUI · Compose · DOM
-│ lib/devices: Cc600Device, BrytonUsbDevice                │  device logic in TS,
-│ lib/transport: PacketTransport | FileTransport           │  bytes ↔ meaning in Rust
-│ lib/core: Core ─ load.ts (web) │ load.native.ts (mobile) │
-└──────────────┬──────────────────────────┬────────────────┘
-               │ wasm-bindgen             │ UniFFI (modules/musette-native)
-          musette-wasm               musette-ffi
-               └────────────┬─────────────┘
-┌───────────────────────────▼──── crates/ ─────────────────┐
-│ musette-core: what the app asks, the same everywhere     │
-│ protocol-cc600 · route-cc600 · settings-cc600 · fit ·    │
-│ track · climbs · device · driver-bryton                  │
-└──────────────────────────────────────────────────────────┘
-```
+![Musette architecture: screens and app logic in TypeScript, one Core interface to the Rust crates, through musette-wasm on the web and musette-ffi on iOS and Android](diagrams/architecture.svg)
 
 **One app, three platforms.** The same TypeScript and React code runs in the browser, on Android and on iOS. Screens use `@expo/ui` universal components: real SwiftUI views on iOS, Jetpack Compose on Android, plain DOM on the web. What differs per platform lives in sibling files that the bundler picks (`x.web.ts` for the web, `x.ts` or `x.native.ts` for iOS and Android): the Rust core loader, storage, transports, file picking, dialogs.
 
@@ -88,3 +76,7 @@ Routes and maps are a few hundred KB over BLE (5–20 KB/s from a browser), so t
 - [ ] Mobile: read USB drives on Android (Storage Access Framework) for the Bryton
 - [ ] iOS: first build (macOS or EAS), check the SwiftUI screens
 - [ ] i18n (UI is French for now)
+
+## Diagrams
+
+The SVG files in `docs/diagrams/` are drawn by hand: when a change makes one wrong (a folder moves, a step changes order), fix it in the same commit. They follow the reader's light or dark theme.

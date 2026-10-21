@@ -174,5 +174,6 @@ main { width: 100%; }
 /* Keep the scrollbar's room: the column must not move when a page grows. */
 html { scrollbar-gutter: stable; overflow-y: auto; }
 
-/* The route map: the card's width, a fixed height. */
-.route-map { width: 100%; height: 300px; border-radius: 12px; overflow: hidden; }
+/* The route map: a still preview in the card, or the full page. */
+.route-map { width: 100%; height: 260px; border-radius: 12px; overflow: hidden; }
+.route-map.full { height: calc(100dvh - 220px); min-height: 320px; }

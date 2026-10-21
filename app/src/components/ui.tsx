@@ -37,13 +37,17 @@ import type {
 export type * from './ui.types';
 
 /** A screen of sections, under its stack's native header bar, which says which device is connected. */
-export function Screen({ title, noDeviceStatus, children }: ScreenProps) {
+export function Screen({ title, noDeviceStatus, fill, children }: ScreenProps) {
   return (
     <>
       <Stack.Screen options={{ title, headerRight: noDeviceStatus ? undefined : () => <DeviceStatus /> }} />
-      <Host style={{ flex: 1 }} seedColor={theme.accent}>
-        <FieldGroup>{children}</FieldGroup>
-      </Host>
+      {fill ? (
+        <View style={{ flex: 1 }}>{children}</View>
+      ) : (
+        <Host style={{ flex: 1 }} seedColor={theme.accent}>
+          <FieldGroup>{children}</FieldGroup>
+        </Host>
+      )}
     </>
   );
 }

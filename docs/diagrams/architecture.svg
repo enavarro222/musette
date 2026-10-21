@@ -1,0 +1,137 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 930" width="1040" role="img" aria-labelledby="title">
+<title id="title">Musette architecture: one TypeScript app, one door to the Rust core</title>
+<style>
+  svg { --bg:#ffffff; --ink:#15171a; --muted:#5e636b; --line:#9aa0a6; --zone:#f4f5f2; --box:#ffffff; --accent:#0b6e69; --shared:#c2701f; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+  @media (prefers-color-scheme: dark) { svg { --bg:#111315; --ink:#eceeef; --muted:#a3a8ae; --line:#6b7178; --zone:#1b1e21; --box:#24282c; --accent:#3fb5ad; --shared:#e9a050; } }
+  .bg { fill: var(--bg); }
+  .zone { fill: var(--zone); stroke: var(--line); stroke-width: 1; }
+  .sub { fill: none; stroke: var(--line); stroke-dasharray: 4 3; }
+  .shared { fill: none; stroke: var(--shared); stroke-width: 1.5; stroke-dasharray: 6 3; }
+  .box { fill: var(--box); stroke: var(--line); }
+  .key { fill: var(--box); stroke: var(--accent); stroke-width: 2; }
+  .ext { fill: var(--zone); stroke: var(--line); stroke-dasharray: 2 2; }
+  .zl { fill: var(--muted); font-size: 13px; font-weight: 600; }
+  .t { fill: var(--ink); font-size: 14px; font-weight: 600; }
+  .s { fill: var(--muted); font-size: 11.5px; }
+  .v { fill: var(--accent); font-size: 11.5px; font-weight: 600; }
+  .sl { fill: var(--shared); font-size: 12px; font-weight: 600; }
+  .n { fill: var(--muted); font-size: 12px; }
+  .a { stroke: var(--accent); stroke-width: 1.6; fill: none; marker-end: url(#arr); }
+  .ad { stroke: var(--shared); stroke-width: 1.6; fill: none; marker-end: url(#arrs); stroke-dasharray: 5 3; }
+  .h { fill: var(--accent); }
+  .hs { fill: var(--shared); }
+</style>
+<defs>
+<marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="h" d="M0 0 10 5 0 10z"/></marker>
+<marker id="arrs" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="hs" d="M0 0 10 5 0 10z"/></marker>
+</defs>
+<rect class="bg" width="1040" height="930"/>
+<rect class="zone" x="20" y="40" width="800" height="384" rx="14"/>
+<text class="zl" x="36" y="62">app/src · TypeScript, the same code on web, Android and iOS</text>
+<rect class="box" x="40" y="90" width="200" height="72" rx="9"/>
+<text class="t" x="52" y="112">UI kit</text>
+<text class="s" x="52" y="130">components/ui.tsx · ui.web.tsx</text>
+<text class="s" x="52" y="145">@expo/ui: SwiftUI · Compose · DOM</text>
+<rect class="box" x="320" y="90" width="200" height="72" rx="9"/>
+<text class="t" x="332" y="112">Screens</text>
+<text class="s" x="332" y="130">app/ (routes) · screens/</text>
+<text class="s" x="332" y="145">Sorties · Traces · Compteur · Projet</text>
+<rect class="box" x="600" y="90" width="200" height="72" rx="9"/>
+<text class="t" x="612" y="112">Route map</text>
+<text class="s" x="612" y="130">components/RouteMap</text>
+<text class="s" x="612" y="145">MapLibre native · maplibre-gl</text>
+<rect class="box" x="40" y="210" width="200" height="72" rx="9"/>
+<text class="t" x="52" y="232">Storage</text>
+<text class="s" x="52" y="250">lib/storage</text>
+<text class="s" x="52" y="265">IndexedDB (web) · app files</text>
+<rect class="box" x="320" y="210" width="200" height="72" rx="9"/>
+<text class="t" x="332" y="232">App logic</text>
+<text class="s" x="332" y="250">lib/: sync · library · store</text>
+<text class="s" x="332" y="265">routeMap · settings</text>
+<rect class="key" x="40" y="330" width="200" height="72" rx="9"/>
+<text class="t" x="52" y="352">Core</text>
+<text class="s" x="52" y="370">lib/core · load.ts, load.native.ts</text>
+<text class="s" x="52" y="385">the only door to Rust</text>
+<rect class="box" x="320" y="330" width="200" height="72" rx="9"/>
+<text class="t" x="332" y="352">Device drivers</text>
+<text class="s" x="332" y="370">lib/devices: Cc600Device,</text>
+<text class="s" x="332" y="385">BrytonUsbDevice · registry</text>
+<rect class="box" x="600" y="330" width="200" height="72" rx="9"/>
+<text class="t" x="612" y="352">Transports</text>
+<text class="s" x="612" y="370">lib/transport: Web Bluetooth,</text>
+<text class="s" x="612" y="385">BLE (ble-plx) · USB drive</text>
+<rect class="ext" x="860" y="90" width="160" height="72" rx="9"/>
+<text class="t" x="872" y="112">OpenFreeMap</text>
+<text class="s" x="872" y="130">map tiles</text>
+<text class="s" x="872" y="145">OpenStreetMap data</text>
+<rect class="ext" x="860" y="330" width="160" height="72" rx="9"/>
+<text class="t" x="872" y="352">Bike computer</text>
+<text class="s" x="872" y="370">CC600 (OpenCC600)</text>
+<text class="s" x="872" y="385">Bryton (USB)</text>
+<line class="a" x1="320" y1="126" x2="244" y2="126"/>
+<text class="v" x="282.0" y="120.0" text-anchor="middle">draw with</text>
+<line class="a" x1="520" y1="126" x2="596" y2="126"/>
+<text class="v" x="558.0" y="120.0" text-anchor="middle">show</text>
+<line class="a" x1="800" y1="126" x2="856" y2="126"/>
+<text class="v" x="828.0" y="120.0" text-anchor="middle">fetches</text>
+<text class="v" x="828" y="146" text-anchor="middle">tiles</text>
+<line class="a" x1="420" y1="162" x2="420" y2="206"/>
+<text class="v" x="428" y="190" text-anchor="start">call</text>
+<line class="a" x1="320" y1="246" x2="244" y2="246"/>
+<text class="v" x="282.0" y="240.0" text-anchor="middle">stores in</text>
+<line class="a" x1="420" y1="282" x2="420" y2="326"/>
+<text class="v" x="428" y="310" text-anchor="start">ask</text>
+<line class="a" x1="330" y1="282" x2="200" y2="326"/>
+<text class="v" x="300" y="304" text-anchor="end">analyse routes with</text>
+<line class="a" x1="320" y1="366" x2="244" y2="366"/>
+<text class="v" x="282.0" y="360.0" text-anchor="middle">decode with</text>
+<line class="a" x1="520" y1="366" x2="596" y2="366"/>
+<text class="v" x="558.0" y="360.0" text-anchor="middle">send via</text>
+<line class="a" x1="800" y1="366" x2="856" y2="366"/>
+<text class="v" x="828.0" y="360.0" text-anchor="middle">BLE · USB</text>
+<rect class="zone" x="20" y="450" width="800" height="110" rx="14"/>
+<text class="zl" x="804" y="472" text-anchor="end">Bridges · convert types, no logic</text>
+<rect class="box" x="40" y="480" width="200" height="62" rx="9"/>
+<text class="t" x="52" y="502">musette-wasm</text>
+<text class="s" x="52" y="520">wasm-bindgen · web</text>
+<rect class="box" x="320" y="480" width="300" height="62" rx="9"/>
+<text class="t" x="332" y="502">musette-ffi + modules/musette-native</text>
+<text class="s" x="332" y="520">UniFFI · iOS, Android</text>
+<line class="a" x1="110" y1="402" x2="110" y2="476"/>
+<text class="v" x="118" y="446" text-anchor="start">loads (web)</text>
+<line class="a" x1="200" y1="402" x2="400" y2="476"/>
+<text class="v" x="322" y="438" text-anchor="start">loads (iOS, Android)</text>
+<rect class="zone" x="20" y="586" width="800" height="292" rx="14"/>
+<text class="zl" x="804" y="608" text-anchor="end">crates/ · Rust</text>
+<rect class="key" x="40" y="616" width="580" height="56" rx="9"/>
+<text class="t" x="52" y="638">musette-core</text>
+<text class="s" x="52" y="656">what the app asks, the same on every platform</text>
+<line class="a" x1="140" y1="542" x2="140" y2="612"/>
+<text class="v" x="148" y="600" text-anchor="start">wraps</text>
+<line class="a" x1="470" y1="542" x2="470" y2="612"/>
+<text class="v" x="478" y="600" text-anchor="start">wraps</text>
+<rect class="sub" x="30" y="694" width="610" height="172" rx="14"/>
+<rect class="box" x="45" y="706" width="105" height="34" rx="8"/><text class="t" x="97" y="728" text-anchor="middle" style="font-size:12.5px">fit</text>
+<rect class="box" x="162" y="706" width="105" height="34" rx="8"/><text class="t" x="214" y="728" text-anchor="middle" style="font-size:12.5px">track</text>
+<rect class="box" x="279" y="706" width="105" height="34" rx="8"/><text class="t" x="331" y="728" text-anchor="middle" style="font-size:12.5px">climbs</text>
+<rect class="box" x="396" y="706" width="105" height="34" rx="8"/><text class="t" x="448" y="728" text-anchor="middle" style="font-size:12.5px">device</text>
+<rect class="box" x="513" y="706" width="105" height="34" rx="8"/><text class="t" x="565" y="728" text-anchor="middle" style="font-size:12.5px">driver-bryton</text>
+<rect class="shared" x="40" y="752" width="590" height="104" rx="10"/>
+<text class="sl" x="54" y="772">Shared with the firmware: MIT, no_std, the only copy of these formats</text>
+<rect class="box" x="54" y="784" width="176" height="56" rx="8"/><text class="t" x="142" y="808" text-anchor="middle" style="font-size:12.5px">protocol-cc600</text>
+<rect class="box" x="244" y="784" width="176" height="56" rx="8"/><text class="t" x="332" y="808" text-anchor="middle" style="font-size:12.5px">route-cc600</text>
+<rect class="box" x="434" y="784" width="176" height="56" rx="8"/><text class="t" x="522" y="808" text-anchor="middle" style="font-size:12.5px">settings-cc600</text>
+<text class="s" x="142" y="826" text-anchor="middle">BLE frames, transfers</text>
+<text class="s" x="332" y="826" text-anchor="middle">route file</text>
+<text class="s" x="522" y="826" text-anchor="middle">settings file</text>
+<line class="a" x1="330" y1="672" x2="330" y2="690"/>
+<text class="v" x="338" y="686" text-anchor="start">uses all of these</text>
+<rect class="ext" x="860" y="784" width="160" height="72" rx="9"/>
+<text class="t" x="872" y="806">OpenCC600</text>
+<text class="s" x="872" y="824">firmware · GPL</text>
+<text class="s" x="872" y="839">its own repository</text>
+<line class="ad" x1="860" y1="820" x2="634" y2="820"/>
+<text class="sl" x="747" y="812" text-anchor="middle">depends (git) on</text>
+<text class="n" x="20" y="904">Arrows point from the caller to the callee, labelled with what the caller does. One box per folder: files are not shown.</text>
+<text class="n" x="20" y="922">Platform differences live in sibling files (x.web.ts, x.ts / x.native.ts), never in Platform.OS checks spread through screens.</text>
+</svg>

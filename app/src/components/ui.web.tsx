@@ -19,6 +19,7 @@ import type {
 
 export type * from './ui.types';
 
+// `fill`: the web page stays a column; the filling view sizes itself (`.route-map.full`).
 export function Screen({ title, noDeviceStatus, children }: ScreenProps) {
   return (
     <main>

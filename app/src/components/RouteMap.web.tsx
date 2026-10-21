@@ -2,13 +2,11 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import Constants from 'expo-constants';
 import { useEffect, useRef } from 'react';
 import { useColorScheme } from 'react-native';
-import { FIT_PADDING, MAP_STYLE, ROUTE_LAYERS, type RouteMapData } from '../lib/routeMap';
+import { FIT_PADDING, MAP_STYLE, ROUTE_LAYERS } from '../lib/routeMap';
 import { reportError } from '../lib/store';
+import type { RouteMapProps } from './RouteMap.types';
 
 const LOCALE = {
-  'CooperativeGesturesHandler.WindowsHelpText': 'Ctrl + molette pour zoomer',
-  'CooperativeGesturesHandler.MacHelpText': '⌘ + molette pour zoomer',
-  'CooperativeGesturesHandler.MobileHelpText': 'Deux doigts pour déplacer la carte',
   'NavigationControl.ZoomIn': 'Zoomer',
   'NavigationControl.ZoomOut': 'Dézoomer',
 };
@@ -17,7 +15,7 @@ const LOCALE = {
 const WORKER_URL = `${Constants.expoConfig?.experiments?.baseUrl ?? ''}/maplibre-gl-worker.mjs`;
 
 /** Web: maplibre-gl, loaded only when a map is shown. iOS, Android: `RouteMap.tsx`. */
-export function RouteMap({ data }: { data: RouteMapData }) {
+export function RouteMap({ data, full }: RouteMapProps) {
   const box = useRef<HTMLDivElement>(null);
   const dark = useColorScheme() === 'dark';
 
@@ -33,15 +31,17 @@ export function RouteMap({ data }: { data: RouteMapData }) {
           style: dark ? MAP_STYLE.dark : MAP_STYLE.light,
           bounds: data.bounds,
           fitBoundsOptions: { padding: FIT_PADDING },
-          attributionControl: { compact: true },
+          // The preview is still: the page scrolls, a click opens the full map.
+          interactive: !!full,
           dragRotate: false,
           pitchWithRotate: false,
-          // The page scrolls over the map; zoom with Ctrl (⌘) or two fingers.
-          cooperativeGestures: true,
+          attributionControl: full ? { compact: true } : false,
           locale: LOCALE,
         });
-        map.addControl(new NavigationControl({ showCompass: false }));
-        map.touchZoomRotate.disableRotation();
+        if (full) {
+          map.addControl(new NavigationControl({ showCompass: false }));
+          map.touchZoomRotate.disableRotation();
+        }
         map.on('load', () => {
           // The box may have had no size yet when the map was made: fit again.
           map!.resize();
@@ -55,7 +55,7 @@ export function RouteMap({ data }: { data: RouteMapData }) {
       gone = true;
       map?.remove();
     };
-  }, [data, dark]);
+  }, [data, dark, full]);
 
-  return <div ref={box} className="route-map" aria-label="Carte de la trace" />;
+  return <div ref={box} className={full ? 'route-map full' : 'route-map'} aria-label="Carte de la trace" />;
 }

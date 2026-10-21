@@ -56,6 +56,8 @@ export interface ScreenProps {
   title: string;
   /** Hide which device is connected, in the header (the connect screen). */
   noDeviceStatus?: boolean;
+  /** One view filling the screen (a map), instead of `Section`s. */
+  fill?: boolean;
   /** `Section`s, or fragments of them. */
   children?: ReactNode;
 }

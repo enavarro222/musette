@@ -2,7 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
-import { RouteMap } from '../components/RouteMap';
+import { MapPreview } from '../components/MapPreview';
 import { Body, Button, Embed, ListItem, Muted, Screen, Section } from '../components/ui';
 import { confirmAction } from '../lib/ask';
 import { loadCore, type ParsedRoute, type RouteAnalysis } from '../lib/core';
@@ -104,7 +104,7 @@ export default function RouteDetail() {
         </Body>
         {mapData ? (
           <Embed>
-            <RouteMap data={mapData} />
+            <MapPreview data={mapData} onOpen={() => router.push(`/routes/${id}/map`)} />
           </Embed>
         ) : null}
         {path ? (
