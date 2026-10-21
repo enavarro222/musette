@@ -387,7 +387,7 @@ Read with `musette setting caps | read | get`, written with `musette setting set
   - speed source (31 item 0), for each of the 3 priorities: 0 = GPS, 1 = speed sensor, 2 = speed/cadence sensor.
   - auto lap (28) mode, high nibble: 0 = off, 1 = distance, 2 = location.
   - unit (29): 0 = metric, 1 = imperial. Gender (30 item 3): 0 = female, 1 = male.
-- **[app] [dev]** Battery (24): `[item, total, state]`. Item 0: bars, `total` bars (3 on the Rider 750), state 0 = charging, 1 = empty, n = n-1 bars (`ConstSettingChannel.newSettingBatteryGrid`). Item ≠ 0: `[item, percent]`. Seen: `00 03 01` (empty) just before the device switched off, `00 03 00` (charging) on a charger. The device also pushes it every 5 s. Log state (41) was `02 ff ff` and later `00 ff ff` **[open]**.
+- **[app] [dev]** Battery (24): `[item, total, state]`. Item 0: bars, `total` bars (3 on the Rider 750), state 0 = charging, 1 = empty, n = n-1 bars (`ConstSettingChannel.newSettingBatteryGrid`). Item ≠ 0: `[item, percent]`. Seen: `00 03 01` (empty) just before the device switched off and again after a few minutes of charge (the screen showed a red, empty battery), `00 03 00` (charging) on a charger: checked against the screen. The device also pushes it every 5 s. Log state (41) was `02 ff ff` and later `00 ff ff` **[open]**.
 - The user manual also lists per-bike **alerts** (time, distance, speed, heart rate, cadence) and system settings with no command found yet: meter colour mode, auto lock, status duration, smart recording, ODO setup, start remind, file saving, auto scroll. **[open]**
 
 ## 5. Connection sequence (as the app does it)
