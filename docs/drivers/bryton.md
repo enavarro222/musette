@@ -8,6 +8,12 @@ Target: **Bryton Rider 750**, keeping Bryton's firmware.
 - Map packages live in `Bryton/MAP/Update` (user manual).
 - Routes are normally sent by the Bryton Active app (also synced from Komoot, Strava, RideWithGPS). The manual describes no USB route copy.
 
+## In the app
+
+- **Bluetooth** (`app/src/lib/devices/brytonBle.ts`, protocol in Rust: `driver_bryton::ble` through `musette_core::BrytonSession`): ride list, download, acknowledgement; route upload (start and arrival turns only); settings (read: see bryton-ble.md §4.3; written: backlight, key tone, sound, unit, auto pause and GPS per bike). Test with the fake device `app/src/test/fakeBryton.ts`, built from what a Rider 750 sends.
+- **USB** (`app/src/lib/devices/bryton.ts`): rides. The ride id is the file name (`yyMMddHHmmss`) on both transports, so a ride copied over USB is not imported again over Bluetooth.
+- **On the command line**: `musette` (`crates/musette-cli`), with a hex trace of every frame.
+
 ## USB layout (Rider 750, OS R089, seen on 2026-10-21)
 
 The drive label is `BRYTON` (USB id `0483:5720`, STM32 mass storage). At the root:

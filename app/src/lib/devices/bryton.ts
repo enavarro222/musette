@@ -1,5 +1,6 @@
 import { loadCore } from '../core';
 import type { FileTransport } from '../transport/types';
+import { rideStart } from './brytonBle';
 import type { ActivityRef, Capabilities, Device } from './types';
 
 /**
@@ -18,6 +19,9 @@ export class BrytonUsbDevice implements Device {
     wifiSync: false,
   };
 
+  /** Ride id → path on the drive, from the last listing. */
+  private paths = new Map<string, string>();
+
   constructor(private readonly transport: FileTransport) {}
 
   get name(): string {
@@ -34,17 +38,26 @@ export class BrytonUsbDevice implements Device {
 
   async listActivities(): Promise<ActivityRef[]> {
     const [core, files] = await Promise.all([loadCore(), this.transport.list()]);
-    return core.brytonFindActivities(
+    const found = core.brytonFindActivities(
       files.map((f) => f.path),
       files.map((f) => f.size),
     );
+    // The id is the file name (`yyMMddHHmmss`), as over Bluetooth: the same
+    // ride is stored once whichever way it was copied.
+    this.paths = new Map(found.map((a) => [rideName(a.id), a.id]));
+    return found.map((a) => ({ id: rideName(a.id), size: a.size, startTime: rideStart(rideName(a.id)) }));
   }
 
   async downloadActivity(ref: ActivityRef, onProgress?: (r: number) => void): Promise<Uint8Array> {
-    const bytes = await this.transport.read(ref.id);
+    const bytes = await this.transport.read(this.paths.get(ref.id) ?? ref.id);
     const core = await loadCore();
     core.verifyFit(bytes);
     onProgress?.(1);
     return bytes;
   }
+}
+
+/** `Activities/260922125127.fit` → `260922125127`. */
+function rideName(path: string): string {
+  return (path.split('/').pop() ?? path).replace(/\.fit$/i, '');
 }

@@ -76,6 +76,82 @@ export interface Cc600Receiver {
   committed(): Uint8Array | undefined;
 }
 
+/** Bytes to write to a Bryton characteristic: 0 command, 1 data, 2 setting. */
+export interface BrytonWrite {
+  channel: number;
+  bytes: Uint8Array;
+}
+
+/** A ride in a Bryton's "not synced" list. */
+export interface BrytonRide {
+  /** `yyMMddHHmmss`, local time: also its file name over USB. */
+  id: string;
+  timeS: number;
+  distanceM: number;
+  sport: number;
+}
+
+export interface BrytonInfo {
+  /** The first 4 digits are the product code (1902: Rider 750). */
+  id: string;
+  firmware: string;
+  model: string;
+  recording: boolean;
+  /** It has the setting channel (settings, acknowledgement, routes). */
+  settings: boolean;
+}
+
+/** What happened (`BrytonSession.onNotify`); `kind` says which fields count. */
+export interface BrytonEvent {
+  kind: 'info' | 'ready' | 'rides' | 'progress' | 'file' | 'sent' | 'routeNamed' | 'settingAck' | 'setting' | 'failed';
+  /** `failed`, in English. */
+  message: string;
+  /** `file`: the ride; `setting`: the whole frame. */
+  bytes: Uint8Array;
+  done: number;
+  total: number;
+  /** `settingAck`, `setting`: the setting command; `settingAck`: its status (10 = ok). */
+  cmd: number;
+  status: number;
+  rides: BrytonRide[];
+  info?: BrytonInfo;
+}
+
+export interface BrytonStep {
+  /** Write them in order. */
+  writes: BrytonWrite[];
+  events: BrytonEvent[];
+}
+
+/** One Bryton BLE connection (`musette_core::BrytonSession`). */
+export interface BrytonSession {
+  readDeviceInfo(): BrytonWrite;
+  newApp(): BrytonWrite;
+  listRides(): BrytonWrite;
+  download(id: string): BrytonWrite;
+  acknowledge(id: string): BrytonWrite;
+  sendRoute(fit: Uint8Array, deviceId: string): BrytonWrite;
+  sendRouteName(name: string): BrytonWrite;
+  settingGet(key: string): BrytonWrite;
+  settingSet(key: string, value: number): BrytonWrite;
+  onNotify(channel: number, bytes: Uint8Array): BrytonStep;
+  free(): void;
+}
+
+export interface BrytonField {
+  /** `user.height`, `bike0.auto_pause`... */
+  key: string;
+  kind: 'bool' | 'choice' | 'number' | 'text';
+  /** `choice`: labels indexed by value (English). */
+  choices: string[];
+  writable: boolean;
+}
+
+export interface BrytonValue {
+  number?: number;
+  text: string;
+}
+
 export interface Core {
   analyzeRoute(lats: number[], lons: number[], eles: number[]): RouteAnalysis;
   /** Throws `Error('noPoints' | 'badPoint')`. */
@@ -98,4 +174,11 @@ export interface Core {
   cc600SettingsParse(text: string): Record<string, string>;
   /** The new settings file; throws an Error whose message is the refused key. */
   cc600SettingsApply(current: string, changes: string): string;
+
+  brytonSession(): BrytonSession;
+  /** A Bryton route file (start and arrival turns only). */
+  brytonBuildRoute(lats: number[], lons: number[], eles: number[]): Uint8Array;
+  brytonSettingFields(): BrytonField[];
+  /** Decodes the answer to the get of `key` (a `setting` event's bytes). */
+  brytonSettingValue(key: string, frame: Uint8Array): BrytonValue | undefined;
 }

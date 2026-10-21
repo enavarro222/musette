@@ -69,7 +69,8 @@ Add the driver crate to `crates/musette-core/Cargo.toml`. Then, in `app/`: `npm 
 The transport moves bytes, nothing else.
 
 - `PacketTransport` + `WebBluetoothTransport` fit a device with **one write characteristic and one notify characteristic**. Give them a `BleOptions` (`serviceUuid`, `rxUuid`, `txUuid`, `namePrefix`).
-- If the device needs more (several notify characteristics, read operations, a larger MTU), extend `BleOptions`, `WebBluetoothTransport` (web) and `BlePlxTransport` (iOS, Android) in `app/src/lib/transport/`. Do not call `navigator.bluetooth` or react-native-ble-plx from the driver: each platform gives its transports (`platform.web.ts`, `platform.ts`), and the driver must work with all of them.
+- `GattTransport` fits a device with several characteristics (subscribe and write each by UUID): the Bryton uses it. Its `BleOptions` has the advertised `serviceUuid` (what a search looks for) and the other `services` the driver uses (the browser must know them in advance).
+- If the device needs more (read operations, a larger MTU), extend `BleOptions`, `WebBluetoothTransport` (web) and `BlePlxTransport` (iOS, Android) in `app/src/lib/transport/`. Do not call `navigator.bluetooth` or react-native-ble-plx from the driver: each platform gives its transports (`platform.web.ts`, `platform.ts`), and the driver must work with all of them.
 - A device that mounts as a drive uses `FileTransport` (as `BrytonUsbDevice`).
 
 ## 6. TypeScript: the driver

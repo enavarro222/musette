@@ -12,7 +12,7 @@ const SCAN_MS = 20_000;
 
 const { ble, bleScan, blePick } = platform.transports;
 const WANTED = BLE_MODELS.map((m) => m.ble!.options);
-const HINTS = BLE_MODELS.map((m) => m.connectHint).join(' ');
+const HINTS = BLE_MODELS.map((m) => m.ble!.hint ?? m.connectHint).join(' ');
 const OTHERS = MODELS.filter((m) => m.create);
 
 /**

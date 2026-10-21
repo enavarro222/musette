@@ -38,18 +38,18 @@ impl Model {
                 sensors: true,
                 wifi_sync: true,
             },
-            // Stock firmware: what we know works without reverse engineering.
-            // See docs/drivers/bryton.md.
+            // Stock firmware. Bluetooth: rides, routes and settings checked
+            // on a Rider 750 (docs/drivers/bryton-ble.md); USB: rides.
             Model::BrytonRider750 => Capabilities {
                 transport: Transports {
-                    ble: false,
+                    ble: true,
                     usb_files: true,
                 },
                 download_activities: true,
-                upload_route: false, // to be confirmed (USB copy test)
+                upload_route: true, // over Bluetooth (start and arrival turns only)
                 route_corridor_map: false,
                 climbs_on_device: false,
-                settings: false,
+                settings: true, // over Bluetooth
                 sensors: false,
                 wifi_sync: false,
             },
@@ -94,9 +94,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn bryton_is_usb_only_for_now() {
+    fn bryton_has_usb_and_bluetooth() {
         let c = Model::BrytonRider750.capabilities();
-        assert!(c.transport.usb_files && !c.transport.ble);
+        assert!(c.transport.usb_files && c.transport.ble);
         assert!(c.download_activities && !c.route_corridor_map);
     }
 }

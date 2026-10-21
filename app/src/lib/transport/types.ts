@@ -18,6 +18,23 @@ export interface PacketTransport {
   onData(listener: (bytes: Uint8Array) => void): () => void;
 }
 
+/**
+ * A GATT link with several characteristics, for devices that use more than
+ * one pair (Bryton: command, data and setting channels, in two services).
+ * UUIDs are lower case.
+ */
+export interface GattTransport {
+  readonly kind: 'gatt';
+  readonly peerName?: string;
+  connect(): Promise<void>;
+  disconnect(): Promise<void>;
+  /** Turn on notifications of a characteristic. */
+  subscribe(service: string, characteristic: string): Promise<void>;
+  write(service: string, characteristic: string, bytes: Uint8Array, withResponse: boolean): Promise<void>;
+  /** Subscribe to notifications. Returns an unsubscribe function. */
+  onNotify(listener: (characteristic: string, bytes: Uint8Array) => void): () => void;
+}
+
 export interface DriveFile {
   /** Path relative to the drive root, `/`-separated. */
   path: string;
@@ -38,10 +55,14 @@ export interface FileTransport {
 }
 
 export interface BleOptions {
+  /** Advertised service: what a search looks for. */
   serviceUuid: string;
-  rxUuid: string;
-  txUuid: string;
+  /** Packet transports: the characteristic written, and the one notifying. */
+  rxUuid?: string;
+  txUuid?: string;
   namePrefix: string;
+  /** Other services the driver uses (the browser must be told beforehand). */
+  services?: string[];
 }
 
 /** A Bluetooth device found nearby, or picked in the browser's chooser. */
@@ -63,6 +84,8 @@ export interface BlePeer {
  */
 export interface TransportFactories {
   ble?: (peer: BlePeer) => PacketTransport;
+  /** Several characteristics (see `GattTransport`). */
+  gatt?: (peer: BlePeer) => GattTransport;
   /**
    * Report the devices around that match one of `wanted`, each once and
    * again when its signal changes. Returns a function that stops the search.
@@ -71,6 +94,17 @@ export interface TransportFactories {
   /** Ask the user to pick a device that matches one of `wanted`. */
   blePick?: (wanted: BleOptions[]) => Promise<BlePeer>;
   usbFiles?: () => FileTransport;
+}
+
+/** The characteristics of a packet transport (a profile without them is a programming error). */
+export function packetUuids(o: BleOptions): { rxUuid: string; txUuid: string } {
+  if (!o.rxUuid || !o.txUuid) throw new Error(`Profil Bluetooth sans caractéristiques : ${o.namePrefix}`);
+  return { rxUuid: o.rxUuid, txUuid: o.txUuid };
+}
+
+/** Every service a device of this profile uses. */
+export function allServices(o: BleOptions): string[] {
+  return [o.serviceUuid, ...(o.services ?? [])];
 }
 
 /** The profile of `wanted` a device named `name` matches. */

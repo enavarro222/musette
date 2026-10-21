@@ -1,6 +1,6 @@
 import { PermissionsAndroid, Platform } from 'react-native';
 import { BleManager, State, type Device, type Subscription } from 'react-native-ble-plx';
-import { matchBle, type BleOptions, type BlePeer, type PacketTransport } from './types';
+import { matchBle, packetUuids, type BleOptions, type BlePeer, type GattTransport, type PacketTransport } from './types';
 
 /**
  * Native Bluetooth (iOS, Android) through react-native-ble-plx.
@@ -32,7 +32,7 @@ export class BlePlxTransport implements PacketTransport {
     this.device = device;
     this.peerName = device.name ?? device.localName ?? undefined;
     this.chunkSize = Math.max(20, Math.min(device.mtu - 3, 244));
-    this.monitor = device.monitorCharacteristicForService(this.options.serviceUuid, this.options.txUuid, (error, c) => {
+    this.monitor = device.monitorCharacteristicForService(this.options.serviceUuid, packetUuids(this.options).txUuid, (error, c) => {
       if (error || !c?.value) return;
       const bytes = fromBase64(c.value);
       this.listeners.forEach((l) => l(bytes));
@@ -51,13 +51,64 @@ export class BlePlxTransport implements PacketTransport {
     for (let i = 0; i < bytes.length; i += this.chunkSize) {
       await this.device.writeCharacteristicWithoutResponseForService(
         this.options.serviceUuid,
-        this.options.rxUuid,
+        packetUuids(this.options).rxUuid,
         toBase64(bytes.subarray(i, i + this.chunkSize)),
       );
     }
   }
 
   onData(listener: (bytes: Uint8Array) => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+}
+
+/** Native Bluetooth with several characteristics (see `GattTransport`). */
+export class BlePlxGattTransport implements GattTransport {
+  readonly kind = 'gatt' as const;
+  peerName?: string;
+
+  private device?: Device;
+  private monitors: Subscription[] = [];
+  private listeners = new Set<(characteristic: string, bytes: Uint8Array) => void>();
+
+  constructor(private readonly peer: BlePeer) {}
+
+  async connect(): Promise<void> {
+    const ble = manager();
+    await ready(ble);
+    const device = await ble.connectToDevice(this.peer.id, { requestMTU: 247 });
+    await device.discoverAllServicesAndCharacteristics();
+    this.device = device;
+    this.peerName = device.name ?? device.localName ?? undefined;
+  }
+
+  async disconnect(): Promise<void> {
+    this.monitors.forEach((m) => m.remove());
+    this.monitors = [];
+    await this.device?.cancelConnection().catch(() => undefined);
+    this.device = undefined;
+  }
+
+  async subscribe(service: string, characteristic: string): Promise<void> {
+    if (!this.device) throw new Error('Non connecté');
+    this.monitors.push(
+      this.device.monitorCharacteristicForService(service, characteristic, (error, c) => {
+        if (error || !c?.value) return;
+        const bytes = fromBase64(c.value);
+        this.listeners.forEach((l) => l(c.uuid.toLowerCase(), bytes));
+      }),
+    );
+  }
+
+  async write(service: string, characteristic: string, bytes: Uint8Array, withResponse: boolean): Promise<void> {
+    if (!this.device) throw new Error('Non connecté');
+    const value = toBase64(bytes);
+    if (withResponse) await this.device.writeCharacteristicWithResponseForService(service, characteristic, value);
+    else await this.device.writeCharacteristicWithoutResponseForService(service, characteristic, value);
+  }
+
+  onNotify(listener: (characteristic: string, bytes: Uint8Array) => void): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
   }
