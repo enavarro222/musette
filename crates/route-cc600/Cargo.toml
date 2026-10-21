@@ -10,10 +10,12 @@ repository.workspace = true
 
 [features]
 # GPX reading, route and map building (allocates): the app, the PC tools
-build = ["dep:libm"]
+build = ["dep:libm", "dep:climbs", "dep:track"]
 
 [dependencies]
 libm = { version = "0.2.16", optional = true }
+climbs = { workspace = true, optional = true }
+track = { workspace = true, optional = true }
 
 [dev-dependencies]
 route-cc600 = { path = ".", features = ["build"] }

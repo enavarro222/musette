@@ -3,9 +3,11 @@
 //! written compact. The device reads it in place with integers only ([`Route`]): the points, where the rider is
 //! along it ([`Route::locate`]) and how far from it.
 //!
-//! File (little endian): `OCRT`, version 1, the name, the projection (origin, decimetres per 1e-7 degree of
+//! File (little endian): `OCRT`, version 2, the name, the projection (origin, decimetres per 1e-7 degree of
 //! longitude and latitude, ×2^24), the point count, length, ascent, descent, elevation range, bounding box, then
-//! for each point the deltas from the previous one (x, y, elevation, segment length), zigzag varints, then a CRC-16.
+//! for each point the deltas from the previous one (x, y, elevation, segment length), zigzag varints, then the
+//! climbs ([`Climb`]: a count, then start, end, gain and steepest gradient of each), then a CRC-16. Version 1 is
+//! the same without the climbs: still read, with none.
 //! The projection is integer on both sides, so the device places the rider exactly as the points were placed.
 //!
 //! MIT, shared by the OpenCC600 firmware (GPL) and the apps: no code derived from GPL sources here.
@@ -26,7 +28,7 @@ pub use build::{Gpx, GpxError, build, parse_gpx};
 pub use build_map::{MapFeature, MapStats, build_map};
 
 pub const MAGIC: &[u8; 4] = b"OCRT";
-pub const VERSION: u8 = 1;
+pub const VERSION: u8 = 2;
 /// Longest name kept, bytes.
 pub const NAME_MAX: usize = 63;
 
@@ -66,6 +68,31 @@ pub struct Point {
     pub along_dm: u32,
 }
 
+/// A climb of the route, found off the device on its elevations, as the app finds them (crate `climbs`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Climb {
+    /// From the start along the route, decimetres: its foot and its top.
+    pub start_dm: u32,
+    pub end_dm: u32,
+    pub gain_m: u16,
+    /// Steepest gradient over 100 m, tenths of a percent.
+    pub max_grade_pm: u16,
+}
+
+impl Climb {
+    pub fn length_dm(&self) -> u32 {
+        self.end_dm - self.start_dm
+    }
+
+    /// Average gradient, tenths of a percent.
+    pub fn grade_pm(&self) -> u32 {
+        (self.gain_m as u64 * 10_000 / self.length_dm().max(1) as u64) as u32
+    }
+}
+
+/// Bytes of a climb in the file.
+const CLIMB_BYTES: usize = 12;
+
 /// Where the rider is relative to the route.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Progress {
@@ -83,13 +110,15 @@ pub struct Route<'a> {
     data: &'a [u8],
     name: (usize, usize),
     points_at: usize,
+    climbs_at: usize,
+    climb_count: u8,
     pub info: Info,
 }
 
 impl<'a> Route<'a> {
     /// Checks the file (magic, version, CRC, every point) and reads its header.
     pub fn parse(data: &'a [u8]) -> Result<Self, Error> {
-        if data.len() < 6 || &data[..4] != MAGIC || data[4] != VERSION {
+        if data.len() < 6 || &data[..4] != MAGIC || !(1..=VERSION).contains(&data[4]) {
             return Err(Error::Format);
         }
         let (body, crc) = data.split_at(data.len().checked_sub(2).ok_or(Error::Corrupt)?);
@@ -115,18 +144,32 @@ impl<'a> Route<'a> {
             max_ele_dm: r.i32()?,
             bbox: [r.i32()?, r.i32()?, r.i32()?, r.i32()?],
         };
-        let route = Self {
+        let mut route = Self {
             data: body,
             name,
             points_at: r.at,
+            climbs_at: 0,
+            climb_count: 0,
             info,
         };
-        // every point decodes and the data ends with the last one
+        // every point decodes, then the climbs, and the data ends with them
         let mut points = route.points();
         for _ in 0..info.count {
             points.next().ok_or(Error::Corrupt)?;
         }
-        if points.r.at != body.len() || info.count < 2 {
+        let mut r = points.r;
+        if data[4] >= 2 {
+            route.climb_count = r.u8()?;
+            route.climbs_at = r.at;
+            r.skip(route.climb_count as usize * CLIMB_BYTES)?;
+        }
+        if r.at != body.len() || info.count < 2 {
+            return Err(Error::Corrupt);
+        }
+        if route
+            .climbs()
+            .any(|c| c.end_dm <= c.start_dm || c.end_dm > info.length_dm)
+        {
             return Err(Error::Corrupt);
         }
         Ok(route)
@@ -149,6 +192,48 @@ impl<'a> Route<'a> {
                 ele_dm: 0,
                 along_dm: 0,
             },
+        }
+    }
+
+    /// The climbs, in the order of the route.
+    pub fn climbs(&self) -> Climbs<'a> {
+        Climbs {
+            r: Reader {
+                data: self.data,
+                at: self.climbs_at,
+            },
+            left: self.climb_count,
+        }
+    }
+
+    /// The elevations (decimetres) every `(to_dm - from_dm) / (out.len() - 1)` from `from_dm` to `to_dm` along the
+    /// route, linear between the points, in one pass over them. Before the start and after the end: their
+    /// elevations.
+    pub fn elevations(&self, from_dm: u32, to_dm: u32, out: &mut [i32]) {
+        let n = out.len() as i64;
+        let at = |i: i64| from_dm as i64 + (to_dm as i64 - from_dm as i64) * i / (n - 1).max(1);
+        let mut points = self.points();
+        let Some(mut a) = points.next() else { return };
+        let mut b = points.next().unwrap_or(a);
+        for (i, e) in out.iter_mut().enumerate() {
+            let d = at(i as i64);
+            while (b.along_dm as i64) < d
+                && let Some(next) = points.next()
+            {
+                a = b;
+                b = next;
+            }
+            let span = (b.along_dm - a.along_dm) as i64;
+            let f = (d - a.along_dm as i64).clamp(0, span);
+            *e = if span == 0 {
+                if d < a.along_dm as i64 {
+                    a.ele_dm
+                } else {
+                    b.ele_dm
+                }
+            } else {
+                (a.ele_dm as i64 + (b.ele_dm - a.ele_dm) as i64 * f / span) as i32
+            };
         }
     }
 
@@ -260,6 +345,35 @@ impl Iterator for Points<'_> {
     }
 }
 
+pub struct Climbs<'a> {
+    r: Reader<'a>,
+    left: u8,
+}
+
+impl Iterator for Climbs<'_> {
+    type Item = Climb;
+
+    fn next(&mut self) -> Option<Climb> {
+        if self.left == 0 {
+            return None;
+        }
+        self.left -= 1;
+        Some(Climb {
+            start_dm: self.r.u32().ok()?,
+            end_dm: self.r.u32().ok()?,
+            gain_m: self.r.u16().ok()?,
+            max_grade_pm: self.r.u16().ok()?,
+        })
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.left as usize, Some(self.left as usize))
+    }
+}
+
+impl ExactSizeIterator for Climbs<'_> {}
+
+#[derive(Clone, Copy)]
 struct Reader<'a> {
     data: &'a [u8],
     at: usize,

@@ -131,8 +131,10 @@ dependencies = [
 name = "route-cc600"
 version = "0.1.0"
 dependencies = [
+ "climbs",
  "libm",
  "route-cc600",
+ "track",
 ]
 
 [[package]]
