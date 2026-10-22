@@ -7,7 +7,7 @@ import { toField, toValue, CC600_SETTINGS } from './cc600Settings';
 /** How a search finds a CC600 (its channels come from Rust: a test checks they match). */
 export const CC600_BLE: BleOptions = {
   serviceUuid: '18fbbd9a-adda-4ef4-9635-befd2efbf8a3',
-  namePrefix: 'CC600',
+  namePrefix: 'OpenCC',
 };
 
 function presentSettings(fields: DeviceField[], values: DeviceSetting[]): DeviceSettings {
