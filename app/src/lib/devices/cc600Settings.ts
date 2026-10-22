@@ -16,8 +16,29 @@ const SENSOR_HELP = 'Appairage depuis le compteur (menu Capteurs).';
 
 /** How Musette shows each CC600 setting. Keys and values come from the Rust crate. */
 export const CC600_SETTINGS: Record<string, Presentation> = {
-  theme: { label: 'Thème', group: 'display', options: { day: 'Jour', night: 'Nuit' } },
-  backlight: { label: 'Rétroéclairage', group: 'display', unit: '%', step: 10 },
+  theme: {
+    label: 'Thème',
+    group: 'display',
+    options: { day: 'Jour', night: 'Nuit' },
+    help: 'Avec le thème nuit automatique : seulement avant la première position GPS.',
+  },
+  auto_night: {
+    label: 'Thème nuit automatique',
+    group: 'display',
+    help: 'Du coucher au lever du soleil, à la position du compteur.',
+  },
+  backlight: {
+    label: 'Rétroéclairage',
+    group: 'display',
+    unit: '%',
+    step: 10,
+    help: 'Sans le rétroéclairage automatique.',
+  },
+  auto_backlight: {
+    label: 'Rétroéclairage automatique',
+    group: 'display',
+    help: 'Suit la lumière ambiante.',
+  },
   scroll_s: { label: 'Défilement des pages', group: 'display', unit: 's' },
   usage: {
     label: 'Usage',

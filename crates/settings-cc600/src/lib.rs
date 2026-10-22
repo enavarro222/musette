@@ -17,9 +17,14 @@ pub struct Settings {
     /// Beeps on or off.
     pub sound: bool,
     pub tz: Tz,
+    /// The theme; with `auto_night`, only until the device knows where it is (its first GNSS fix).
     pub theme: Theme,
-    /// Backlight, percent.
+    /// Night theme from sunset to sunrise, at the device's position.
+    pub auto_night: bool,
+    /// Backlight, percent; with `auto_backlight`, unused.
     pub backlight: u8,
+    /// Backlight from the ambient light sensor.
+    pub auto_backlight: bool,
     /// The app's one question: ride to explore or train (sets the ride pages).
     pub usage: Usage,
     /// Page auto-scroll, seconds a page.
@@ -63,7 +68,8 @@ impl Zones {
         let mut z = Self::default();
         for b in v.split(',') {
             let b: u8 = b.trim().parse().ok().filter(|&b| b > 0)?;
-            if z.len as usize == z.bounds.len() || z.bounds().last().is_some_and(|&last| b <= last) {
+            if z.len as usize == z.bounds.len() || z.bounds().last().is_some_and(|&last| b <= last)
+            {
                 return None;
             }
             z.bounds[z.len as usize] = b;
@@ -207,7 +213,9 @@ impl Default for Settings {
             sound: true,
             tz: Tz::parse(PARIS).unwrap(),
             theme: Theme::Day,
+            auto_night: true,
             backlight: 50,
+            auto_backlight: true,
             usage: Usage::Explore,
             scroll_s: 4,
             hr: Sensor::None,
@@ -232,11 +240,13 @@ pub enum Error {
 }
 
 /// The keys, in the order the file is written.
-pub const KEYS: [&str; 16] = [
+pub const KEYS: [&str; 18] = [
     "sound",
     "tz",
     "theme",
+    "auto_night",
     "backlight",
+    "auto_backlight",
     "usage",
     "scroll_s",
     "hr",
@@ -281,7 +291,7 @@ pub const FTP_W: (u16, u16) = (0, 2000);
 pub const HR_MAX: (u16, u16) = (0, 250);
 
 /// Every setting and its values, in the order of [`KEYS`]. [`Settings::set`] accepts exactly these.
-pub const FIELDS: [Field; 16] = [
+pub const FIELDS: [Field; 18] = [
     Field {
         key: "sound",
         kind: FieldKind::OnOff,
@@ -295,8 +305,16 @@ pub const FIELDS: [Field; 16] = [
         kind: FieldKind::Choice(&["day", "night"]),
     },
     Field {
+        key: "auto_night",
+        kind: FieldKind::OnOff,
+    },
+    Field {
         key: "backlight",
         kind: FieldKind::Range { min: 0, max: 100 },
+    },
+    Field {
+        key: "auto_backlight",
+        kind: FieldKind::OnOff,
     },
     Field {
         key: "usage",
@@ -393,7 +411,9 @@ impl Settings {
                     _ => return Err(bad),
                 }
             }
+            "auto_night" => self.auto_night = on_off(value).ok_or(bad)?,
             "backlight" => self.backlight = value.parse().ok().filter(|&v| v <= 100).ok_or(bad)?,
+            "auto_backlight" => self.auto_backlight = on_off(value).ok_or(bad)?,
             "usage" => {
                 self.usage = match value {
                     "explore" => Usage::Explore,
@@ -434,7 +454,9 @@ impl Settings {
                 Theme::Day => "day",
                 Theme::Night => "night",
             }),
+            "auto_night" => out.write_str(if self.auto_night { "on" } else { "off" }),
             "backlight" => write!(out, "{}", self.backlight),
+            "auto_backlight" => out.write_str(if self.auto_backlight { "on" } else { "off" }),
             "usage" => out.write_str(match self.usage {
                 Usage::Explore => "explore",
                 Usage::Train => "train",
@@ -722,6 +744,7 @@ mod tests {
         s.set("sound", "off").unwrap();
         s.set("tz", "UTC0").unwrap();
         s.set("backlight", "80").unwrap();
+        s.set("auto_backlight", "off").unwrap();
         s.set("usage", "train").unwrap();
         s.set("hr", "ble:r:E0:E2:58:63:35:07").unwrap();
         s.set("power", "ant:11:12345:5").unwrap();
@@ -731,7 +754,7 @@ mod tests {
         s.write(&mut text).unwrap();
         assert_eq!(
             text,
-            "sound=off\ntz=UTC0\ntheme=day\nbacklight=80\nusage=train\nscroll_s=4\n\
+            "sound=off\ntz=UTC0\ntheme=day\nauto_night=on\nbacklight=80\nauto_backlight=off\nusage=train\nscroll_s=4\n\
              hr=ble:r:E0:E2:58:63:35:07\nspeed_cadence=none\npower=ant:11:12345:5\nfollow_route=on\nauto_off_min=20\ntrip_log=off\n\
              ftp=230\nhr_max=0\npower_zones=60,75,89,104,118\nhr_zones=60,70,80,90\n"
         );
@@ -800,7 +823,11 @@ mod tests {
                     assert!(ok(&mut s, "none") && ok(&mut s, "ant:120:1:1") && !ok(&mut s, "x"))
                 }
                 FieldKind::Zones => {
-                    assert!(ok(&mut s, POWER_ZONES) && ok(&mut s, "50") && !ok(&mut s, "x"), "{}", f.key)
+                    assert!(
+                        ok(&mut s, POWER_ZONES) && ok(&mut s, "50") && !ok(&mut s, "x"),
+                        "{}",
+                        f.key
+                    )
                 }
             }
         }
@@ -817,13 +844,26 @@ mod tests {
         assert_eq!(z.zone(215, 230), Some(4));
         assert_eq!(z.zone(346, 230), Some(7));
         assert_eq!(z.zone(215, 0), None, "no FTP, no zone");
-        assert_eq!((z.top(1, 230), z.top(4, 230), z.top(7, 230)), (Some(126), Some(241), None));
+        assert_eq!(
+            (z.top(1, 230), z.top(4, 230), z.top(7, 230)),
+            (Some(126), Some(241), None)
+        );
         for bad in ["", "55,55", "75,55", "0,50", "1,2,3,4,5,6,7", "300", "a"] {
             assert_eq!(Zones::parse(bad), None, "{bad:?}");
         }
         let mut text = String::new();
         write!(text, "{}", Zones::parse(" 60, 70 ,80").unwrap()).unwrap();
         assert_eq!(text, "60,70,80");
+    }
+
+    #[test]
+    fn the_screen_follows_the_light_by_default() {
+        let s = Settings::default();
+        assert!(s.auto_backlight && s.auto_night);
+        // a file written before these settings existed
+        let old = Settings::parse("theme=night\nbacklight=80\n");
+        assert!(old.auto_backlight && old.auto_night);
+        assert_eq!((old.theme, old.backlight), (Theme::Night, 80));
     }
 
     #[test]
