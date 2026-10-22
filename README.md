@@ -12,6 +12,7 @@ Musette is first built to use and share the [OpenCC600](https://github.com/enava
   <img src="docs/screenshots/route.png" width="200" alt="A route: map, elevation profile and detected climbs">
   <img src="docs/screenshots/map.png" width="200" alt="The route on a full-screen map, climbs in orange">
   <img src="docs/screenshots/rides.png" width="200" alt="Rides downloaded from the bike computer">
+  <img src="docs/screenshots/ride.png" width="200" alt="A ride: its summary, map, elevation profile and climbs">
   <img src="docs/screenshots/device.png" width="200" alt="The connected bike computer and its settings groups">
 </p>
 
@@ -29,7 +30,7 @@ Open a GPX (from Komoot, RideWithGPS, BRouter…): Musette shows it on a map wit
 
 <img src="docs/screenshots/settings.png" width="200" align="right" alt="Display settings of a CC600">
 
-Change the bike computer's settings from the phone: display, backlight, ride, navigation, sounds, energy, time zone. Each change is written to the device at once. On the CC600, the paired sensors (heart rate, speed and cadence, power; ANT+ and Bluetooth) are listed too.
+Change the bike computer's settings from the phone: display, backlight, ride, navigation, sounds, energy, time zone. On the CC600, the ride settings include the FTP and maximum heart rate, and the power and heart rate zones as percentages of them (Coggan's 7 power zones and 5 heart rate zones by default); the device then shows the current zone. Each change is written to the device at once. On the CC600, the paired sensors (heart rate, speed and cadence, power; ANT+ and Bluetooth) are listed too.
 
 ### Supported bike computers
 
