@@ -537,8 +537,8 @@ fn cc600_fields() -> Vec<SettingField> {
                     field.options = words.iter().map(|w| (*w).to_owned()).collect();
                     field.labels = field.options.clone();
                 }
-                // A POSIX rule: any the device accepts.
-                FieldKind::Tz => {}
+                // A POSIX rule, zone bounds (`55,75,90`): any the device accepts.
+                FieldKind::Tz | FieldKind::Zones => {}
                 // Paired from the device.
                 FieldKind::Sensor => field.writable = false,
             }
@@ -591,7 +591,7 @@ fn cc600_lines(changes: &[Setting]) -> Result<String> {
                 Some(n) => format!("{}", n.round() as i64),
                 None => c.text.clone(),
             },
-            FieldKind::Choice(_) | FieldKind::Tz => c.text.clone(),
+            FieldKind::Choice(_) | FieldKind::Tz | FieldKind::Zones => c.text.clone(),
             FieldKind::Sensor => return Err(error(format!("{} is read-only", c.key))),
         };
         lines.push_str(&format!("{}={value}\n", c.key));

@@ -34,6 +34,84 @@ pub struct Settings {
     pub auto_off_min: u8,
     /// The trip log (`/logs`, a line a second while switched on, ~5 times what a ride takes): for bring-up.
     pub trip_log: bool,
+    /// Functional threshold power, watts, the 100 % of the power zones; 0: not set, no power zones.
+    pub ftp_w: u16,
+    /// Maximum heart rate, bpm, the 100 % of the heart rate zones; 0: not set, no heart rate zones.
+    pub hr_max: u16,
+    pub power_zones: Zones,
+    pub hr_zones: Zones,
+}
+
+/// The most zones a scale has.
+pub const MAX_ZONES: usize = 7;
+
+/// Zone bounds: the top of each zone but the last, percent of a reference (the FTP, the max heart rate), rising;
+/// `55,75,90,105,120,150` are Coggan's 7 power zones. 2 to [`MAX_ZONES`] zones.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Zones {
+    bounds: [u8; MAX_ZONES - 1],
+    len: u8,
+}
+
+/// Coggan's power zones: recovery, endurance, tempo, threshold, VO2 max, anaerobic, neuromuscular.
+pub const POWER_ZONES: &str = "55,75,90,105,120,150";
+/// Five heart rate zones in percent of the max heart rate.
+pub const HR_ZONES: &str = "60,70,80,90";
+
+impl Zones {
+    pub fn parse(v: &str) -> Option<Self> {
+        let mut z = Self::default();
+        for b in v.split(',') {
+            let b: u8 = b.trim().parse().ok().filter(|&b| b > 0)?;
+            if z.len as usize == z.bounds.len() || z.bounds().last().is_some_and(|&last| b <= last) {
+                return None;
+            }
+            z.bounds[z.len as usize] = b;
+            z.len += 1;
+        }
+        Some(z)
+    }
+
+    /// The bounds, percent.
+    pub fn bounds(&self) -> &[u8] {
+        &self.bounds[..self.len as usize]
+    }
+
+    /// How many zones.
+    pub fn count(&self) -> u8 {
+        self.len + 1
+    }
+
+    /// The top of `zone` (1 the first), in the unit of `reference`; `None` for the last zone.
+    pub fn top(&self, zone: u8, reference: u16) -> Option<u16> {
+        let b = *self.bounds().get(zone.checked_sub(1)? as usize)?;
+        Some((b as u32 * reference as u32 / 100) as u16)
+    }
+
+    /// The zone of `value` (1 the first) when `reference` is its 100 %; `None` without a reference (0).
+    pub fn zone(&self, value: u16, reference: u16) -> Option<u8> {
+        if reference == 0 || self.len == 0 {
+            return None;
+        }
+        let above = self
+            .bounds()
+            .iter()
+            .take_while(|&&b| value as u32 * 100 > b as u32 * reference as u32)
+            .count();
+        Some(above as u8 + 1)
+    }
+}
+
+impl fmt::Display for Zones {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for (i, b) in self.bounds().iter().enumerate() {
+            if i > 0 {
+                f.write_char(',')?;
+            }
+            write!(f, "{b}")?;
+        }
+        Ok(())
+    }
 }
 
 /// A paired sensor: `none`, `ble:r:E0:E2:58:63:35:07` (random address, `p:` public; most significant byte first,
@@ -138,6 +216,10 @@ impl Default for Settings {
             follow_route: true,
             auto_off_min: 20,
             trip_log: false,
+            ftp_w: 0,
+            hr_max: 0,
+            power_zones: Zones::parse(POWER_ZONES).unwrap(),
+            hr_zones: Zones::parse(HR_ZONES).unwrap(),
         }
     }
 }
@@ -150,7 +232,7 @@ pub enum Error {
 }
 
 /// The keys, in the order the file is written.
-pub const KEYS: [&str; 12] = [
+pub const KEYS: [&str; 16] = [
     "sound",
     "tz",
     "theme",
@@ -163,6 +245,10 @@ pub const KEYS: [&str; 12] = [
     "follow_route",
     "auto_off_min",
     "trip_log",
+    "ftp",
+    "hr_max",
+    "power_zones",
+    "hr_zones",
 ];
 
 /// What values a setting takes, for apps that edit them ([`FIELDS`]).
@@ -171,13 +257,15 @@ pub enum FieldKind {
     /// `on` or `off`.
     OnOff,
     /// A whole number in `min..=max`.
-    Range { min: u8, max: u8 },
+    Range { min: u16, max: u16 },
     /// One of these words.
     Choice(&'static [&'static str]),
     /// A POSIX time zone rule ([`Tz`]).
     Tz,
     /// A paired sensor ([`Sensor`]); paired from the device.
     Sensor,
+    /// Zone bounds ([`Zones`]): `55,75,90,105,120,150`.
+    Zones,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -186,11 +274,14 @@ pub struct Field {
     pub kind: FieldKind,
 }
 
-/// Every setting and its values, in the order of [`KEYS`]. [`Settings::set`] accepts exactly these.
 /// Page auto-scroll: seconds a page, accepted range.
 pub const SCROLL_S: (u8, u8) = (1, 20);
+/// The FTP and the max heart rate, accepted ranges (0: not set).
+pub const FTP_W: (u16, u16) = (0, 2000);
+pub const HR_MAX: (u16, u16) = (0, 250);
 
-pub const FIELDS: [Field; 12] = [
+/// Every setting and its values, in the order of [`KEYS`]. [`Settings::set`] accepts exactly these.
+pub const FIELDS: [Field; 16] = [
     Field {
         key: "sound",
         kind: FieldKind::OnOff,
@@ -214,8 +305,8 @@ pub const FIELDS: [Field; 12] = [
     Field {
         key: "scroll_s",
         kind: FieldKind::Range {
-            min: SCROLL_S.0,
-            max: SCROLL_S.1,
+            min: SCROLL_S.0 as u16,
+            max: SCROLL_S.1 as u16,
         },
     },
     Field {
@@ -241,6 +332,28 @@ pub const FIELDS: [Field; 12] = [
     Field {
         key: "trip_log",
         kind: FieldKind::OnOff,
+    },
+    Field {
+        key: "ftp",
+        kind: FieldKind::Range {
+            min: FTP_W.0,
+            max: FTP_W.1,
+        },
+    },
+    Field {
+        key: "hr_max",
+        kind: FieldKind::Range {
+            min: HR_MAX.0,
+            max: HR_MAX.1,
+        },
+    },
+    Field {
+        key: "power_zones",
+        kind: FieldKind::Zones,
+    },
+    Field {
+        key: "hr_zones",
+        kind: FieldKind::Zones,
     },
 ];
 
@@ -303,6 +416,10 @@ impl Settings {
                 self.auto_off_min = value.parse().ok().filter(|&v| v <= 120).ok_or(bad)?
             }
             "trip_log" => self.trip_log = on_off(value).ok_or(bad)?,
+            "ftp" => self.ftp_w = value.parse().ok().filter(|&v| v <= FTP_W.1).ok_or(bad)?,
+            "hr_max" => self.hr_max = value.parse().ok().filter(|&v| v <= HR_MAX.1).ok_or(bad)?,
+            "power_zones" => self.power_zones = Zones::parse(value).ok_or(bad)?,
+            "hr_zones" => self.hr_zones = Zones::parse(value).ok_or(bad)?,
             _ => return Err(Error::UnknownKey),
         }
         Ok(())
@@ -329,6 +446,10 @@ impl Settings {
             "follow_route" => out.write_str(if self.follow_route { "on" } else { "off" }),
             "auto_off_min" => write!(out, "{}", self.auto_off_min),
             "trip_log" => out.write_str(if self.trip_log { "on" } else { "off" }),
+            "ftp" => write!(out, "{}", self.ftp_w),
+            "hr_max" => write!(out, "{}", self.hr_max),
+            "power_zones" => write!(out, "{}", self.power_zones),
+            "hr_zones" => write!(out, "{}", self.hr_zones),
             _ => return Err(Error::UnknownKey),
         };
         r.map_err(|_| Error::BadValue)
@@ -604,12 +725,15 @@ mod tests {
         s.set("usage", "train").unwrap();
         s.set("hr", "ble:r:E0:E2:58:63:35:07").unwrap();
         s.set("power", "ant:11:12345:5").unwrap();
+        s.set("ftp", "230").unwrap();
+        s.set("power_zones", "60,75,89,104,118").unwrap();
         let mut text = String::new();
         s.write(&mut text).unwrap();
         assert_eq!(
             text,
             "sound=off\ntz=UTC0\ntheme=day\nbacklight=80\nusage=train\nscroll_s=4\n\
-             hr=ble:r:E0:E2:58:63:35:07\nspeed_cadence=none\npower=ant:11:12345:5\nfollow_route=on\nauto_off_min=20\ntrip_log=off\n"
+             hr=ble:r:E0:E2:58:63:35:07\nspeed_cadence=none\npower=ant:11:12345:5\nfollow_route=on\nauto_off_min=20\ntrip_log=off\n\
+             ftp=230\nhr_max=0\npower_zones=60,75,89,104,118\nhr_zones=60,70,80,90\n"
         );
         assert_eq!(Settings::parse(&text), s);
     }
@@ -656,7 +780,7 @@ mod tests {
                         f.key
                     );
                     assert!(
-                        !ok(&mut s, &std::format!("{}", max as u16 + 1)),
+                        !ok(&mut s, &std::format!("{}", max as u32 + 1)),
                         "{}",
                         f.key
                     );
@@ -675,8 +799,31 @@ mod tests {
                 FieldKind::Sensor => {
                     assert!(ok(&mut s, "none") && ok(&mut s, "ant:120:1:1") && !ok(&mut s, "x"))
                 }
+                FieldKind::Zones => {
+                    assert!(ok(&mut s, POWER_ZONES) && ok(&mut s, "50") && !ok(&mut s, "x"), "{}", f.key)
+                }
             }
         }
+    }
+
+    #[test]
+    fn zones() {
+        let z = Zones::parse(POWER_ZONES).unwrap();
+        assert_eq!(z.count(), 7);
+        // FTP 230 W: Z1 up to 126 W, Z4 from 208 to 241 W, Z7 from 346 W
+        assert_eq!(z.zone(0, 230), Some(1));
+        assert_eq!(z.zone(126, 230), Some(1));
+        assert_eq!(z.zone(127, 230), Some(2));
+        assert_eq!(z.zone(215, 230), Some(4));
+        assert_eq!(z.zone(346, 230), Some(7));
+        assert_eq!(z.zone(215, 0), None, "no FTP, no zone");
+        assert_eq!((z.top(1, 230), z.top(4, 230), z.top(7, 230)), (Some(126), Some(241), None));
+        for bad in ["", "55,55", "75,55", "0,50", "1,2,3,4,5,6,7", "300", "a"] {
+            assert_eq!(Zones::parse(bad), None, "{bad:?}");
+        }
+        let mut text = String::new();
+        write!(text, "{}", Zones::parse(" 60, 70 ,80").unwrap()).unwrap();
+        assert_eq!(text, "60,70,80");
     }
 
     #[test]
