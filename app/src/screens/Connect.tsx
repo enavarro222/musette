@@ -70,7 +70,7 @@ export default function Connect() {
           <Muted>{platform.unsupported}</Muted>
         ) : blePick ? (
           <Button
-            label={connecting ? 'Connexion…' : 'Rechercher un compteur'}
+            label={connecting ? 'Connexion…' : (platform.pickLabel ?? 'Rechercher un compteur')}
             disabled={connecting}
             onPress={() => void connect(async () => openBle(platform.transports, await blePick(WANTED)))}
           />
@@ -107,7 +107,7 @@ export default function Connect() {
           </>
         )}
         {gatt ? <Muted>{HINTS}</Muted> : null}
-        {blePick ? <Muted>Dans le navigateur, il faut resélectionner le compteur à chaque visite.</Muted> : null}
+        {blePick && !platform.pickLabel ? <Muted>Dans le navigateur, il faut resélectionner le compteur à chaque visite.</Muted> : null}
       </Section>
 
       {OTHERS.length > 0 ? (
