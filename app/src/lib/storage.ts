@@ -47,6 +47,16 @@ export const activities: ActivityStore = {
     await metaFile(a.key).write(JSON.stringify(meta));
   },
   has: async (key) => metaFile(key).exists,
+  async get(key) {
+    const meta = metaFile(key);
+    if (!meta.exists) return undefined;
+    return { ...(JSON.parse(await meta.text()) as Meta), fit: await fitFile(key).bytes() };
+  },
+  async setSummary(key, summary) {
+    const meta = metaFile(key);
+    if (!meta.exists) return;
+    await meta.write(JSON.stringify({ ...(JSON.parse(await meta.text()) as Meta), summary }));
+  },
   async all() {
     const list = await Promise.all(
       metas(rides()).map(async (f) => {

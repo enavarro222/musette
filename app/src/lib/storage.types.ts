@@ -1,3 +1,5 @@
+import type { RideSummary } from './ride';
+
 /** A ride kept on this device (phone or browser). */
 export interface StoredActivity {
   /** `${model}:${deviceActivityId}` */
@@ -8,6 +10,8 @@ export interface StoredActivity {
   importedAt: number;
   fileName: string;
   fit: Uint8Array;
+  /** Read from the FIT file once stored; missing for a file that could not be read, or kept before summaries. */
+  summary?: RideSummary;
 }
 
 /** Where rides are kept: IndexedDB on the web, app files on iOS and Android. */
@@ -15,6 +19,9 @@ export interface ActivityStore {
   /** Resolves once the ride is safely written. */
   put(a: StoredActivity): Promise<void>;
   has(key: string): Promise<boolean>;
+  get(key: string): Promise<StoredActivity | undefined>;
+  /** Keeps a ride's summary; the FIT file is not written again. */
+  setSummary(key: string, summary: RideSummary): Promise<void>;
   /** Newest first. */
   all(): Promise<StoredActivity[]>;
   remove(key: string): Promise<void>;

@@ -1,4 +1,5 @@
 import type { ActivityRef, Device } from './devices/types';
+import { readRide } from './ride';
 import { activities } from './storage';
 
 function fileName(device: Device, ref: ActivityRef): string {
@@ -33,6 +34,8 @@ export async function syncActivities(device: Device, onStatus: (msg: string) => 
       importedAt: Date.now(),
       fileName: fileName(device, ref),
       fit,
+      // A ride is kept even if its records cannot be read.
+      summary: await readRide(fit).then((r) => r.summary, () => undefined),
     });
     await device.acknowledgeActivity?.(ref, fit);
   }

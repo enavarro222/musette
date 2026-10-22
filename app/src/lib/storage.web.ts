@@ -43,6 +43,11 @@ async function tx<T>(store: Store, mode: IDBTransactionMode, fn: (s: IDBObjectSt
 export const activities: ActivityStore = {
   put: async (a) => void (await tx('activities', 'readwrite', (s) => s.put(a))),
   has: async (key) => (await tx('activities', 'readonly', (s) => s.count(key))) > 0,
+  get: (key) => tx<StoredActivity | undefined>('activities', 'readonly', (s) => s.get(key)),
+  async setSummary(key, summary) {
+    const a = await activities.get(key);
+    if (a) await tx('activities', 'readwrite', (s) => s.put({ ...a, summary }));
+  },
   all: async () => newestFirst(await tx<StoredActivity[]>('activities', 'readonly', (s) => s.getAll())),
   remove: async (key) => void (await tx('activities', 'readwrite', (s) => s.delete(key))),
 };

@@ -19,7 +19,7 @@ Musette is first built to use and share the [OpenCC600](https://github.com/enava
 
 ### Rides
 
-Connect your bike computer and download the new rides as FIT files. Each ride is copied, its integrity checked (FIT header and CRC), stored on your phone or in your browser, and only then acknowledged to the device: a ride is never lost because a transfer went wrong. Stored rides can be shared or saved to any other app (Strava, intervals.icu, a folder…).
+Connect your bike computer and download the new rides as FIT files. Each ride is copied, its integrity checked (FIT header and CRC), stored on your phone or in your browser, and only then acknowledged to the device: a ride is never lost because a transfer went wrong. Each ride shows its summary (distance, elevation gain, moving time, average speed, heart rate, power when recorded) and opens on its map, elevation profile and climbs. Stored rides can be shared or saved to any other app (intervals.icu, a folder…); the Strava app does not take files, upload them on strava.com.
 
 ### Routes
 

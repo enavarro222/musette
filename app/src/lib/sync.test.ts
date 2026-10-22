@@ -18,6 +18,7 @@ const { syncActivities } = await import('./sync');
 const { FakeCc600, fitFile } = await import('../test/fakeCc600');
 const { BleDevice } = await import('./devices/bleDevice');
 const { CC600 } = await import('./devices/cc600');
+const { fitActivity } = await import('../test/fitActivity');
 
 const ride = (id: number) => ({ id, startTime: 1_790_000_000 + id * 3600, fit: fitFile(Uint8Array.of(id, 1, 2, 3)) });
 
@@ -60,5 +61,19 @@ describe('ride sync', () => {
     events.length = 0;
     expect(await syncActivities(device, () => {})).toBe(0);
     expect(events).toEqual([]);
+  });
+
+  it('keeps the summary of each ride, and a ride it cannot read', async () => {
+    const t = 1_790_000_000;
+    const samples = [0, 1, 2].map((i) => ({ time: t + i, lat: 45, lon: 5, altitude: 0, distance: i * 5, speed: 5, heartRate: 0 }));
+    const totals = { startTime: t, elapsedS: 3, timerS: 2, distanceM: 10, ascentM: 0 };
+    const fake = new FakeCc600({ activities: [{ id: 1, startTime: t, fit: fitActivity(samples, totals) }, ride(2)] });
+    const device = new BleDevice(CC600, fake);
+    await device.connect();
+    await syncActivities(device, () => {});
+    expect(stored.get('open-cc600:1')!.summary).toMatchObject({ distanceM: 10, movingS: 2 });
+    // `ride(2)` holds no FIT records: kept, without summary.
+    expect(stored.get('open-cc600:2')!.summary).toBeUndefined();
+    expect(fake.device.acked()).toEqual([1, 2]);
   });
 });

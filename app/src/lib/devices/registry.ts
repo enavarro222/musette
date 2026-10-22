@@ -3,7 +3,8 @@ import { BleDevice, type BleModel } from './bleDevice';
 import { BrytonUsbDevice } from './bryton';
 import { BRYTON, BRYTON_BLE } from './brytonBle';
 import { CC600, CC600_BLE } from './cc600';
-import { FakeCc600, fitFile } from '../../test/fakeCc600';
+import { FakeCc600 } from '../../test/fakeCc600';
+import { demoRide } from '../../test/fitActivity';
 import type { Device, ModelId } from './types';
 
 export interface ModelEntry {
@@ -38,7 +39,7 @@ const SIMULATED: ModelEntry[] = __DEV__
             CC600,
             new FakeCc600({
               settings: 'hr=ant:120:4242:1\n',
-              activities: [{ id: 1, startTime: 1_790_000_000, fit: fitFile(new Uint8Array(2000)) }],
+              activities: [{ id: 1, startTime: 1_790_000_000, fit: demoRide(1_790_000_000) }],
             }),
           ),
       },
