@@ -14,7 +14,7 @@ const field = (f: ffi.SettingField): DeviceField => ({ ...f, kind: f.kind as Dev
 function outcome(o: ffi.Outcome): Outcome {
   switch (o.kind) {
     case 'info':
-      return { kind: 'info', name: o.name, recording: o.recording };
+      return { kind: 'info', name: o.name, recording: o.recording, routeMax: o.routeMax, mapMax: o.mapMax, free: o.free };
     case 'activities':
       return {
         kind: 'activities',
@@ -56,6 +56,22 @@ export async function loadPlatformCore(): Promise<Core> {
     analyzeRoute: (lats, lons, eles) => plain(() => ffi.analyzeRoute(lats, lons, eles) as RouteAnalysis),
     parseGpx: (text) => plain(() => ffi.parseGpx(text)),
     verifyFit: (b) => plain(() => ffi.verifyFit(buf(b))),
+    cc600BuildMap: (r, f, corridorM) =>
+      plain(() =>
+        bytes(
+          ffi.cc600BuildMap(
+            r.name,
+            r.lats,
+            r.lons,
+            r.eles,
+            f.classes,
+            f.lengths,
+            f.lats,
+            f.lons,
+            corridorM,
+          ),
+        ),
+      ),
     brytonFindActivities: (paths, sizes) =>
       ffi.brytonFindActivities(paths, sizes).map((a) => ({ id: a.id, size: num(a.size) })),
     capabilities: (model, link) => plain(() => ffi.capabilities(model, link) as Capabilities),
@@ -70,6 +86,7 @@ export async function loadPlatformCore(): Promise<Core> {
         acknowledge: (id) => plain(() => step(s.acknowledge(id))),
         sendRoute: (r) => plain(() => step(s.sendRoute(r.name, r.lats, r.lons, r.eles))),
         sendFile: (kind, b) => plain(() => step(s.sendFile(kind, buf(b)))),
+        deviceInfo: () => plain(() => step(s.deviceInfo())),
         readSettings: () => plain(() => step(s.readSettings())),
         writeSettings: (changes) => plain(() => step(s.writeSettings(changes))),
         onNotify: (channel, b) => step(s.onNotify(channel, buf(b))),

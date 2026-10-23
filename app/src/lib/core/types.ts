@@ -43,6 +43,29 @@ export type Link = 'ble' | 'usbFiles';
 /** Files a device can receive. */
 export type FileKind = 'route' | 'map';
 
+/** What a map feature is (`musette_core::MAP_CLASSES`). Contour lines are not drawn from OSM. */
+export type MapClass =
+  | 'forest'
+  | 'water'
+  | 'residential'
+  | 'contour'
+  | 'contour50'
+  | 'stream'
+  | 'river'
+  | 'path'
+  | 'track'
+  | 'service'
+  | 'minor'
+  | 'major';
+
+/** Map features, flat: feature `i` is a `classes[i]` with the next `lengths[i]` points of `lats`/`lons` (degrees). */
+export interface MapFeatures {
+  classes: MapClass[];
+  lengths: number[];
+  lats: number[];
+  lons: number[];
+}
+
 /** What a device can do over a link (`crates/device`). */
 export interface Capabilities {
   downloadActivities: boolean;
@@ -121,7 +144,16 @@ export interface Failure {
 /** How a request ended. */
 export type Outcome =
   | { kind: 'done' }
-  | { kind: 'info'; name: string; recording: boolean }
+  | {
+      kind: 'info';
+      name: string;
+      recording: boolean;
+      /** The largest file the device takes now, by kind, the one it replaces counted as free (0: no room now). */
+      routeMax?: number;
+      mapMax?: number;
+      /** Bytes free for rides. */
+      free?: number;
+    }
   | { kind: 'activities'; activities: DeviceActivity[] }
   | { kind: 'file'; bytes: Uint8Array }
   | { kind: 'settings'; fields: DeviceField[]; values: DeviceSetting[] }
@@ -157,6 +189,8 @@ export interface Session {
   acknowledge(id: string): Step;
   sendRoute(route: ParsedRoute): Step;
   sendFile(kind: FileKind, bytes: Uint8Array): Step;
+  /** What the device says of itself now (`info`), once connected: a CC600's room. Throws for a device that says nothing. */
+  deviceInfo(): Step;
   readSettings(): Step;
   /** Throws, before anything is sent, on the first change the device cannot take. */
   writeSettings(changes: DeviceSetting[]): Step;
@@ -201,6 +235,8 @@ export interface Core {
   parseGpx(text: string): ParsedRoute;
   /** Throws if the FIT file is truncated or corrupted; returns its data size. */
   verifyFit(bytes: Uint8Array): number;
+  /** The CC600 background map (`OCMP`) of the route file `sendRoute` writes for `route`: the features within `corridorM` of it. */
+  cc600BuildMap(route: ParsedRoute, features: MapFeatures, corridorM: number): Uint8Array;
   brytonFindActivities(paths: string[], sizes: number[]): { id: string; size?: number }[];
 
   capabilities(model: ModelId, link: Link): Capabilities;

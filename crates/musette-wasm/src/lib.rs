@@ -38,6 +38,37 @@ pub fn parse_gpx(text: &str) -> Result<JsValue, JsError> {
     Ok(out.into())
 }
 
+/// The CC600 background map of a route (`musette_core::cc600_build_map`).
+#[wasm_bindgen(js_name = cc600BuildMap)]
+#[allow(clippy::too_many_arguments)]
+pub fn cc600_build_map(
+    name: String,
+    lats: Vec<f64>,
+    lons: Vec<f64>,
+    eles: Vec<f64>,
+    classes: Vec<String>,
+    lengths: Vec<u32>,
+    feature_lats: Vec<f64>,
+    feature_lons: Vec<f64>,
+    corridor_m: f64,
+) -> Result<Vec<u8>, JsError> {
+    let route = musette_core::ParsedRoute {
+        name,
+        lats,
+        lons,
+        eles,
+    };
+    musette_core::cc600_build_map(
+        &route,
+        &classes,
+        &lengths,
+        &feature_lats,
+        &feature_lons,
+        corridor_m,
+    )
+    .map_err(js)
+}
+
 /// Throws if the FIT file is truncated or corrupted.
 #[wasm_bindgen(js_name = verifyFit)]
 pub fn verify_fit(bytes: &[u8]) -> Result<u32, JsError> {
@@ -143,6 +174,11 @@ impl Session {
             _ => return Err(JsError::new(&format!("unknown file kind {kind}"))),
         };
         to_js(&self.0.send_file(kind, bytes).map_err(js)?)
+    }
+
+    #[wasm_bindgen(js_name = deviceInfo)]
+    pub fn device_info(&mut self) -> Result<JsValue, JsError> {
+        to_js(&self.0.device_info().map_err(js)?)
     }
 
     #[wasm_bindgen(js_name = readSettings)]

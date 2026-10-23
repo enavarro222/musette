@@ -105,7 +105,22 @@ fn cc600_connects_lists_downloads_and_acknowledges() {
     let step = s.connect().unwrap();
     let (subscribed, _, info) = cc600(&mut s, &mut dev, step);
     assert_eq!(subscribed, [1]);
-    assert!(matches!(info, Outcome::Info { .. }));
+    assert!(matches!(
+        info,
+        Outcome::Info {
+            route_max: Some(1_048_576),
+            map_max: Some(1_048_576),
+            free: Some(1_048_576),
+            ..
+        }
+    ));
+    // asked again later, without subscribing again
+    let step = s.device_info().unwrap();
+    assert!(step.subscribe.is_empty());
+    assert!(matches!(
+        cc600(&mut s, &mut dev, step).2,
+        Outcome::Info { .. }
+    ));
 
     let step = s.list_activities().unwrap();
     let Outcome::Activities { activities } = cc600(&mut s, &mut dev, step).2 else {
@@ -166,6 +181,25 @@ fn cc600_sends_a_route_as_an_ocrt_file() {
     assert_eq!(outcome, Outcome::Done);
     assert_eq!(progress.last(), Some(&1.0));
     assert_eq!(&dev.committed().unwrap()[..4], b"OCRT");
+
+    // the map is made for the route file the device now holds
+    let road = |dlon: f64| [(45.0, 3.0 + dlon), (45.02, 3.0 + dlon)];
+    let (near, far) = (road(0.001), road(0.1));
+    let lats: Vec<f64> = near.iter().chain(&far).map(|p| p.0).collect();
+    let lons: Vec<f64> = near.iter().chain(&far).map(|p| p.1).collect();
+    let classes = ["minor".to_string(), "minor".to_string()];
+    let map = cc600_build_map(&route, &classes, &[2, 2], &lats, &lons, 1000.0).unwrap();
+    let parsed = route_cc600::map::Map::parse(&map).unwrap();
+    assert_eq!(
+        parsed.route_crc,
+        route_cc600::crc16(&dev.committed().unwrap())
+    );
+    let near_only =
+        cc600_build_map(&route, &classes[..1], &[2], &lats[..2], &lons[..2], 1000.0).unwrap();
+    assert_eq!(map, near_only, "the road 8 km away is out of the corridor");
+    assert!(cc600_build_map(&route, &classes, &[2, 1], &lats, &lons, 1000.0).is_err());
+    let unknown = ["motorway".to_string()];
+    assert!(cc600_build_map(&route, &unknown, &[2], &lats[..2], &lons[..2], 1000.0).is_err());
 }
 
 #[test]
@@ -288,7 +322,10 @@ fn bryton_connects_without_handshake() {
         s.on_timeout().outcome,
         Some(Outcome::Info {
             name: "Rider750".into(),
-            recording: false
+            recording: false,
+            route_max: None,
+            map_max: None,
+            free: None,
         })
     );
 }
@@ -355,4 +392,25 @@ fn bryton_takes_routes_only() {
         s.send_route(&route).unwrap().writes[0].bytes,
         [16, 0x04, 11]
     );
+}
+
+#[test]
+fn map_class_names_match_the_format() {
+    use route_cc600::map::class;
+    for (c, name) in [
+        (class::FOREST, "forest"),
+        (class::WATER, "water"),
+        (class::RESIDENTIAL, "residential"),
+        (class::CONTOUR, "contour"),
+        (class::CONTOUR_MAJOR, "contour50"),
+        (class::STREAM, "stream"),
+        (class::RIVER, "river"),
+        (class::PATH, "path"),
+        (class::TRACK, "track"),
+        (class::SERVICE, "service"),
+        (class::MINOR, "minor"),
+        (class::MAJOR, "major"),
+    ] {
+        assert_eq!(crate::MAP_CLASSES[c as usize], name);
+    }
 }

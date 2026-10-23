@@ -35,6 +35,15 @@ function outcome(o: Raw): Outcome {
           }),
         ),
       };
+    case 'info':
+      return {
+        kind: 'info',
+        name: o.name as string,
+        recording: o.recording as boolean,
+        routeMax: opt(o.routeMax),
+        mapMax: opt(o.mapMax),
+        free: opt(o.free),
+      };
     case 'settings':
       return {
         kind: 'settings',
@@ -69,6 +78,18 @@ export function wasmCore(m: typeof Wasm): Core {
       return { name: r.name, lats: [...r.lats], lons: [...r.lons], eles: [...r.eles] } satisfies ParsedRoute;
     },
     verifyFit: (bytes) => m.verifyFit(bytes),
+    cc600BuildMap: (r, f, corridorM) =>
+      m.cc600BuildMap(
+        r.name,
+        f64(r.lats),
+        f64(r.lons),
+        f64(r.eles),
+        f.classes,
+        Uint32Array.from(f.lengths),
+        f64(f.lats),
+        f64(f.lons),
+        corridorM,
+      ),
     brytonFindActivities: (paths, sizes) =>
       (m.brytonFindActivities(paths, f64(sizes)) as { id: string; size?: number | null }[]).map((a) => ({
         id: a.id,
@@ -86,6 +107,7 @@ export function wasmCore(m: typeof Wasm): Core {
         acknowledge: (id) => step(s.acknowledge(id)),
         sendRoute: (r) => step(s.sendRoute(r.name, f64(r.lats), f64(r.lons), f64(r.eles))),
         sendFile: (kind, bytes) => step(s.sendFile(kind, bytes)),
+        deviceInfo: () => step(s.deviceInfo()),
         readSettings: () => step(s.readSettings()),
         writeSettings: (changes) =>
           step(

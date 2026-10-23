@@ -74,6 +74,7 @@ interface NativeModuleInterface {
     ubrn_uniffi_musette_ffi_fn_func_analyze_route(lats: Uint8Array, lons: Uint8Array, eles: Uint8Array, uniffi_out_err: UniffiRustCallStatus): Uint8Array;
     ubrn_uniffi_musette_ffi_fn_func_bryton_find_activities(paths: Uint8Array, sizes: Uint8Array, uniffi_out_err: UniffiRustCallStatus): Uint8Array;
     ubrn_uniffi_musette_ffi_fn_func_capabilities(model: Uint8Array, link: Uint8Array, uniffi_out_err: UniffiRustCallStatus): Uint8Array;
+    ubrn_uniffi_musette_ffi_fn_func_cc600_build_map(name: Uint8Array, lats: Uint8Array, lons: Uint8Array, eles: Uint8Array, classes: Uint8Array, lengths: Uint8Array, featureLats: Uint8Array, featureLons: Uint8Array, corridorM: number, uniffi_out_err: UniffiRustCallStatus): Uint8Array;
     ubrn_uniffi_musette_ffi_fn_func_parse_gpx(text: Uint8Array, uniffi_out_err: UniffiRustCallStatus): Uint8Array;
     ubrn_uniffi_musette_ffi_fn_func_setting_fields(model: Uint8Array, uniffi_out_err: UniffiRustCallStatus): Uint8Array;
     ubrn_uniffi_musette_ffi_fn_func_verify_fit(bytes: Uint8Array, uniffi_out_err: UniffiRustCallStatus): number;
@@ -91,6 +92,7 @@ interface NativeModuleInterface {
     ubrn_uniffi_musette_ffi_fn_method_session_acknowledge(uniffiSelf: bigint, id: Uint8Array, uniffi_out_err: UniffiRustCallStatus): Uint8Array;
     ubrn_uniffi_musette_ffi_fn_method_session_channels(uniffiSelf: bigint, uniffi_out_err: UniffiRustCallStatus): Uint8Array;
     ubrn_uniffi_musette_ffi_fn_method_session_connect(uniffiSelf: bigint, uniffi_out_err: UniffiRustCallStatus): Uint8Array;
+    ubrn_uniffi_musette_ffi_fn_method_session_device_info(uniffiSelf: bigint, uniffi_out_err: UniffiRustCallStatus): Uint8Array;
     ubrn_uniffi_musette_ffi_fn_method_session_download(uniffiSelf: bigint, id: Uint8Array, size: Uint8Array, uniffi_out_err: UniffiRustCallStatus): Uint8Array;
     ubrn_uniffi_musette_ffi_fn_method_session_list_activities(uniffiSelf: bigint, uniffi_out_err: UniffiRustCallStatus): Uint8Array;
     ubrn_uniffi_musette_ffi_fn_method_session_on_notify(uniffiSelf: bigint, channel: number, bytes: Uint8Array, uniffi_out_err: UniffiRustCallStatus): Uint8Array;
@@ -103,6 +105,7 @@ interface NativeModuleInterface {
     ubrn_uniffi_musette_ffi_checksum_func_analyze_route(): number;
     ubrn_uniffi_musette_ffi_checksum_func_bryton_find_activities(): number;
     ubrn_uniffi_musette_ffi_checksum_func_capabilities(): number;
+    ubrn_uniffi_musette_ffi_checksum_func_cc600_build_map(): number;
     ubrn_uniffi_musette_ffi_checksum_func_parse_gpx(): number;
     ubrn_uniffi_musette_ffi_checksum_func_setting_fields(): number;
     ubrn_uniffi_musette_ffi_checksum_func_verify_fit(): number;
@@ -120,6 +123,7 @@ interface NativeModuleInterface {
     ubrn_uniffi_musette_ffi_checksum_method_session_acknowledge(): number;
     ubrn_uniffi_musette_ffi_checksum_method_session_channels(): number;
     ubrn_uniffi_musette_ffi_checksum_method_session_connect(): number;
+    ubrn_uniffi_musette_ffi_checksum_method_session_device_info(): number;
     ubrn_uniffi_musette_ffi_checksum_method_session_download(): number;
     ubrn_uniffi_musette_ffi_checksum_method_session_list_activities(): number;
     ubrn_uniffi_musette_ffi_checksum_method_session_on_notify(): number;

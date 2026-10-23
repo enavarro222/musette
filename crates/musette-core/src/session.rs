@@ -141,9 +141,17 @@ impl Failure {
 pub enum Outcome {
     Done,
     /// [`Session::connect`]: `name` is empty when the device does not say.
+    /// `route_max`, `map_max`: the largest file the device takes now, by
+    /// kind, the one it replaces counted as free (0: no room now); `free`:
+    /// the bytes free for rides. `None` when the device does not say (an
+    /// older firmware: no map).
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
     Info {
         name: String,
         recording: bool,
+        route_max: Option<u32>,
+        map_max: Option<u32>,
+        free: Option<u32>,
     },
     Activities {
         activities: Vec<Activity>,
@@ -223,6 +231,17 @@ impl Session {
             }
             Inner::Bryton(b) => b.connect(t),
         })
+    }
+
+    /// What the device says of itself now, its room for files above all
+    /// ([`Outcome::Info`]), once connected. A CC600 only: a Bryton says
+    /// nothing of its room.
+    pub fn device_info(&mut self) -> Result<Step> {
+        let t = self.timing;
+        match &mut self.inner {
+            Inner::Cc600(c) => Ok(c.start(Cc600Op::Other, |s| s.hello(), t)),
+            Inner::Bryton(_) => Err(error("this device does not say its room")),
+        }
     }
 
     /// The rides on the device ([`Outcome::Activities`]).
@@ -449,10 +468,18 @@ impl Cc600 {
                     out.progress = Some(f64::from(done) / f64::from(total.max(1)));
                     continue;
                 }
-                Event::Info(_) => Some(Outcome::Info {
-                    name: String::new(),
-                    recording: false,
-                }),
+                Event::Info(payload) => {
+                    let limits = protocol_cc600::payload::DeviceInfo::from_bytes(&payload);
+                    Some(Outcome::Info {
+                        name: String::new(),
+                        recording: false,
+                        route_max: limits.map(|l| l.route_max),
+                        map_max: limits.map(|l| l.map_max),
+                        free: limits
+                            .map(|l| l.free)
+                            .filter(|&f| f != protocol_cc600::payload::DeviceInfo::UNKNOWN),
+                    })
+                }
                 Event::Activities(list) => Some(Outcome::Activities {
                     activities: list
                         .into_iter()
@@ -770,7 +797,13 @@ impl Bryton {
             .info
             .as_ref()
             .map_or((String::new(), false), |i| (i.model.clone(), i.recording));
-        self.end(Outcome::Info { name, recording })
+        self.end(Outcome::Info {
+            name,
+            recording,
+            route_max: None,
+            map_max: None,
+            free: None,
+        })
     }
 
     fn connect(&mut self, t: Timing) -> Step {

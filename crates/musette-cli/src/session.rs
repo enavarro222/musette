@@ -40,7 +40,10 @@ impl SessionDevice {
             cut_at: None,
         };
         let step = me.session.connect()?;
-        if let Outcome::Info { name, recording } = me.run(step, &mut |_| {}).await? {
+        if let Outcome::Info {
+            name, recording, ..
+        } = me.run(step, &mut |_| {}).await?
+        {
             me.name = name;
             me.recording = recording;
         }

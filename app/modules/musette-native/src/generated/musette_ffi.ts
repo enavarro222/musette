@@ -83,6 +83,34 @@ export function capabilities(model: string, link: string): Capabilities /*throws
     }
 
 /**
+ * The CC600 background map of a route (`musette_core::cc600_build_map`).
+ */
+export function cc600BuildMap(name: string, lats: Array<number>, lons: Array<number>, eles: Array<number>, classes: Array<string>, lengths: Array<number>, featureLats: Array<number>, featureLons: Array<number>, corridorM: number): ArrayBuffer /*throws*/ {
+    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
+            /*liftError:*/ FfiConverterTypeFfiError.lift.bind(FfiConverterTypeFfiError),
+            /*caller:*/ (callStatus) => {
+                return nativeModule().ubrn_uniffi_musette_ffi_fn_func_cc600_build_map(
+        FfiConverterString.lower(name, nativeModule().rustbuffer_alloc),
+        FfiConverterSequenceFloat64.lower(lats, nativeModule().rustbuffer_alloc),
+        FfiConverterSequenceFloat64.lower(lons, nativeModule().rustbuffer_alloc),
+        FfiConverterSequenceFloat64.lower(eles, nativeModule().rustbuffer_alloc),
+        FfiConverterSequenceString.lower(classes, nativeModule().rustbuffer_alloc),
+        FfiConverterSequenceUInt32.lower(lengths, nativeModule().rustbuffer_alloc),
+        FfiConverterSequenceFloat64.lower(featureLats, nativeModule().rustbuffer_alloc),
+        FfiConverterSequenceFloat64.lower(featureLons, nativeModule().rustbuffer_alloc),
+        FfiConverterFloat64.lower(corridorM, nativeModule().rustbuffer_alloc),
+                callStatus);
+            },
+            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+        return FfiConverterArrayBuffer.lift(__rb);
+    } finally {
+        nativeModule().rustbuffer_free(__rb);
+    }
+    }
+
+/**
  * Read a GPX file; the error is `noPoints` or `badPoint`.
  */
 export function parseGpx(text: string): ParsedRoute /*throws*/ {
@@ -581,6 +609,9 @@ export type Outcome = {
     kind: string,
     name: string,
     recording: boolean,
+    routeMax?: number,
+    mapMax?: number,
+    free?: number,
     activities: Array<Activity>,
     bytes: ArrayBuffer,
     fields: Array<SettingField>,
@@ -613,6 +644,9 @@ const FfiConverterTypeOutcome = (() => {
                 kind: FfiConverterString.readFromCursor(c), 
                 name: FfiConverterString.readFromCursor(c), 
                 recording: FfiConverterBool.readFromCursor(c), 
+                routeMax: FfiConverterOptionalUInt32.readFromCursor(c), 
+                mapMax: FfiConverterOptionalUInt32.readFromCursor(c), 
+                free: FfiConverterOptionalUInt32.readFromCursor(c), 
                 activities: FfiConverterSequenceTypeActivity.readFromCursor(c), 
                 bytes: FfiConverterArrayBuffer.readFromCursor(c), 
                 fields: FfiConverterSequenceTypeSettingField.readFromCursor(c), 
@@ -625,6 +659,9 @@ const FfiConverterTypeOutcome = (() => {
             FfiConverterString.writeIntoCursor(value.kind, c);
             FfiConverterString.writeIntoCursor(value.name, c);
             FfiConverterBool.writeIntoCursor(value.recording, c);
+            FfiConverterOptionalUInt32.writeIntoCursor(value.routeMax, c);
+            FfiConverterOptionalUInt32.writeIntoCursor(value.mapMax, c);
+            FfiConverterOptionalUInt32.writeIntoCursor(value.free, c);
             FfiConverterSequenceTypeActivity.writeIntoCursor(value.activities, c);
             FfiConverterArrayBuffer.writeIntoCursor(value.bytes, c);
             FfiConverterSequenceTypeSettingField.writeIntoCursor(value.fields, c);
@@ -636,6 +673,9 @@ const FfiConverterTypeOutcome = (() => {
             return FfiConverterString.allocationSize(value.kind) +
              FfiConverterString.allocationSize(value.name) +
              FfiConverterBool.allocationSize(value.recording) +
+             FfiConverterOptionalUInt32.allocationSize(value.routeMax) +
+             FfiConverterOptionalUInt32.allocationSize(value.mapMax) +
+             FfiConverterOptionalUInt32.allocationSize(value.free) +
              FfiConverterSequenceTypeActivity.allocationSize(value.activities) +
              FfiConverterArrayBuffer.allocationSize(value.bytes) +
              FfiConverterSequenceTypeSettingField.allocationSize(value.fields) +
@@ -1226,6 +1266,7 @@ export interface SessionLike {
     acknowledge(id: string) /*throws*/: Step;
     channels(): Array<Channel>;
     connect() /*throws*/: Step;
+    deviceInfo() /*throws*/: Step;
     download(id: string, size: bigint | undefined) /*throws*/: Step;
     listActivities() /*throws*/: Step;
     onNotify(channel: number, bytes: ArrayBuffer): Step;
@@ -1318,6 +1359,23 @@ export class Session extends UniffiAbstractObject implements SessionLike {
             /*liftError:*/ FfiConverterTypeFfiError.lift.bind(FfiConverterTypeFfiError),
             /*caller:*/ (callStatus) => {
                 return nativeModule().ubrn_uniffi_musette_ffi_fn_method_session_connect(
+                uniffiTypeSessionObjectFactory.clonePointer(this),
+                callStatus);
+            },
+            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+        return FfiConverterTypeStep.lift(__rb);
+    } finally {
+        nativeModule().rustbuffer_free(__rb);
+    }
+    }
+    
+    deviceInfo(): Step /*throws*/ {
+    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
+            /*liftError:*/ FfiConverterTypeFfiError.lift.bind(FfiConverterTypeFfiError),
+            /*caller:*/ (callStatus) => {
+                return nativeModule().ubrn_uniffi_musette_ffi_fn_method_session_device_info(
                 uniffiTypeSessionObjectFactory.clonePointer(this),
                 callStatus);
             },
@@ -1560,6 +1618,9 @@ const FfiConverterOptionalUInt64 = new FfiConverterOptional(FfiConverterUInt64);
 // FfiConverter for boolean | undefined
 const FfiConverterOptionalBoolean = new FfiConverterOptional(FfiConverterBool);
 
+// FfiConverter for number | undefined
+const FfiConverterOptionalUInt32 = new FfiConverterOptional(FfiConverterUInt32);
+
 // FfiConverter for Array<Activity>
 const FfiConverterSequenceTypeActivity = new FfiConverterArray(FfiConverterTypeActivity);
 
@@ -1586,9 +1647,6 @@ const FfiConverterSequenceUInt32 = new FfiConverterArray(FfiConverterUInt32);
 
 // FfiConverter for Array<Write>
 const FfiConverterSequenceTypeWrite = new FfiConverterArray(FfiConverterTypeWrite);
-
-// FfiConverter for number | undefined
-const FfiConverterOptionalUInt32 = new FfiConverterOptional(FfiConverterUInt32);
 
 // FfiConverter for Outcome | undefined
 const FfiConverterOptionalTypeOutcome = new FfiConverterOptional(FfiConverterTypeOutcome);
@@ -1632,6 +1690,9 @@ function uniffiEnsureInitialized() {
     }
     if (nativeModule().ubrn_uniffi_musette_ffi_checksum_func_capabilities() !== 14003) {
         throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_func_capabilities");
+    }
+    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_func_cc600_build_map() !== 52667) {
+        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_func_cc600_build_map");
     }
     if (nativeModule().ubrn_uniffi_musette_ffi_checksum_func_parse_gpx() !== 56866) {
         throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_func_parse_gpx");
@@ -1683,6 +1744,9 @@ function uniffiEnsureInitialized() {
     }
     if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_session_connect() !== 43107) {
         throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_session_connect");
+    }
+    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_session_device_info() !== 16101) {
+        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_session_device_info");
     }
     if (nativeModule().ubrn_uniffi_musette_ffi_checksum_method_session_download() !== 65026) {
         throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_method_session_download");

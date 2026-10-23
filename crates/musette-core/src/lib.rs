@@ -267,6 +267,76 @@ fn cc600_build_route(name: String, lats: &[f64], lons: &[f64], eles: &[f64]) -> 
     Ok(route_cc600::build(&gpx, CC600_ROUTE_TOLERANCE_M))
 }
 
+/// Names of the map classes ([`route_cc600::map::class`]), for the app.
+const MAP_CLASSES: [&str; route_cc600::map::class::COUNT] = [
+    "forest",
+    "water",
+    "residential",
+    "contour",
+    "contour50",
+    "stream",
+    "river",
+    "path",
+    "track",
+    "service",
+    "minor",
+    "major",
+];
+
+/// The CC600 background map (`OCMP`) of a route, for the file
+/// [`Session::send_route`] writes from the same route. The features (OSM ways)
+/// come flat: feature `i` is of class `classes[i]` (a name of [`MAP_CLASSES`])
+/// and has the next `lengths[i]` points of `lats`/`lons` (degrees). Those
+/// within `corridor_m` of the route are kept.
+pub fn cc600_build_map(
+    route: &ParsedRoute,
+    classes: &[String],
+    lengths: &[u32],
+    lats: &[f64],
+    lons: &[f64],
+    corridor_m: f64,
+) -> Result<Vec<u8>> {
+    if classes.len() != lengths.len() || lats.len() != lons.len() {
+        return Err(error(
+            "classes and lengths, lats and lons must have the same length",
+        ));
+    }
+    if lengths.iter().map(|&n| n as usize).sum::<usize>() != lats.len() {
+        return Err(error("lengths must add up to the points"));
+    }
+    let classes = classes
+        .iter()
+        .map(|name| {
+            MAP_CLASSES
+                .iter()
+                .position(|c| c == name)
+                .map(|c| c as u8)
+                .ok_or_else(|| error(format!("unknown map class {name}")))
+        })
+        .collect::<Result<Vec<u8>>>()?;
+    let route_file = cc600_build_route(route.name.clone(), &route.lats, &route.lons, &route.eles)?;
+    let e7 = |d: f64| (d * 1e7).round() as i32;
+    let mut start = 0;
+    let features: Vec<route_cc600::MapFeature> = classes
+        .into_iter()
+        .zip(lengths)
+        .map(|(class, &n)| {
+            let range = start..start + n as usize;
+            start = range.end;
+            route_cc600::MapFeature {
+                class,
+                points: lats[range.clone()]
+                    .iter()
+                    .zip(&lons[range])
+                    .map(|(&lat, &lon)| (e7(lat), e7(lon)))
+                    .collect(),
+            }
+        })
+        .filter(|f| f.points.len() > 1)
+        .collect();
+    Ok(route_cc600::build_map(&route_file, &features, corridor_m).0)
+}
+
 /// A CC600 in memory (`driver_cc600::sim`): the app's demo without a
 /// device, and its tests. Frames in, frames out.
 pub struct Cc600Simulator(driver_cc600::sim::Device);

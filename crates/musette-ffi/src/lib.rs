@@ -98,6 +98,36 @@ pub fn parse_gpx(text: String) -> Result<ParsedRoute> {
     })
 }
 
+/// The CC600 background map of a route (`musette_core::cc600_build_map`).
+#[uniffi::export]
+#[allow(clippy::too_many_arguments)]
+pub fn cc600_build_map(
+    name: String,
+    lats: Vec<f64>,
+    lons: Vec<f64>,
+    eles: Vec<f64>,
+    classes: Vec<String>,
+    lengths: Vec<u32>,
+    feature_lats: Vec<f64>,
+    feature_lons: Vec<f64>,
+    corridor_m: f64,
+) -> Result<Vec<u8>> {
+    let route = musette_core::ParsedRoute {
+        name,
+        lats,
+        lons,
+        eles,
+    };
+    Ok(musette_core::cc600_build_map(
+        &route,
+        &classes,
+        &lengths,
+        &feature_lats,
+        &feature_lons,
+        corridor_m,
+    )?)
+}
+
 /// Fails if the FIT file is truncated or corrupted.
 #[uniffi::export]
 pub fn verify_fit(bytes: Vec<u8>) -> Result<u32> {
@@ -226,6 +256,9 @@ pub struct Outcome {
     pub kind: String,
     pub name: String,
     pub recording: bool,
+    pub route_max: Option<u32>,
+    pub map_max: Option<u32>,
+    pub free: Option<u32>,
     pub activities: Vec<Activity>,
     pub bytes: Vec<u8>,
     pub fields: Vec<SettingField>,
@@ -249,6 +282,9 @@ fn outcome(o: musette_core::Outcome) -> Outcome {
         kind: String::new(),
         name: String::new(),
         recording: false,
+        route_max: None,
+        map_max: None,
+        free: None,
         activities: vec![],
         bytes: vec![],
         fields: vec![],
@@ -258,9 +294,18 @@ fn outcome(o: musette_core::Outcome) -> Outcome {
     };
     out.kind = match o {
         O::Done => "done",
-        O::Info { name, recording } => {
+        O::Info {
+            name,
+            recording,
+            route_max,
+            map_max,
+            free,
+        } => {
             out.name = name;
             out.recording = recording;
+            out.route_max = route_max;
+            out.map_max = map_max;
+            out.free = free;
             "info"
         }
         O::Activities { activities } => {
@@ -395,6 +440,10 @@ impl Session {
             _ => return Err(musette_core::Error(format!("unknown file kind {kind}")).into()),
         };
         Ok(self.0.lock().unwrap().send_file(kind, bytes)?.into())
+    }
+
+    pub fn device_info(&self) -> Result<Step> {
+        Ok(self.0.lock().unwrap().device_info()?.into())
     }
 
     pub fn read_settings(&self) -> Result<Step> {
