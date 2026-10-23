@@ -60,6 +60,13 @@ pub struct Map<'a> {
     levels: [Option<Level>; MAX_LEVELS],
 }
 
+/// The CRC of the route a map file was made for, from its first bytes: a map for another route is set aside
+/// without reading the whole file.
+pub fn route_crc_of(head: &[u8]) -> Option<u16> {
+    (head.len() >= 7 && &head[..4] == MAGIC && head[4] == VERSION)
+        .then(|| u16::from_le_bytes([head[5], head[6]]))
+}
+
 impl<'a> Map<'a> {
     /// Checks the file (magic, version, CRC, index) and reads its header.
     pub fn parse(data: &'a [u8]) -> Result<Self, Error> {
@@ -70,6 +77,27 @@ impl<'a> Map<'a> {
         if crc16(body).to_le_bytes() != crc {
             return Err(Error::Corrupt);
         }
+        let map = Self::read(data)?;
+        for l in map.levels.iter().flatten() {
+            let mut last = None;
+            for i in 0..=l.cells as usize {
+                let at = start(body, *l, i);
+                if at > body.len() || last.is_some_and(|p| at < p) {
+                    return Err(Error::Corrupt);
+                }
+                last = Some(at);
+            }
+        }
+        Ok(map)
+    }
+
+    /// Reads the header of a file [`Map::parse`] already accepted, without its CRC and index checks: the device
+    /// draws the map at every frame, and `parse` goes through the whole file.
+    pub fn read(data: &'a [u8]) -> Result<Self, Error> {
+        if data.len() < 8 || &data[..4] != MAGIC || data[4] != VERSION {
+            return Err(Error::Format);
+        }
+        let body = &data[..data.len() - 2];
         let mut r = Reader { data: body, at: 5 };
         let route_crc = r.u16()?;
         let n = r.u8()? as usize;
@@ -87,14 +115,6 @@ impl<'a> Map<'a> {
             let end = l.index_at + l.cells as usize * 8 + 4;
             if l.cell_m == 0 || end > body.len() {
                 return Err(Error::Corrupt);
-            }
-            let mut last = None;
-            for i in 0..=l.cells as usize {
-                let at = start(body, l, i);
-                if at > body.len() || last.is_some_and(|p| at < p) {
-                    return Err(Error::Corrupt);
-                }
-                last = Some(at);
             }
             *level = Some(l);
         }

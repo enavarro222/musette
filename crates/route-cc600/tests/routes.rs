@@ -312,3 +312,32 @@ fn climbs_of_a_long_ride() {
         ],
     );
 }
+
+#[test]
+fn a_map_checked_once_is_read_again_without_its_crc() {
+    use route_cc600::map::{self, Map, class};
+    use route_cc600::{MapFeature, build_map, crc16};
+
+    let route = build(&parse_gpx(&gpx("c", &square())).unwrap(), 3.0);
+    // a road along the west side, 50 m out
+    let e7 = |d: f64| (d * 1e7).round() as i32;
+    let road = MapFeature {
+        class: class::MINOR,
+        points: (0..=10)
+            .map(|i| (e7(LAT + i as f64 * 0.1 * KM_LAT), e7(LON - 0.05 * km_lon())))
+            .collect(),
+    };
+    let (file, _) = build_map(&route, &[road], 1000.0);
+    let checked = Map::parse(&file).unwrap();
+    let read = Map::read(&file).unwrap();
+    assert_eq!(read.route_crc, crc16(&route));
+    assert_eq!(read.level(0), checked.level(0));
+    assert_eq!(map::route_crc_of(&file[..7]), Some(crc16(&route)));
+    assert_eq!(map::route_crc_of(b"OCRT\x02\x00\x00"), None);
+    // read trusts the CRC: a flipped byte in a cell is parse's to find
+    let mut damaged = file.clone();
+    let last = damaged.len() - 3;
+    damaged[last] ^= 0xFF;
+    assert!(Map::parse(&damaged).is_err());
+    assert!(Map::read(&damaged).is_ok());
+}
