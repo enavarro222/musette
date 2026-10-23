@@ -88,7 +88,7 @@ export class BleDevice implements Device {
   capabilities: Capabilities = NO_CAPABILITIES;
   private session?: Session;
   private channels: Channel[] = [];
-  private info?: { name: string; recording: boolean };
+  private info?: Extract<Outcome, { kind: 'info' }>;
   private pending?: Pending;
   private timer?: ReturnType<typeof setTimeout>;
   private unsubscribe?: () => void;
@@ -107,6 +107,21 @@ export class BleDevice implements Device {
 
   get name(): string {
     return this.info?.name || this.transport.peerName || this.profile.name;
+  }
+
+  get fileLimits(): Record<FileKind, number> | undefined {
+    const i = this.info;
+    return i?.routeMax === undefined || i.mapMax === undefined ? undefined : { route: i.routeMax, map: i.mapMax };
+  }
+
+  get storageFree(): number | undefined {
+    return this.info?.free;
+  }
+
+  async refreshInfo(): Promise<void> {
+    const info = await this.run((s) => s.deviceInfo(), 'Lecture de l’espace libre');
+    // the name comes from the first hello (a Bryton's info), keep it
+    if (info.kind === 'info') this.info = { ...info, name: this.info?.name || info.name };
   }
 
   async connect(): Promise<void> {
@@ -154,7 +169,7 @@ export class BleDevice implements Device {
   }
 
   async uploadFile(kind: FileKind, bytes: Uint8Array, onProgress?: (r: number) => void): Promise<void> {
-    await this.run((s) => s.sendFile(kind, bytes), 'Envoi du fichier', onProgress);
+    await this.run((s) => s.sendFile(kind, bytes), kind === 'map' ? 'Envoi de la carte' : 'Envoi du fichier', onProgress);
   }
 
   async readSettings(): Promise<DeviceSettings> {

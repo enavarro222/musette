@@ -12,3 +12,9 @@ export const duration = (s: number) => {
 
 /** A speed (m/s) in km/h, one decimal. */
 export const kmh = (mps: number) => (mps * 3.6).toLocaleString('fr-FR', { maximumFractionDigits: 1 });
+
+/** 214 Ko, 1,2 Mo. */
+export function size(bytes: number): string {
+  if (bytes < 1_000_000) return `${Math.max(1, Math.round(bytes / 1000))} Ko`;
+  return `${(bytes / 1_000_000).toFixed(1).replace('.', ',')} Mo`;
+}

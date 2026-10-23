@@ -1,6 +1,8 @@
 import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Button, LinkItem, ListItem, Muted, Screen, Section } from '../components/ui';
 import { appStore, reportError, useApp } from '../lib/store';
+import { size } from './format';
 import { settingsGroups, useSettings } from './settings';
 
 const CAPABILITY_LABELS: Record<string, string> = {
@@ -18,6 +20,21 @@ export default function DeviceHome() {
   const { device } = useApp();
   const editor = useSettings();
   const router = useRouter();
+  /** Bytes free for rides, asked again each time the screen opens. */
+  const [free, setFree] = useState<number>();
+
+  useEffect(() => {
+    setFree(device?.storageFree);
+    if (!device?.refreshInfo || !device.capabilities.routeCorridorMap) return;
+    let live = true;
+    device
+      .refreshInfo()
+      .then(() => live && setFree(device.storageFree))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [device]);
 
   if (!device) {
     return (
@@ -45,6 +62,7 @@ export default function DeviceHome() {
     <Screen title="Compteur" noDeviceStatus>
       <Section title="Connecté">
         <ListItem title={device.name} detail={features} />
+        {free !== undefined ? <ListItem title="Stockage" detail={`${size(free)} libres pour les sorties`} /> : null}
         <Button label="Déconnecter" variant="danger" onPress={() => void disconnect()} />
       </Section>
       {hasSettings ? (

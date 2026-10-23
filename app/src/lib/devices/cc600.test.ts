@@ -16,6 +16,14 @@ async function connected(fake: FakeCc600) {
 }
 
 describe('CC600 file upload', () => {
+  it('knows the largest file the device takes, from its hello', async () => {
+    const device = await connected(new FakeCc600({ free: 300_000 }));
+    expect(device.fileLimits).toEqual({ route: 300_000, map: 300_000 });
+    expect(device.storageFree).toBe(300_000);
+    await device.refreshInfo();
+    expect(device.fileLimits).toEqual({ route: 300_000, map: 300_000 });
+  });
+
   it('sends the whole file and reports progress up to 1', async () => {
     const fake = new FakeCc600();
     const device = await connected(fake);
