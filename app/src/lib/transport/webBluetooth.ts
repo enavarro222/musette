@@ -25,8 +25,11 @@ export async function pickBle(wanted: BleOptions[]): Promise<BlePeer> {
 export class WebGattTransport implements GattTransport {
   readonly kind = 'gatt' as const;
   peerName?: string;
-  /** The browser does not tell the MTU: conservative. TODO: negotiate a larger one with the firmware. */
-  readonly maxWrite = 20;
+  /**
+   * The browser negotiates the MTU itself and does not tell it: 244 (MTU 247, what a CC600 takes), down to 20
+   * for good at the first write refused (an older device, another stack).
+   */
+  maxWrite = 244;
 
   private server?: BluetoothRemoteGATTServer;
   private chars = new Map<string, BluetoothRemoteGATTCharacteristic>();
@@ -61,8 +64,16 @@ export class WebGattTransport implements GattTransport {
 
   async write(service: string, characteristic: string, bytes: Uint8Array, withResponse: boolean): Promise<void> {
     const c = await this.characteristic(service, characteristic);
-    if (withResponse) await c.writeValueWithResponse(bytes.slice());
-    else await c.writeValueWithoutResponse(bytes.slice());
+    if (withResponse) return void (await c.writeValueWithResponse(bytes.slice()));
+    try {
+      await c.writeValueWithoutResponse(bytes.slice());
+    } catch (e) {
+      // longer than the link's MTU: the smallest writes from now on (a refused write sends nothing); a lost link
+      // is not that
+      if (bytes.length <= 20 || !this.server?.connected) throw e;
+      this.maxWrite = 20;
+      for (let i = 0; i < bytes.length; i += 20) await c.writeValueWithoutResponse(bytes.slice(i, i + 20));
+    }
   }
 
   onNotify(listener: (characteristic: string, bytes: Uint8Array) => void): () => void {

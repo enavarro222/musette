@@ -8,8 +8,9 @@ import type { BleOptions, BlePeer, GattTransport } from './types';
  * Protocol (`window.postMessage`, every message has `gatt`):
  * - app → page: `{gatt: 'hello' | 'connect' | 'disconnect' | 'subscribe' | 'write', id, service?, characteristic?,
  *   bytes?: number[], withResponse?}`
- * - page → app: `{gatt: 'reply', id, ok, error?, name?, serviceUuid?}` (`hello` answers the device's name and
- *   advertised service), `{gatt: 'notify', characteristic, bytes: number[]}`
+ * - page → app: `{gatt: 'reply', id, ok, error?, name?, serviceUuid?, mtu?}` (`hello` answers the device's name and
+ *   advertised service, `connect` the link's ATT MTU; 23 when not said), `{gatt: 'notify', characteristic,
+ *   bytes: number[]}`
  */
 export const EMULATOR_PARAM = 'emulator';
 
@@ -25,7 +26,7 @@ export function emulatorOrigin(): string | undefined {
   }
 }
 
-type Reply = { ok: boolean; error?: string; name?: string; serviceUuid?: string };
+type Reply = { ok: boolean; error?: string; name?: string; serviceUuid?: string; mtu?: number };
 
 /** Requests to the page, each answered by a `reply` with its id. */
 class PageLink {
@@ -75,8 +76,8 @@ export async function pickEmulator(origin: string, wanted: BleOptions[]): Promis
 export class EmulatorGattTransport implements GattTransport {
   readonly kind = 'gatt' as const;
   peerName?: string;
-  /** The emulated link keeps the default ATT MTU of 23. */
-  readonly maxWrite = 20;
+  /** The link's ATT MTU less 3, once connected (the page asks the emulator for a larger MTU). */
+  maxWrite = 20;
   private readonly link: PageLink;
 
   constructor(
@@ -87,7 +88,8 @@ export class EmulatorGattTransport implements GattTransport {
   }
 
   async connect(): Promise<void> {
-    await this.link.ask('connect');
+    const r = await this.link.ask('connect');
+    this.maxWrite = Math.max(20, Math.min((r.mtu ?? 23) - 3, 244));
     this.peerName = this.peer.name;
   }
 

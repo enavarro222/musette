@@ -42,8 +42,10 @@ describe('emulator transport', () => {
     const peer = await pickEmulator(PAGE, [{ serviceUuid: '0000', namePrefix: 'Rider' }, CC600]);
     expect(peer.options).toBe(CC600);
     const t = new EmulatorGattTransport(peer, PAGE);
+    expect(t.maxWrite).toBe(20);
     await t.connect();
     expect(t.peerName).toBe('CC600 OpenCC600');
+    // the page said no MTU: the default one
     await t.subscribe(CC600.serviceUuid, 'tx');
     await t.write(CC600.serviceUuid, 'rx', Uint8Array.of(1, 2), false);
     expect(sent.map((m) => m.gatt)).toEqual(['hello', 'connect', 'subscribe', 'write']);
@@ -56,6 +58,15 @@ describe('emulator transport', () => {
     stop();
     deliver({ gatt: 'notify', characteristic: 'tx', bytes: [9] });
     expect(heard).toEqual([['tx', [7]]]);
+  });
+
+  it('writes up to the MTU the page negotiated', async () => {
+    framed(`?emulator=${PAGE}`, (m) =>
+      m.gatt === 'hello' ? { ok: true, name: 'OpenCC600', serviceUuid: CC600.serviceUuid } : { ok: true, mtu: 247 },
+    );
+    const t = new EmulatorGattTransport(await pickEmulator(PAGE, [CC600]), PAGE);
+    await t.connect();
+    expect(t.maxWrite).toBe(244);
   });
 
   it('turns a refused request into an error', async () => {
