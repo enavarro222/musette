@@ -77,6 +77,7 @@ pub enum Op {
     SetSettings = 0x21,
 
     // --- responses / events (device -> app)
+    /// Answer to `Hello`: [`payload::DeviceInfo`] (empty from older firmware).
     DeviceInfo = 0x81,
     ActivityEntry = 0x82,
     ActivityChunk = 0x83,
@@ -259,6 +260,44 @@ impl<'a> Frame<'a> {
 
 /// Little helpers to build/read fixed payloads without allocation.
 pub mod payload {
+    /// `DeviceInfo` payload, answered to every `Hello` (the app asks again
+    /// for fresh numbers): the largest file the device takes now, by kind,
+    /// counting the one it replaces as free (0: no room for it now, the
+    /// storage is full), and the bytes free for rides
+    /// ([`DeviceInfo::UNKNOWN`] when not known yet). Later fields will be
+    /// appended: a reader ignores what follows. A firmware without these
+    /// fields (an empty payload) takes no map.
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub struct DeviceInfo {
+        pub route_max: u32,
+        pub map_max: u32,
+        pub free: u32,
+    }
+
+    impl DeviceInfo {
+        pub const LEN: usize = 12;
+        /// `free` not known yet (the storage not read since boot).
+        pub const UNKNOWN: u32 = u32::MAX;
+
+        pub fn to_bytes(&self) -> [u8; Self::LEN] {
+            let mut b = [0u8; Self::LEN];
+            b[0..4].copy_from_slice(&self.route_max.to_le_bytes());
+            b[4..8].copy_from_slice(&self.map_max.to_le_bytes());
+            b[8..12].copy_from_slice(&self.free.to_le_bytes());
+            b
+        }
+
+        /// `None` for a shorter payload (older firmware: an empty one).
+        pub fn from_bytes(b: &[u8]) -> Option<Self> {
+            let word = |i: usize| Some(u32::from_le_bytes(b.get(i..i + 4)?.try_into().ok()?));
+            Some(Self {
+                route_max: word(0)?,
+                map_max: word(4)?,
+                free: word(8)?,
+            })
+        }
+    }
+
     /// `ReadActivity` request payload.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub struct ReadActivity {
@@ -377,6 +416,21 @@ mod tests {
             Frame::decode(&buf[..n - 1]),
             Err(Error::Incomplete { needed: Some(n) })
         );
+    }
+
+    #[test]
+    fn device_info_roundtrip() {
+        let i = payload::DeviceInfo {
+            route_max: 65_536,
+            map_max: 1_048_576,
+            free: 5_000_000,
+        };
+        assert_eq!(payload::DeviceInfo::from_bytes(&i.to_bytes()), Some(i));
+        let mut longer = [9u8; 14];
+        longer[..12].copy_from_slice(&i.to_bytes());
+        assert_eq!(payload::DeviceInfo::from_bytes(&longer), Some(i));
+        assert_eq!(payload::DeviceInfo::from_bytes(&[]), None);
+        assert_eq!(payload::DeviceInfo::from_bytes(&i.to_bytes()[..8]), None);
     }
 
     #[test]

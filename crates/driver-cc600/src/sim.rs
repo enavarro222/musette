@@ -3,7 +3,7 @@
 //! settings through `settings-cc600`, as on the device. For tests and to try
 //! the app without a device.
 
-use protocol_cc600::payload::{ActivityEntry, ReadActivity};
+use protocol_cc600::payload::{ActivityEntry, DeviceInfo, ReadActivity};
 use protocol_cc600::transfer::{self, Begin, Chunk, ErrorCode};
 use protocol_cc600::{Frame, Op};
 
@@ -118,6 +118,15 @@ impl Device {
         self.partial.map_or(0, |p| p.received)
     }
 
+    /// Free bytes for a file, whatever its kind.
+    fn free(&self) -> u32 {
+        if self.cfg.free == 0 {
+            1 << 20
+        } else {
+            self.cfg.free
+        }
+    }
+
     /// The last file committed by `TransferEnd`.
     pub fn committed(&self) -> Option<&[u8]> {
         self.committed.as_deref()
@@ -127,7 +136,18 @@ impl Device {
         let one = |op: Op, p: &[u8]| vec![(op, p.to_vec())];
         let fail = |code: ErrorCode| vec![(Op::Error, vec![code as u8])];
         match op {
-            Op::Hello => one(Op::DeviceInfo, &[]),
+            Op::Hello => {
+                let free = self.free();
+                one(
+                    Op::DeviceInfo,
+                    &DeviceInfo {
+                        route_max: free,
+                        map_max: free,
+                        free,
+                    }
+                    .to_bytes(),
+                )
+            }
             Op::ListActivities => {
                 let mut out: Vec<_> = self
                     .activities
@@ -185,12 +205,7 @@ impl Device {
                 let Some(begin) = Begin::from_bytes(p) else {
                     return fail(ErrorCode::BadRequest);
                 };
-                let free = if self.cfg.free == 0 {
-                    1 << 20
-                } else {
-                    self.cfg.free
-                };
-                match self.rx.begin(begin, self.partial, free) {
+                match self.rx.begin(begin, self.partial, self.free()) {
                     Ok(ready) => {
                         self.data.truncate(ready.next as usize);
                         self.partial = self.rx.progress();
