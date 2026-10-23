@@ -51,7 +51,7 @@ Defined in `crates/protocol-cc600`. Frame: `ver | op | seq | len (u16 LE) | payl
 
 Main flows:
 
-- `Hello` → `DeviceInfo`
+- `Hello` → `DeviceInfo`: the largest route and map the device takes now (the files they replace counted as free) and the bytes free for rides; empty from older firmware. Sent again whenever the app needs fresh numbers (before making a map, between a route and its map).
 - `ListActivities` → `ActivityEntry`* → `EndOfList`
 - `GetSettings` → `Settings` (the settings file, `key=value` lines); `SetSettings` (changed lines only) → `Ok` or `Error(BadSetting, key)`, all or nothing
 - `ReadActivity(id, offset, max)` → `ActivityChunk` (repeat) → app verifies → `AckActivity`
@@ -59,7 +59,7 @@ Main flows:
 
 ### File transfer (`protocol_cc600::transfer`)
 
-Routes and maps are a few hundred KB over BLE (5–20 KB/s from a browser), so the transfer is **resumable** and **flow-controlled**:
+Routes and maps are up to a few hundred KB over BLE (~10 KB/s measured from a PC with a 2 KB window; slower from a browser that writes 20 bytes at a time), so the transfer is **resumable** and **flow-controlled**:
 
 - The device keeps the partial file and its running CRC. A new `TransferBegin` with the same kind, size and CRC answers `TransferReady` with `next > 0`: the app continues from there.
 - The app pipelines chunks (write without response) up to `window` bytes; the device acks every `window/2` bytes and at the end.
@@ -69,9 +69,13 @@ Routes and maps are a few hundred KB over BLE (5–20 KB/s from a browser), so t
 - Errors (`Op::Error`, one byte): bad request, no space, no transfer, incomplete, bad CRC, busy (ride recording), storage.
 - `Receiver` (device) and `Sender` (app) are sans-IO state machines, tested together with lost chunks and cuts. `driver_cc600::Session` drives the `Sender` (and the silences); `driver_cc600::sim` is a CC600 in memory around the `Receiver`, for the tests and the app's demo.
 
+### Background map (`app/src/lib/osm.ts`, `mapPlan.ts`, `mapSend.ts`)
+
+The app makes a CC600's background map (`OCMP`, `route_cc600::build_map`) from the OpenFreeMap vector tiles (OpenMapTiles schema, zoom 14) around the route: each feature cut to its tile, the lines cut by tile edges joined again, classified by name (`musette_core::MAP_CLASSES` turns names into the format's numbers). It asks the device for its room (`DeviceInfo`, again before the map), tries the richest detail and corridor first and keeps the first map that fits, then sends the route and its map. The send options (detail, corridor) are kept in the app's preferences (`storage.ts`, `prefs`).
+
 ## Roadmap
 
-- [ ] CC600: route upload (prepared route: simplified track + climbs + map corridor)
+- [x] CC600: route upload (prepared route: simplified track + climbs + map corridor)
 - [ ] CC600: settings and sensors screens
 - [ ] Map view (MapLibre) with corridor preview
 - [ ] Bryton: confirm folder layout, test route copy over USB (see `drivers/bryton.md`)

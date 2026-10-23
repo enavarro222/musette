@@ -4,6 +4,7 @@
   "main": "expo-router/entry",
   "dependencies": {
     "@expo/ui": "~58.0.21",
+    "@mapbox/vector-tile": "^3.0.0",
     "@maplibre/maplibre-react-native": "11.5.0",
     "@types/geojson": "7946.0.16",
     "@ubjs/core": "0.31.0-6",
@@ -22,6 +23,7 @@
     "expo-system-ui": "~58.0.6",
     "maplibre-gl": "6.15.0",
     "musette-native": "file:modules/musette-native",
+    "pbf": "^5.1.2",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-native": "0.88.0",

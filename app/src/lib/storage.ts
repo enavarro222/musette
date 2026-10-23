@@ -13,6 +13,7 @@ import * as Sharing from 'expo-sharing';
 import {
   newestFirst,
   type ActivityStore,
+  type PrefStore,
   type RouteStore,
   type StoredActivity,
   type StoredRoute,
@@ -92,6 +93,32 @@ export const routes: RouteStore = {
   },
   async remove(id) {
     for (const f of [routeMeta(id), routeGpx(id)]) if (f.exists) f.delete();
+  },
+};
+
+/** Preferences in `prefs.json`, read once. */
+const prefsFile = () => new File(Paths.document, 'prefs.json');
+let prefsCache: Promise<Record<string, unknown>> | undefined;
+const noPrefs = (): Record<string, unknown> => ({});
+const allPrefs = () =>
+  (prefsCache ??= (async () => {
+    const f = prefsFile();
+    return f.exists ? (JSON.parse(await f.text()) as Record<string, unknown>) : {};
+  })().catch(noPrefs));
+
+/** Writes one after the other: two at once would each keep their key only. */
+let prefsWrites: Promise<unknown> = Promise.resolve();
+
+export const prefs: PrefStore = {
+  get: async <T,>(key: string) => (await allPrefs())[key] as T | undefined,
+  set(key, value) {
+    const write = prefsWrites.then(async () => {
+      const all = { ...(await allPrefs()), [key]: value };
+      prefsCache = Promise.resolve(all);
+      await prefsFile().write(JSON.stringify(all));
+    });
+    prefsWrites = write.catch(() => undefined);
+    return write;
   },
 };
 

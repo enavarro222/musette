@@ -54,6 +54,12 @@ export interface RouteStore {
   remove(id: string): Promise<void>;
 }
 
+/** The app's own preferences (not the device's settings), small JSON values. */
+export interface PrefStore {
+  get<T>(key: string): Promise<T | undefined>;
+  set(key: string, value: unknown): Promise<void>;
+}
+
 /** A new route id: time, then randomness (no collision between two imports). */
 export function newRouteId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;

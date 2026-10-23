@@ -24,7 +24,7 @@ Connect your bike computer and download the new rides as FIT files. Each ride is
 
 ### Routes
 
-Open a GPX (from Komoot, RideWithGPS, BRouter…): Musette shows it on a map with its elevation profile, detects the climbs and gives each one its length, average and maximum gradient and category (4 to HC). Then send it to the bike computer in one tap. The CC600 receives the climbs with the route, to show them while riding; an interrupted transfer resumes where it stopped.
+Open a GPX (from Komoot, RideWithGPS, BRouter…): Musette shows it on a map with its elevation profile, detects the climbs and gives each one its length, average and maximum gradient and category (4 to HC). Then send it to the bike computer in one tap. The CC600 receives the climbs with the route, to show them while riding, and a background map around it (OpenStreetMap roads, paths, water, forests and villages, from the OpenFreeMap vector tiles), made as detailed as the device has room for; an interrupted transfer resumes where it stopped.
 
 ### Device settings
 

@@ -6,6 +6,7 @@
 import {
   newestFirst,
   type ActivityStore,
+  type PrefStore,
   type RouteStore,
   type StoredActivity,
   type StoredRoute,
@@ -60,6 +61,25 @@ export const routes: RouteStore = {
       .map(({ gpx: _, ...summary }) => summary)
       .sort((a, b) => b.importedAt - a.importedAt),
   remove: async (id) => void (await tx('routes', 'readwrite', (s) => s.delete(id))),
+};
+
+/** Preferences in `localStorage` (none in a private window that refuses it). */
+export const prefs: PrefStore = {
+  async get<T>(key: string) {
+    try {
+      const v = localStorage.getItem(`musette.${key}`);
+      return v === null ? undefined : (JSON.parse(v) as T);
+    } catch {
+      return undefined;
+    }
+  },
+  async set(key, value) {
+    try {
+      localStorage.setItem(`musette.${key}`, JSON.stringify(value));
+    } catch {
+      // kept for this visit only
+    }
+  },
 };
 
 /** Offer a file to the user (download or OS share sheet). */
