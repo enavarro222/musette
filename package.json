@@ -5,6 +5,8 @@
     "dev": "npm --prefix app run web",
     "build": "npm --prefix app run build",
     "test": "npm --prefix app test",
+    "test:coverage": "npm --prefix app run test:coverage",
+    "lint": "npm --prefix app run lint",
     "check": "npm --prefix app run check",
     "wasm": "npm --prefix app run wasm"
   }

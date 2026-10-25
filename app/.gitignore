@@ -36,6 +36,10 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
+# Test coverage and lint cache
+coverage/
+.eslintcache
+
 example
 
 # generated native folders

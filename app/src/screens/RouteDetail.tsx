@@ -18,7 +18,8 @@ export default function RouteDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { device } = useApp();
-  const { route, analysis, missing } = useRoute(id);
+  const { route, analysis, reversed, missing, reverse } = useRoute(id);
+  const [reversing, setReversing] = useState(false);
   /** What the device holds while sending, undefined otherwise. */
   const [sending, setSending] = useState<Sending>();
   const [sent, setSent] = useState<string>();
@@ -27,7 +28,7 @@ export default function RouteDetail() {
   const mapData = useMemo(() => (route && analysis ? routeMapData(route, analysis) : undefined), [route, analysis]);
   const canSend = !!device?.capabilities.uploadRoute && !!device?.uploadRoute;
   const draws = !!device?.capabilities.routeCorridorMap;
-  const [map, retryMap] = useMapPlan(id, route, analysis, device);
+  const [map, retryMap] = useMapPlan(id, route, analysis, device, reversed);
   const shownMap = mapText(map, options);
 
   async function send() {
@@ -54,6 +55,18 @@ export default function RouteDetail() {
   const sendLabel = !sending
     ? 'Envoyer sur le compteur'
     : `Envoi ${sending.what === 'map' ? 'de la carte' : 'de la trace'}… ${Math.round(sending.ratio * 100)} %`;
+
+  async function invert() {
+    setReversing(true);
+    try {
+      await reverse();
+      setSent(undefined);
+    } catch (e) {
+      reportError(e);
+    } finally {
+      setReversing(false);
+    }
+  }
 
   async function remove() {
     if (!route || !(await confirmAction(`Supprimer « ${route.name} » de cet appareil ?`, 'Supprimer'))) return;
@@ -96,6 +109,12 @@ export default function RouteDetail() {
             <ElevationProfile analysis={analysis} />
           </Embed>
         ) : null}
+        <Button
+          label={reversing ? 'Inversion…' : 'Inverser la trace'}
+          variant="secondary"
+          disabled={!!sending || reversing}
+          onPress={() => void invert()}
+        />
       </Section>
 
       <ClimbList climbs={analysis.climbs} />
@@ -109,18 +128,18 @@ export default function RouteDetail() {
             {map.status === 'failed' ? <Button label="Réessayer" variant="secondary" onPress={retryMap} /> : null}
           </ListItem>
         ) : null}
-        <Button
-          label={sendLabel}
-          disabled={!canSend || !!sending || map.status === 'preparing'}
-          onPress={() => void send()}
-        />
-        {map.status === 'preparing' && !sending ? (
-          <Button label="Envoyer la trace seule" variant="secondary" onPress={() => void send()} />
-        ) : null}
-        {sent ? <Body>{sent}</Body> : null}
         {canSend && draws ? (
           <LinkItem title="Options d’envoi" onPress={() => router.push(`/routes/${id}/options`)} />
         ) : null}
+        <Button
+          label={sendLabel}
+          disabled={!canSend || !!sending || reversing || map.status === 'preparing'}
+          onPress={() => void send()}
+        />
+        {map.status === 'preparing' && !sending ? (
+          <Button label="Envoyer la trace seule" variant="secondary" disabled={reversing} onPress={() => void send()} />
+        ) : null}
+        {sent ? <Body>{sent}</Body> : null}
         {!device ? (
           <Muted>Connectez un compteur pour lui envoyer la trace.</Muted>
         ) : !canSend ? (
@@ -129,7 +148,7 @@ export default function RouteDetail() {
       </Section>
 
       <Section>
-        <Button label="Supprimer la trace" variant="danger" onPress={() => void remove()} />
+        <Button label="Supprimer la trace" variant="danger" disabled={!!sending || reversing} onPress={() => void remove()} />
       </Section>
     </Screen>
   );

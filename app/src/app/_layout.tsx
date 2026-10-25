@@ -34,7 +34,7 @@ export default function Layout() {
     importRoute(pendingRoute)
       .then((r) => router.navigate(`/routes/${r.id}`))
       .catch(reportError);
-  }, [pendingRoute]);
+  }, [pendingRoute, router]);
 
   return (
     <ThemeProvider value={navigationTheme}>

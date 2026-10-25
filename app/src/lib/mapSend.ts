@@ -116,6 +116,20 @@ async function make(p: Shared, key: string, route: ParsedRoute, analysis: RouteA
   }
 }
 
+/** External-store mutations stay outside the hooks that subscribe to it. */
+function prepare(routeId: string, key: string, route: ParsedRoute, analysis: RouteAnalysis, device: Device, o: SendOptions) {
+  const p = shared(routeId);
+  if (p.key === key) return;
+  p.key = key;
+  void make(p, key, route, analysis, device, o);
+}
+
+function retryPlan(routeId: string) {
+  const p = shared(routeId);
+  p.attempt++;
+  p.listeners.forEach((l) => l());
+}
+
 /**
  * The map to send with route `routeId` to `device`, made again when an
  * option it depends on changes, and a retry after a failure. The device is
@@ -126,9 +140,12 @@ export function useMapPlan(
   route: ParsedRoute | undefined,
   analysis: RouteAnalysis | undefined,
   device: Device | undefined,
+  reversed = false,
 ): [MapState, () => void] {
   const o = useSendOptions();
-  const p = shared(routeId);
+  // Each direction keeps its own plan and refit closure, built from that direction's points and analysis.
+  const planId = `${routeId}|${reversed}`;
+  const p = shared(planId);
   const snapshot = useSyncExternalStore(
     (l) => {
       p.listeners.add(l);
@@ -147,16 +164,11 @@ export function useMapPlan(
   const key = on ? `${deviceId(device!)}|${optionsKey(o)}|${attempt}` : '';
 
   useEffect(() => {
-    if (!on || p.key === key) return;
-    p.key = key;
-    void make(p, key, route!, analysis!, device!, o);
-    // `key` holds what the map depends on: the route's id, the device, the options that matter, the retries
-  }, [key, route, analysis]);
+    if (!on || !route || !analysis || !device) return;
+    prepare(planId, key, route, analysis, device, o);
+  }, [planId, key, route, analysis, device, o, on]);
 
-  const retry = () => {
-    p.attempt++;
-    p.listeners.forEach((l) => l());
-  };
+  const retry = () => retryPlan(planId);
   return [on ? snapshot : { status: 'off' }, retry];
 }
 

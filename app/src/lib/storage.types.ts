@@ -40,6 +40,8 @@ export interface StoredRoute {
   distanceM: number;
   ascentM: number;
   gpx: string;
+  /** Follow the imported GPX in the opposite direction; the source file stays intact. */
+  reversed?: boolean;
 }
 
 /** A route as the list shows it: no GPX. */

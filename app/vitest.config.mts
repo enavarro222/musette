@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url';
-import { defineConfig } from 'vitest/config';
+import { coverageConfigDefaults, defineConfig } from 'vitest/config';
 
 export default defineConfig({
   define: { __DEV__: 'true' },
@@ -14,5 +14,11 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/*.test.ts'],
     setupFiles: ['src/test/setup.ts'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html', 'lcov'],
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: [...coverageConfigDefaults.exclude, '**/*.d.ts', 'src/lib/core/wasm/**', 'src/test/**'],
+    },
   },
 });

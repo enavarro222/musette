@@ -5,6 +5,7 @@ import { wasmCore } from './wasm';
 
 // Metro serves the .wasm as an asset (metro.config.js); wasm-bindgen's own
 // lookup (`import.meta.url`) does not work with Metro.
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- Metro needs a static require to bundle this asset.
 const module = require('./wasm/musette_wasm_bg.wasm');
 
 /** Web: the WASM build of the Rust core. */

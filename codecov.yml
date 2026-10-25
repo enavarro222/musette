@@ -1,0 +1,8 @@
+# Vitest runs in app/, so LCOV paths start at src/ rather than the repository root.
+fixes:
+  - "src/::app/src/"
+
+flags:
+  typescript:
+    paths:
+      - app/src/

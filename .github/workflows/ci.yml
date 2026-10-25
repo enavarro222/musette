@@ -23,6 +23,9 @@ jobs:
 
   app:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -36,13 +39,35 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - working-directory: app
-        run: |
-          npm ci
-          npm run wasm
-          npm run check
-          npm test
-          MUSETTE_BASE_URL=/musette npm run build
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Install app dependencies
+        working-directory: app
+        run: npm ci
+      - name: Build the WebAssembly core
+        working-directory: app
+        run: npm run wasm
+      - name: Lint TypeScript and JavaScript
+        working-directory: app
+        run: npm run lint
+      - name: Check TypeScript
+        working-directory: app
+        run: npm run check
+      - name: Test with coverage
+        working-directory: app
+        run: npm run test:coverage
+      - name: Upload TypeScript coverage to Codecov
+        uses: codecov/codecov-action@v7
+        with:
+          files: app/coverage/lcov.info
+          flags: typescript
+          disable_search: true
+          fail_ci_if_error: true
+          # Fork pull requests use Codecov's tokenless public-repository uploads.
+          use_oidc: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+      - name: Build the web app
+        working-directory: app
+        run: MUSETTE_BASE_URL=/musette npm run build
       - uses: actions/upload-pages-artifact@v3
         if: github.ref == 'refs/heads/main'
         with:

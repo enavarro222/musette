@@ -26,6 +26,9 @@ Connect your bike computer and download the new rides as FIT files. Each ride is
 
 Open a GPX (from Komoot, RideWithGPS, BRouter…): Musette shows it on a map with its elevation profile, detects the climbs and gives each one its length, average and maximum gradient and category (4 to HC). Then send it to the bike computer in one tap. The CC600 receives the climbs with the route, to show them while riding, and a background map around it (OpenStreetMap roads, paths, water, forests and villages, from the OpenFreeMap vector tiles), made as detailed as the device has room for; an interrupted transfer resumes where it stopped.
 
+Reverse a route from its detail screen: the direction is kept in the library, with the profile and climbs recalculated.
+Map detail and corridor options sit above the send button.
+
 ### Device settings
 
 <img src="docs/screenshots/settings.png" width="200" align="right" alt="Display settings of a CC600">
@@ -95,7 +98,10 @@ cargo test --workspace          # core logic
 cd app
 npm install
 npm run wasm                    # build the Rust core for the web (src/lib/core/wasm)
+npm run lint                    # Expo ESLint rules for TypeScript and JavaScript, no warnings allowed
+npm run check                   # TypeScript type checking
 npm test                        # app logic against a simulated CC600
+npm run test:coverage            # tests with coverage (HTML and LCOV in app/coverage/)
 npm run web                     # http://localhost:8081 (Web Bluetooth works on localhost)
 ```
 
@@ -112,6 +118,13 @@ npm run android                 # builds, installs and starts the app (device or
 iOS needs macOS and Xcode (`generate:ios`, then `npm run ios`), or an EAS cloud build.
 
 Every push to `main` is built by CI and deployed to GitHub Pages.
+
+Pull requests and pushes to `main` run the Rust checks, app lint, TypeScript check and app tests with coverage.
+The TypeScript coverage includes screens and platform code even when untested, and excludes generated bindings,
+declarations and test helpers. Open `app/coverage/index.html` for the local report. CI uploads the LCOV report to
+[Codecov](https://app.codecov.io/gh/enavarro222/musette), using GitHub OIDC on the repository and tokenless uploads
+for public fork pull requests. Enable the repository in Codecov before the first upload; no `CODECOV_TOKEN` secret
+is needed. The Rust tests run separately and are not included in this TypeScript coverage report.
 
 ## License
 

@@ -25,9 +25,9 @@ const DETAIL_CHOICES: { value: Options['detail']; label: string }[] = [
 export default function SendOptions() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { device } = useApp();
-  const { route, analysis } = useRoute(id);
+  const { route, analysis, reversed } = useRoute(id);
   const o = useSendOptions();
-  const [map, retryMap] = useMapPlan(id, route, analysis, device);
+  const [map, retryMap] = useMapPlan(id, route, analysis, device, reversed);
   const shown = mapText(map, o);
   const set = (patch: Partial<Options>) => setOptions({ ...o, ...patch });
   const toggle = (c: MapContent, on: boolean) =>

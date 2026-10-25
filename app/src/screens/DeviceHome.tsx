@@ -21,15 +21,15 @@ export default function DeviceHome() {
   const editor = useSettings();
   const router = useRouter();
   /** Bytes free for rides, asked again each time the screen opens. */
-  const [free, setFree] = useState<number>();
+  const [refreshed, setRefreshed] = useState<{ device: typeof device; free: number | undefined }>();
+  const free = refreshed?.device === device ? refreshed?.free : device?.storageFree;
 
   useEffect(() => {
-    setFree(device?.storageFree);
     if (!device?.refreshInfo || !device.capabilities.routeCorridorMap) return;
     let live = true;
     device
       .refreshInfo()
-      .then(() => live && setFree(device.storageFree))
+      .then(() => live && setRefreshed({ device, free: device.storageFree }))
       .catch(() => undefined);
     return () => {
       live = false;

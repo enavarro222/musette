@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Body, Choice, Muted, NumberField, Section, TextField, Toggle } from '../components/ui';
 import type { Device } from '../lib/devices/types';
 import {
@@ -34,6 +34,13 @@ export function useSettingsEditor(device: Device | undefined): SettingsEditor {
   const [settings, setSettings] = useState<DeviceSettings>();
   const [edited, setEdited] = useState<SettingValues>({});
   const [state, setState] = useState<SaveState>('idle');
+  const [editingDevice, setEditingDevice] = useState(device);
+  if (editingDevice !== device) {
+    setEditingDevice(device);
+    setSettings(undefined);
+    setEdited({});
+    setState('idle');
+  }
   const editable = !!device?.capabilities.settings && !!device.readSettings && !!device.writeSettings;
 
   // The write runs outside React's render: it reads the latest values here.
@@ -43,7 +50,7 @@ export function useSettingsEditor(device: Device | undefined): SettingsEditor {
   const writing = useRef(false);
   const again = useRef(false);
 
-  async function load(): Promise<DeviceSettings | undefined> {
+  const load = useCallback(async (): Promise<DeviceSettings | undefined> => {
     if (!editable) return undefined;
     try {
       const s = await device.readSettings!();
@@ -54,15 +61,24 @@ export function useSettingsEditor(device: Device | undefined): SettingsEditor {
       reportError(e);
       return undefined;
     }
-  }
+  }, [device, editable]);
 
   useEffect(() => {
     clearTimeout(timer.current);
-    setSettings(undefined);
-    setState('idle');
-    void load().then((s) => s && setEdited(s.values));
-    return () => clearTimeout(timer.current);
-  }, [device]);
+    let live = true;
+    if (editable) {
+      void device.readSettings!().then((s) => {
+        if (!live) return;
+        setSettings(s);
+        latest.current.settings = s;
+        setEdited(s.values);
+      }).catch(reportError);
+    }
+    return () => {
+      live = false;
+      clearTimeout(timer.current);
+    };
+  }, [device, editable]);
 
   async function write() {
     if (writing.current) {
