@@ -15,18 +15,24 @@ interface Presentation {
 
 const SENSOR_HELP = 'Appairage depuis le compteur (menu Capteurs).';
 
-/** How Musette shows each CC600 setting. Keys and values come from the Rust crate. */
+/** Labels and display order of CC600 settings. Keys and values come from the Rust crate. */
 export const CC600_SETTINGS: Record<string, Presentation> = {
-  theme: {
-    label: 'Thème',
-    group: 'display',
-    options: { day: 'Jour', night: 'Nuit' },
-    help: 'Avec le thème nuit automatique : seulement avant la première position GPS.',
-  },
   auto_night: {
     label: 'Thème nuit automatique',
     group: 'display',
     help: 'Du coucher au lever du soleil, à la position du compteur.',
+  },
+  theme: {
+    label: 'Thème',
+    group: 'display',
+    options: { day: 'Jour', night: 'Nuit' },
+    help: 'Aspect de l’écran en mode manuel.',
+    inactiveReason: (v) => v.auto_night === true ? 'Thème automatique activé : désactivez-le pour choisir Jour ou Nuit.' : undefined,
+  },
+  auto_backlight: {
+    label: 'Rétroéclairage automatique',
+    group: 'display',
+    help: 'Suit la lumière ambiante.',
   },
   backlight: {
     label: 'Rétroéclairage',
@@ -35,11 +41,6 @@ export const CC600_SETTINGS: Record<string, Presentation> = {
     step: 10,
     help: 'Sans le rétroéclairage automatique.',
     inactiveReason: (v) => v.auto_backlight === true ? 'Sans effet : le rétroéclairage automatique est activé.' : undefined,
-  },
-  auto_backlight: {
-    label: 'Rétroéclairage automatique',
-    group: 'display',
-    help: 'Suit la lumière ambiante.',
   },
   scroll_s: { label: 'Défilement des pages', group: 'display', unit: 's' },
   usage: {
@@ -73,17 +74,17 @@ export const CC600_SETTINGS: Record<string, Presentation> = {
     step: 5,
     help: 'Puissance au seuil, le 100 % des zones de puissance. 0 : pas de zones.',
   },
-  hr_max: {
-    label: 'FC max',
-    group: 'ride',
-    unit: 'bpm',
-    help: 'Le 100 % des zones cardio. 0 : pas de zones.',
-  },
   power_zones: {
     label: 'Zones de puissance',
     group: 'ride',
     help: 'Haut de chaque zone sauf la dernière, en % de la FTP (Coggan : 55,75,90,105,120,150).',
     inactiveReason: (v) => v.ftp === 0 ? 'Sans effet : renseignez une FTP supérieure à 0 pour utiliser les zones de puissance.' : undefined,
+  },
+  hr_max: {
+    label: 'FC max',
+    group: 'ride',
+    unit: 'bpm',
+    help: 'Le 100 % des zones cardio. 0 : pas de zones.',
   },
   hr_zones: {
     label: 'Zones cardio',

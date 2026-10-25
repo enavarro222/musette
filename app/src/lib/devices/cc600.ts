@@ -12,9 +12,12 @@ export const CC600_BLE: BleOptions = {
 
 function presentSettings(fields: DeviceField[], values: DeviceSetting[]): DeviceSettings {
   const byKey = new Map(values.map((v) => [v.key, v]));
+  const order = new Map(Object.keys(CC600_SETTINGS).map((key, index) => [key, index]));
   const shown = fields.filter((f) => byKey.has(f.key));
   return {
-    fields: shown.map((f) => toField(f, byKey.get(f.key)!.text)),
+    fields: shown
+      .map((f) => toField(f, byKey.get(f.key)!.text))
+      .sort((a, b) => (order.get(a.key) ?? order.size) - (order.get(b.key) ?? order.size)),
     values: Object.fromEntries(shown.map((f) => [f.key, toValue(f, byKey.get(f.key)!)])),
   };
 }
