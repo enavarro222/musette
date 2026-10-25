@@ -136,6 +136,11 @@ nav button.active { color: var(--accent); }
 nav button svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
 .setting { padding: 10px 0; }
+.setting[aria-disabled='true'] { color: var(--muted); }
+.setting[aria-disabled='true'] input, .setting[aria-disabled='true'] select {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 .setting select, .setting input[type='number'], .setting input[type='text'] {
   font: inherit; font-size: 15px; min-height: 40px; padding: 0 10px; max-width: 55%;
   border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink);

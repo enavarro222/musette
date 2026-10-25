@@ -100,6 +100,7 @@ export function useSettingsEditor(device: Device | undefined): SettingsEditor {
     edited,
     state,
     set(key, value, field) {
+      if (field.readOnly || field.inactiveReason?.(latest.current.edited)) return;
       const next = { ...latest.current.edited, [key]: value };
       latest.current.edited = next;
       setEdited(next);
@@ -154,7 +155,7 @@ export function groupSections(editor: SettingsEditor, groupId: string) {
       </Section>
       <Section title={group.label}>
         {group.fields.map((f) => (
-          <Control key={f.key} field={f} value={editor.edited[f.key]} onChange={(v) => editor.set(f.key, v, f)} />
+          <Control key={f.key} field={f} values={editor.edited} onChange={(v) => editor.set(f.key, v, f)} />
         ))}
       </Section>
     </>
@@ -163,13 +164,17 @@ export function groupSections(editor: SettingsEditor, groupId: string) {
 
 function Control({
   field: f,
-  value,
+  values,
   onChange,
 }: {
   field: SettingField;
-  value: SettingValue | undefined;
+  values: SettingValues;
   onChange: (v: SettingValue) => void;
 }) {
+  const value = values[f.key];
+  const reason = f.inactiveReason?.(values);
+  const disabled = !!reason;
+  const help = reason ?? f.help;
   if (f.readOnly) {
     return (
       <>
@@ -180,12 +185,13 @@ function Control({
   }
   switch (f.type) {
     case 'toggle':
-      return <Toggle label={f.label} help={f.help} value={value === true} onChange={onChange} />;
+      return <Toggle label={f.label} help={help} disabled={disabled} value={value === true} onChange={onChange} />;
     case 'number':
       return (
         <NumberField
           label={f.label}
-          help={f.help}
+          help={help}
+          disabled={disabled}
           value={Number(value ?? f.min)}
           min={f.min}
           max={f.max}
@@ -195,8 +201,8 @@ function Control({
         />
       );
     case 'choice':
-      return <Choice label={f.label} help={f.help} value={String(value ?? '')} options={f.options} onChange={onChange} />;
+      return <Choice label={f.label} help={help} disabled={disabled} value={String(value ?? '')} options={f.options} onChange={onChange} />;
     case 'text':
-      return <TextField label={f.label} help={f.help} value={String(value ?? '')} onChange={onChange} />;
+      return <TextField label={f.label} help={help} disabled={disabled} value={String(value ?? '')} onChange={onChange} />;
   }
 }

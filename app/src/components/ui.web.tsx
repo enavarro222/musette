@@ -127,9 +127,9 @@ export function LinkItem({ title, detail, onPress }: LinkItemProps) {
   );
 }
 
-function Setting({ label, help, children }: { label: string; help?: string; children: ReactNode }) {
+function Setting({ label, help, disabled, children }: { label: string; help?: string; disabled?: boolean; children: ReactNode }) {
   return (
-    <label className="row setting">
+    <label className="row setting" aria-disabled={disabled || undefined}>
       <div className="grow">
         <span>{label}</span>
         {help ? <span className="muted small">{help}</span> : null}
@@ -139,20 +139,21 @@ function Setting({ label, help, children }: { label: string; help?: string; chil
   );
 }
 
-export function Toggle({ label, value, onChange, help }: ToggleProps) {
+export function Toggle({ label, value, onChange, help, disabled }: ToggleProps) {
   return (
-    <Setting label={label} help={help}>
-      <input type="checkbox" className="switch" checked={value} onChange={(e) => onChange(e.currentTarget.checked)} />
+    <Setting label={label} help={help} disabled={disabled}>
+      <input type="checkbox" className="switch" disabled={disabled} checked={value} onChange={(e) => onChange(e.currentTarget.checked)} />
     </Setting>
   );
 }
 
-export function NumberField({ label, value, min, max, step = 1, unit, onChange, help }: NumberProps) {
+export function NumberField({ label, value, min, max, step = 1, unit, onChange, help, disabled }: NumberProps) {
   return (
-    <Setting label={label} help={help}>
+    <Setting label={label} help={help} disabled={disabled}>
       <span className="number">
         <input
           type="number"
+          disabled={disabled}
           inputMode="numeric"
           min={min}
           max={max}
@@ -169,10 +170,10 @@ export function NumberField({ label, value, min, max, step = 1, unit, onChange, 
   );
 }
 
-export function Choice({ label, value, options, onChange, help }: ChoiceProps) {
+export function Choice({ label, value, options, onChange, help, disabled }: ChoiceProps) {
   return (
-    <Setting label={label} help={help}>
-      <select value={value} onChange={(e) => onChange(e.currentTarget.value)}>
+    <Setting label={label} help={help} disabled={disabled}>
+      <select value={value} disabled={disabled} onChange={(e) => onChange(e.currentTarget.value)}>
         {options.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}
@@ -183,10 +184,10 @@ export function Choice({ label, value, options, onChange, help }: ChoiceProps) {
   );
 }
 
-export function TextField({ label, value, onChange, help }: TextFieldProps) {
+export function TextField({ label, value, onChange, help, disabled }: TextFieldProps) {
   return (
-    <Setting label={label} help={help}>
-      <input type="text" value={value} onChange={(e) => onChange(e.currentTarget.value)} />
+    <Setting label={label} help={help} disabled={disabled}>
+      <input type="text" disabled={disabled} value={value} onChange={(e) => onChange(e.currentTarget.value)} />
     </Setting>
   );
 }

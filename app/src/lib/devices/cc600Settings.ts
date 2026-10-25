@@ -1,11 +1,12 @@
 import type { DeviceField, DeviceSetting } from '../core';
-import type { SettingField, SettingGroup, SettingValue } from '../settings';
+import type { SettingField, SettingGroup, SettingValue, SettingValues } from '../settings';
 import { settingValue } from './bleDevice';
 
 interface Presentation {
   label: string;
   group: SettingGroup;
   help?: string;
+  inactiveReason?: (values: SettingValues) => string | undefined;
   unit?: string;
   step?: number;
   /** Labels of a choice's words. */
@@ -33,6 +34,7 @@ export const CC600_SETTINGS: Record<string, Presentation> = {
     unit: '%',
     step: 10,
     help: 'Sans le rétroéclairage automatique.',
+    inactiveReason: (v) => v.auto_backlight === true ? 'Sans effet : le rétroéclairage automatique est activé.' : undefined,
   },
   auto_backlight: {
     label: 'Rétroéclairage automatique',
@@ -57,6 +59,7 @@ export const CC600_SETTINGS: Record<string, Presentation> = {
     unit: 'km/h',
     step: 0.1,
     help: '1,5 km/h par défaut. Le temps total inclut toujours les pauses.',
+    inactiveReason: (v) => v.auto_pause === false ? 'Sans effet : activez la pause automatique pour régler son seuil.' : undefined,
   },
   follow_route: {
     label: 'Suivre la trace chargée',
@@ -80,11 +83,13 @@ export const CC600_SETTINGS: Record<string, Presentation> = {
     label: 'Zones de puissance',
     group: 'ride',
     help: 'Haut de chaque zone sauf la dernière, en % de la FTP (Coggan : 55,75,90,105,120,150).',
+    inactiveReason: (v) => v.ftp === 0 ? 'Sans effet : renseignez une FTP supérieure à 0 pour utiliser les zones de puissance.' : undefined,
   },
   hr_zones: {
     label: 'Zones cardio',
     group: 'ride',
     help: 'Haut de chaque zone sauf la dernière, en % de la FC max (60,70,80,90 : 5 zones).',
+    inactiveReason: (v) => v.hr_max === 0 ? 'Sans effet : renseignez une FC max supérieure à 0 pour utiliser les zones cardio.' : undefined,
   },
   hr: { label: 'Cardio', group: 'sensors', help: SENSOR_HELP },
   speed_cadence: { label: 'Vitesse et cadence', group: 'sensors', help: SENSOR_HELP },
@@ -124,7 +129,7 @@ export function sensorLabel(v: string): string {
 /** The generic field of a CC600 setting. `current` is its value on the device. */
 export function toField(f: DeviceField, current: string): SettingField {
   const p = CC600_SETTINGS[f.key] ?? { label: f.key, group: 'system' };
-  const base = { key: f.key, label: p.label, group: p.group, help: p.help };
+  const base = { key: f.key, label: p.label, group: p.group, help: p.help, inactiveReason: p.inactiveReason };
   if (!f.writable) return { ...base, type: 'text', readOnly: true }; // a sensor, paired from the device
   if (f.key === 'tz') {
     const zones = { ...(current in TIME_ZONES ? {} : { [current]: current }), ...TIME_ZONES };

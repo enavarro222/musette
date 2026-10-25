@@ -25,6 +25,8 @@ interface FieldBase {
   label: string;
   group: SettingGroup;
   help?: string;
+  /** Why this field has no effect for the current edited values; absent when it is active. */
+  inactiveReason?: (values: SettingValues) => string | undefined;
   /** Shown, not editable here (for example a sensor paired from the device). */
   readOnly?: boolean;
 }

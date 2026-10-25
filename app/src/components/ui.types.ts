@@ -24,6 +24,7 @@ export interface ListItemProps {
 interface FieldProps {
   label: string;
   help?: string;
+  disabled?: boolean;
 }
 
 export interface ToggleProps extends FieldProps {

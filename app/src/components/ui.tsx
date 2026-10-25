@@ -122,21 +122,22 @@ export function LinkItem({ title, detail, onPress }: LinkItemProps) {
   );
 }
 
-export function Toggle({ label, value, onChange, help }: ToggleProps) {
+export function Toggle({ label, value, onChange, help, disabled }: ToggleProps) {
   return (
-    <Column spacing={4} alignment="start">
-      <Switch label={label} value={value} onValueChange={onChange} />
+    <Column spacing={4} alignment="start" style={disabled ? { opacity: 0.6 } : undefined}>
+      <Switch label={label} value={value} disabled={disabled} onValueChange={onChange} />
       {help ? <Muted>{help}</Muted> : null}
     </Column>
   );
 }
 
-export function NumberField({ label, value, min, max, step = 1, unit, onChange, help }: NumberProps) {
+export function NumberField({ label, value, min, max, step = 1, unit, onChange, help, disabled }: NumberProps) {
   return (
-    <Column spacing={4} alignment="start">
+    <Column spacing={4} alignment="start" style={disabled ? { opacity: 0.6 } : undefined}>
       <Text>{`${label} : ${value}${unit ? ` ${unit}` : ''}`}</Text>
       <Slider
         value={value}
+        disabled={disabled}
         min={min}
         max={max}
         // Compose draws a tick per step: only when there are few.
@@ -148,11 +149,11 @@ export function NumberField({ label, value, min, max, step = 1, unit, onChange, 
   );
 }
 
-export function Choice({ label, value, options, onChange, help }: ChoiceProps) {
+export function Choice({ label, value, options, onChange, help, disabled }: ChoiceProps) {
   return (
-    <Column spacing={4} alignment="start">
+    <Column spacing={4} alignment="start" style={disabled ? { opacity: 0.6 } : undefined}>
       <Text>{label}</Text>
-      <Picker selectedValue={value} onValueChange={onChange}>
+      <Picker selectedValue={value} enabled={!disabled} onValueChange={onChange}>
         {options.map((o) => (
           <Picker.Item key={o.value} label={o.label} value={o.value} />
         ))}
@@ -162,11 +163,11 @@ export function Choice({ label, value, options, onChange, help }: ChoiceProps) {
   );
 }
 
-export function TextField({ label, value, onChange, help }: TextFieldProps) {
+export function TextField({ label, value, onChange, help, disabled }: TextFieldProps) {
   return (
-    <Column spacing={4} alignment="start">
+    <Column spacing={4} alignment="start" style={disabled ? { opacity: 0.6 } : undefined}>
       <Text>{label}</Text>
-      <TextInput defaultValue={value} onChangeText={onChange} />
+      <TextInput defaultValue={value} editable={!disabled} onChangeText={onChange} />
       {help ? <Muted>{help}</Muted> : null}
     </Column>
   );
