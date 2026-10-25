@@ -38,6 +38,29 @@ describe('CC600 settings', () => {
     expect(groupFields(fields).map((g) => g.id)).toEqual(SETTING_GROUPS.map((g) => g.id));
   });
 
+  it('configures auto-pause in km/h and sends fractional values without rounding', async () => {
+    const fake = new FakeCc600();
+    const device = await connected(fake);
+    const { fields, values } = await device.readSettings();
+    expect(values.auto_pause).toBe(true);
+    expect(values.auto_pause_kmh).toBe(1.5);
+    expect(fields.find((f) => f.key === 'auto_pause')).toMatchObject({ type: 'toggle', group: 'ride' });
+    expect(fields.find((f) => f.key === 'auto_pause_kmh')).toMatchObject({
+      type: 'number', min: 0.1, max: 10, step: 0.1, unit: 'km/h', group: 'ride',
+    });
+    await device.writeSettings({ auto_pause: false, auto_pause_kmh: 2.3 });
+    expect(fake.device.settingsWrites()).toEqual(['auto_pause=off\nauto_pause_kmh=2.3\n']);
+    expect((await device.readSettings()).values).toMatchObject({ auto_pause: false, auto_pause_kmh: 2.3 });
+    await device.writeSettings({ auto_pause: true });
+    expect((await device.readSettings()).values).toMatchObject({ auto_pause: true, auto_pause_kmh: 2.3 });
+    // The native slider multiplies its rounded step index by 0.1.
+    await device.writeSettings({ auto_pause_kmh: 23 * 0.1 });
+    expect(fake.device.settingsWrites().at(-1)).toBe('auto_pause_kmh=2.3\n');
+    const before = fake.device.settings();
+    await expect(device.writeSettings({ auto_pause: false, auto_pause_kmh: 1.55 })).rejects.toThrow();
+    expect(fake.device.settings()).toBe(before);
+  });
+
   it('keeps a time zone the app does not list', async () => {
     const fake = new FakeCc600({ settings: 'tz=EST5EDT,M3.2.0,M11.1.0\n' });
     const { fields, values } = await (await connected(fake)).readSettings();

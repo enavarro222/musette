@@ -559,6 +559,11 @@ fn cc600_fields() -> Vec<SettingField> {
                     field.min = Some(f64::from(min));
                     field.max = Some(f64::from(max));
                 }
+                FieldKind::DecimalRange { min, max } => {
+                    field.kind = "number";
+                    field.min = Some(f64::from(min) / 10.0);
+                    field.max = Some(f64::from(max) / 10.0);
+                }
                 FieldKind::Choice(words) => {
                     field.kind = "choice";
                     field.options = words.iter().map(|w| (*w).to_owned()).collect();
@@ -586,7 +591,7 @@ fn cc600_values(text: &str) -> Vec<Setting> {
             let _ = settings.get(f.key, &mut text);
             let number = match f.kind {
                 FieldKind::OnOff => Some(if text == "on" { 1.0 } else { 0.0 }),
-                FieldKind::Range { .. } => text.parse().ok(),
+                FieldKind::Range { .. } | FieldKind::DecimalRange { .. } => text.parse().ok(),
                 _ => None,
             };
             Setting {
@@ -616,6 +621,14 @@ fn cc600_lines(changes: &[Setting]) -> Result<String> {
             .into(),
             FieldKind::Range { .. } => match c.number {
                 Some(n) => format!("{}", n.round() as i64),
+                None => c.text.clone(),
+            },
+            FieldKind::DecimalRange { .. } => match c.number {
+                // Slider arithmetic can produce e.g. 2.3000000000000003 for 2.3.
+                Some(n) if n.is_finite() && (n * 10.0 - (n * 10.0).round()).abs() < 1e-9 => {
+                    format!("{n:.1}")
+                }
+                Some(n) => n.to_string(),
                 None => c.text.clone(),
             },
             FieldKind::Choice(_) | FieldKind::Tz | FieldKind::Zones => c.text.clone(),

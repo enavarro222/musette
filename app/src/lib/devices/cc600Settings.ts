@@ -46,6 +46,18 @@ export const CC600_SETTINGS: Record<string, Presentation> = {
     help: 'Choisit les pages affichées pendant la sortie.',
     options: { explore: 'Explorer', train: 'S’entraîner' },
   },
+  auto_pause: {
+    label: 'Pause automatique',
+    group: 'ride',
+    help: 'Arrête le chrono sous le seuil de vitesse et reprend dès qu’il est atteint. La moyenne utilise le temps en mouvement.',
+  },
+  auto_pause_kmh: {
+    label: 'Seuil de pause automatique',
+    group: 'ride',
+    unit: 'km/h',
+    step: 0.1,
+    help: '1,5 km/h par défaut. Le temps total inclut toujours les pauses.',
+  },
   follow_route: {
     label: 'Suivre la trace chargée',
     group: 'navigation',

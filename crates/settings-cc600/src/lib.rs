@@ -11,6 +11,23 @@
 
 use core::fmt::{self, Write};
 
+/// Parses a nonnegative decimal in tenths, without floating point or rounding.
+fn tenths(value: &str) -> Option<u16> {
+    let (whole, fraction) = value.split_once('.').unwrap_or((value, "0"));
+    if whole.is_empty()
+        || !whole.bytes().all(|b| b.is_ascii_digit())
+        || fraction.len() != 1
+        || !fraction.as_bytes()[0].is_ascii_digit()
+    {
+        return None;
+    }
+    whole
+        .parse::<u16>()
+        .ok()?
+        .checked_mul(10)?
+        .checked_add((fraction.as_bytes()[0] - b'0') as u16)
+}
+
 /// What the settings file holds.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Settings {
@@ -37,6 +54,10 @@ pub struct Settings {
     pub follow_route: bool,
     /// Switch off after this many minutes still during a ride (the ride kept); 0: never.
     pub auto_off_min: u8,
+    /// Pause the ride timer below `auto_pause_kmh`; resume automatically at or above it.
+    pub auto_pause: bool,
+    /// Auto-pause threshold, tenths of km/h (15 = 1.5 km/h).
+    pub auto_pause_kmh: u16,
     /// The trip log (`/logs`, a line a second while switched on, ~5 times what a ride takes): for bring-up.
     pub trip_log: bool,
     /// Functional threshold power, watts, the 100 % of the power zones; 0: not set, no power zones.
@@ -223,6 +244,8 @@ impl Default for Settings {
             power: Sensor::None,
             follow_route: true,
             auto_off_min: 20,
+            auto_pause: true,
+            auto_pause_kmh: 15,
             trip_log: false,
             ftp_w: 0,
             hr_max: 0,
@@ -240,7 +263,7 @@ pub enum Error {
 }
 
 /// The keys, in the order the file is written.
-pub const KEYS: [&str; 18] = [
+pub const KEYS: [&str; 20] = [
     "sound",
     "tz",
     "theme",
@@ -254,6 +277,8 @@ pub const KEYS: [&str; 18] = [
     "power",
     "follow_route",
     "auto_off_min",
+    "auto_pause",
+    "auto_pause_kmh",
     "trip_log",
     "ftp",
     "hr_max",
@@ -268,6 +293,8 @@ pub enum FieldKind {
     OnOff,
     /// A whole number in `min..=max`.
     Range { min: u16, max: u16 },
+    /// A decimal with one fractional digit; bounds in tenths (15 = 1.5).
+    DecimalRange { min: u16, max: u16 },
     /// One of these words.
     Choice(&'static [&'static str]),
     /// A POSIX time zone rule ([`Tz`]).
@@ -291,7 +318,7 @@ pub const FTP_W: (u16, u16) = (0, 2000);
 pub const HR_MAX: (u16, u16) = (0, 250);
 
 /// Every setting and its values, in the order of [`KEYS`]. [`Settings::set`] accepts exactly these.
-pub const FIELDS: [Field; 18] = [
+pub const FIELDS: [Field; 20] = [
     Field {
         key: "sound",
         kind: FieldKind::OnOff,
@@ -346,6 +373,14 @@ pub const FIELDS: [Field; 18] = [
     Field {
         key: "auto_off_min",
         kind: FieldKind::Range { min: 0, max: 120 },
+    },
+    Field {
+        key: "auto_pause",
+        kind: FieldKind::OnOff,
+    },
+    Field {
+        key: "auto_pause_kmh",
+        kind: FieldKind::DecimalRange { min: 1, max: 100 },
     },
     Field {
         key: "trip_log",
@@ -435,6 +470,10 @@ impl Settings {
             "auto_off_min" => {
                 self.auto_off_min = value.parse().ok().filter(|&v| v <= 120).ok_or(bad)?
             }
+            "auto_pause" => self.auto_pause = on_off(value).ok_or(bad)?,
+            "auto_pause_kmh" => {
+                self.auto_pause_kmh = tenths(value).filter(|v| (1..=100).contains(v)).ok_or(bad)?;
+            }
             "trip_log" => self.trip_log = on_off(value).ok_or(bad)?,
             "ftp" => self.ftp_w = value.parse().ok().filter(|&v| v <= FTP_W.1).ok_or(bad)?,
             "hr_max" => self.hr_max = value.parse().ok().filter(|&v| v <= HR_MAX.1).ok_or(bad)?,
@@ -467,6 +506,13 @@ impl Settings {
             "power" => write!(out, "{}", self.power),
             "follow_route" => out.write_str(if self.follow_route { "on" } else { "off" }),
             "auto_off_min" => write!(out, "{}", self.auto_off_min),
+            "auto_pause" => out.write_str(if self.auto_pause { "on" } else { "off" }),
+            "auto_pause_kmh" => write!(
+                out,
+                "{}.{}",
+                self.auto_pause_kmh / 10,
+                self.auto_pause_kmh % 10
+            ),
             "trip_log" => out.write_str(if self.trip_log { "on" } else { "off" }),
             "ftp" => write!(out, "{}", self.ftp_w),
             "hr_max" => write!(out, "{}", self.hr_max),
@@ -755,7 +801,7 @@ mod tests {
         assert_eq!(
             text,
             "sound=off\ntz=UTC0\ntheme=day\nauto_night=on\nbacklight=80\nauto_backlight=off\nusage=train\nscroll_s=4\n\
-             hr=ble:r:E0:E2:58:63:35:07\nspeed_cadence=none\npower=ant:11:12345:5\nfollow_route=on\nauto_off_min=20\ntrip_log=off\n\
+             hr=ble:r:E0:E2:58:63:35:07\nspeed_cadence=none\npower=ant:11:12345:5\nfollow_route=on\nauto_off_min=20\nauto_pause=on\nauto_pause_kmh=1.5\ntrip_log=off\n\
              ftp=230\nhr_max=0\npower_zones=60,75,89,104,118\nhr_zones=60,70,80,90\n"
         );
         assert_eq!(Settings::parse(&text), s);
@@ -809,6 +855,14 @@ mod tests {
                     );
                     if min > 0 {
                         assert!(!ok(&mut s, &std::format!("{}", min - 1)), "{}", f.key);
+                    }
+                }
+                FieldKind::DecimalRange { min, max } => {
+                    for n in min..=max {
+                        assert!(ok(&mut s, &std::format!("{}.{}", n / 10, n % 10)));
+                    }
+                    for bad in ["0", "10.1", "1.55", "NaN", "-1", "65536", "1."] {
+                        assert!(!ok(&mut s, bad), "{}: {bad}", f.key);
                     }
                 }
                 FieldKind::Choice(words) => {
