@@ -147,6 +147,16 @@ nav button svg { width: 24px; height: 24px; fill: none; stroke: currentColor; st
 }
 .setting .number { display: inline-flex; align-items: center; gap: 6px; }
 .setting input[type='number'] { width: 80px; text-align: right; }
+.number-entry input[type='text'] { width: 150px; max-width: 100%; text-align: right; }
+.number-entry .number { flex-shrink: 0; }
+.number-entry-help { padding-bottom: 12px; }
+.number-entry + .number-entry, .number-entry + .row { border-top: 1px solid var(--line); }
+.choice-field + .row, .row + .choice-field, .choice-field + .choice-field { border-top: 1px solid var(--line); }
+.choice-help { padding-bottom: 10px; }
+.field-error { color: var(--danger); font-size: 14px; padding-bottom: 10px; }
+.number-entry [aria-invalid='true'] { border-color: var(--danger); }
+.settings-advanced > summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
+.settings-advanced > div { display: flex; flex-direction: column; gap: 12px; padding-top: 16px; }
 .switch { width: 22px; height: 22px; accent-color: var(--accent); }
 
 /* Rows in a card: separated by a line (lists, settings). */

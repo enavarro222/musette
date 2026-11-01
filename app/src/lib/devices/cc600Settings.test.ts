@@ -26,6 +26,30 @@ describe('CC600 settings', () => {
     expect((await device.readSettings()).values.tz).toBe('UTC0');
   });
 
+  it('puts personal thresholds first, with direct entry, and reserves zones for advanced settings', async () => {
+    const fake = new FakeCc600();
+    const { fields, values } = await (await connected(fake)).readSettings();
+    const ride = fields.filter((f) => f.group === 'ride');
+    expect(ride.filter((f) => !f.advanced).slice(0, 2).map((f) => f.key)).toEqual(['ftp', 'hr_max']);
+    expect(ride.filter((f) => f.advanced).map((f) => f.key)).toEqual(['power_zones', 'hr_zones']);
+    for (const key of ['ftp', 'hr_max']) {
+      expect(fields.find((f) => f.key === key)).toMatchObject({
+        type: 'number', step: 1, entry: { emptyValue: 0, placeholder: 'Non renseignée' },
+      });
+      expect(values[key]).toBe(0); // Never invent personal values or write examples to the device.
+    }
+    expect(fake.device.settingsWrites()).toEqual([]);
+  });
+
+  it('keeps personal values and custom zones when reading the reorganized form', async () => {
+    const fake = new FakeCc600({ settings: 'ftp=233\nhr_max=187\npower_zones=50,70,85,100,120\n' });
+    const device = await connected(fake);
+    expect((await device.readSettings()).values).toMatchObject({ ftp: 233, hr_max: 187, power_zones: '50,70,85,100,120' });
+    await device.writeSettings({ ftp: 234, hr_max: 186 });
+    expect((await device.readSettings()).values).toMatchObject({ ftp: 234, hr_max: 186, power_zones: '50,70,85,100,120' });
+    expect(fake.device.settingsWrites()).toEqual(['ftp=234\nhr_max=186\n']);
+  });
+
   it('reads the settings as typed values, in Musette groups', async () => {
     const fake = new FakeCc600({ settings: 'sound=off\nbacklight=80\nhr=ant:120:4242:1\n' });
     const { fields, values } = await (await connected(fake)).readSettings();

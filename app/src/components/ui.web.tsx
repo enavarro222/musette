@@ -3,12 +3,14 @@
  * web app). Same API as `ui.tsx` (iOS, Android).
  */
 import { useNavigation, usePathname, useRoute, useRouter } from 'expo-router';
-import { createContext, useContext, type ReactElement, type ReactNode } from 'react';
+import { createContext, useContext, useState, type ReactElement, type ReactNode } from 'react';
+import { numberEntryText, parseNumberEntry } from '../lib/numberEntry';
 import { useDeviceStatus } from './DeviceStatus';
 import './musette.css';
 import type {
   ButtonProps,
   ChoiceProps,
+  DisclosureProps,
   LinkItemProps,
   ListItemProps,
   NumberProps,
@@ -79,6 +81,10 @@ export function Section({ title, children }: { title?: string; children?: ReactN
   );
 }
 
+export function Disclosure({ label, children }: DisclosureProps) {
+  return <details className="settings-advanced"><summary>{label}</summary><div>{children}</div></details>;
+}
+
 export function Title({ children }: { children: string }) {
   return <div className="title">{children}</div>;
 }
@@ -147,7 +153,9 @@ export function Toggle({ label, value, onChange, help, disabled }: ToggleProps) 
   );
 }
 
-export function NumberField({ label, value, min, max, step = 1, unit, onChange, help, disabled }: NumberProps) {
+export function NumberField(props: NumberProps) {
+  if (props.entry) return <NumberEntry key={props.value} {...props} />;
+  const { label, value, min, max, step = 1, unit, onChange, help, disabled } = props;
   return (
     <Setting label={label} help={help} disabled={disabled}>
       <span className="number">
@@ -170,17 +178,52 @@ export function NumberField({ label, value, min, max, step = 1, unit, onChange, 
   );
 }
 
-export function Choice({ label, value, options, onChange, help, disabled }: ChoiceProps) {
+function NumberEntry({ label, value, min, max, step = 1, unit, onChange, help, disabled, entry = {} }: NumberProps) {
+  const [draft, setDraft] = useState(() => numberEntryText(value, entry));
+  const [error, setError] = useState<string>();
+  function commit() {
+    if (disabled) return;
+    const parsed = parseNumberEntry(draft, min, max, step, entry);
+    setError(parsed.error);
+    if (parsed.value !== undefined) {
+      setDraft(numberEntryText(parsed.value, entry));
+      if (parsed.value !== value) onChange(parsed.value);
+    }
+  }
   return (
-    <Setting label={label} help={help} disabled={disabled}>
-      <select value={value} disabled={disabled} onChange={(e) => onChange(e.currentTarget.value)}>
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-    </Setting>
+    <div className="number-entry">
+      <Setting label={label} disabled={disabled}>
+        <span className="number">
+          <input type="text" inputMode={step < 1 ? 'decimal' : 'numeric'} aria-label={label}
+            disabled={disabled} value={draft} placeholder={entry.placeholder} aria-invalid={!!error}
+            onFocus={(e) => e.currentTarget.select()}
+            onChange={(e) => { setDraft(e.currentTarget.value); setError(undefined); }}
+            onBlur={commit} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} />
+          {unit ? <span className="muted">{unit}</span> : null}
+        </span>
+      </Setting>
+      {help ? <p className="muted small number-entry-help">{help}</p> : null}
+      {error ? <p className="field-error" role="alert">{error}</p> : null}
+    </div>
+  );
+}
+
+export function Choice({ label, value, options, onChange, help, disabled }: ChoiceProps) {
+  const optionHelp = options.find((o) => o.value === value)?.help;
+  return (
+    <div className="choice-field">
+      <Setting label={label} disabled={disabled}>
+        <select value={value} disabled={disabled} onChange={(e) => onChange(e.currentTarget.value)}>
+          {options.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      </Setting>
+      {optionHelp ? <p className="muted small choice-help">{optionHelp}</p> : null}
+      {help ? <p className="muted small choice-help">{help}</p> : null}
+    </div>
   );
 }
 

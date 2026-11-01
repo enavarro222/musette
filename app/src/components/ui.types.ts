@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import type { NumberEntryOptions } from '../lib/numberEntry';
 
 export interface ButtonProps {
   label: string;
@@ -38,12 +39,19 @@ export interface NumberProps extends FieldProps {
   max: number;
   step?: number;
   unit?: string;
+  /** Direct keyboard entry, committed on blur/submit; other native numbers keep their slider. */
+  entry?: NumberEntryOptions;
   onChange(value: number): void;
+}
+
+export interface DisclosureProps {
+  label: string;
+  children: ReactNode;
 }
 
 export interface ChoiceProps extends FieldProps {
   value: string;
-  options: { value: string; label: string }[];
+  options: { value: string; label: string; help?: string }[];
   onChange(value: string): void;
 }
 

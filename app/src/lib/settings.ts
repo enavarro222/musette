@@ -1,3 +1,5 @@
+import type { NumberEntryOptions } from './numberEntry';
+
 /**
  * Device settings, the same for every device: each driver describes its
  * settings with these fields and files them in Musette's groups, so the
@@ -29,13 +31,15 @@ interface FieldBase {
   inactiveReason?: (values: SettingValues) => string | undefined;
   /** Shown, not editable here (for example a sensor paired from the device). */
   readOnly?: boolean;
+  /** Less common controls, collapsed by default within their group. */
+  advanced?: boolean;
 }
 
 export type SettingField = FieldBase &
   (
     | { type: 'toggle' }
-    | { type: 'number'; min: number; max: number; step?: number; unit?: string }
-    | { type: 'choice'; options: { value: string; label: string }[] }
+    | { type: 'number'; min: number; max: number; step?: number; unit?: string; entry?: NumberEntryOptions }
+    | { type: 'choice'; options: { value: string; label: string; help?: string }[] }
     | { type: 'text' }
   );
 

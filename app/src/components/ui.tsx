@@ -5,6 +5,7 @@
  */
 import {
   Button as UiButton,
+  Collapsible,
   Column,
   FieldGroup,
   Host,
@@ -18,14 +19,16 @@ import {
   TextInput,
 } from '@expo/ui';
 import { Stack } from 'expo-router';
-import { createContext, useContext, type ReactElement } from 'react';
+import { createContext, useContext, useRef, useState, type ReactElement } from 'react';
 import { Pressable, Text as RNText, useWindowDimensions, View } from 'react-native';
 import { theme } from '../theme';
+import { numberEntryText, parseNumberEntry } from '../lib/numberEntry';
 import { useDeviceStatus } from './DeviceStatus';
 import { fullWidth, grow } from './layout';
 import type {
   ButtonProps,
   ChoiceProps,
+  DisclosureProps,
   LinkItemProps,
   ListItemProps,
   NumberProps,
@@ -64,6 +67,11 @@ function DeviceStatus() {
 
 /** A group of rows with an optional title. The group itself, not a wrapper: FieldGroup looks for it. */
 export const Section = FieldGroup.Section;
+
+export function Disclosure({ label, children }: DisclosureProps) {
+  const [open, setOpen] = useState(false);
+  return <Collapsible label={label} isOpen={open} onOpenChange={setOpen}>{children}</Collapsible>;
+}
 
 export function Title({ children }: { children: string }) {
   return <Text textStyle={{ fontWeight: '600' }}>{children}</Text>;
@@ -131,7 +139,9 @@ export function Toggle({ label, value, onChange, help, disabled }: ToggleProps) 
   );
 }
 
-export function NumberField({ label, value, min, max, step = 1, unit, onChange, help, disabled }: NumberProps) {
+export function NumberField(props: NumberProps) {
+  if (props.entry) return <NumberEntry key={props.value} {...props} />;
+  const { label, value, min, max, step = 1, unit, onChange, help, disabled } = props;
   return (
     <Column spacing={4} alignment="start" style={disabled ? { opacity: 0.6 } : undefined}>
       <Text>{`${label} : ${value}${unit ? ` ${unit}` : ''}`}</Text>
@@ -149,7 +159,34 @@ export function NumberField({ label, value, min, max, step = 1, unit, onChange, 
   );
 }
 
+function NumberEntry({ label, value, min, max, step = 1, unit, onChange, help, disabled, entry = {} }: NumberProps) {
+  const draft = useRef(numberEntryText(value, entry));
+  const input = useRef<import('@expo/ui').TextInputRef>(null);
+  const [error, setError] = useState<string>();
+  function commit() {
+    if (disabled) return;
+    const parsed = parseNumberEntry(draft.current, min, max, step, entry);
+    setError(parsed.error);
+    if (parsed.value !== undefined) {
+      if (parsed.value === entry.emptyValue) input.current?.clear();
+      if (parsed.value !== value) onChange(parsed.value);
+    }
+  }
+  return (
+    <Column spacing={6} alignment="start">
+      <Text>{unit ? `${label} (${unit})` : label}</Text>
+      <TextInput ref={input} defaultValue={numberEntryText(value, entry)} editable={!disabled}
+        placeholder={entry.placeholder} keyboardType={step < 1 ? 'decimal-pad' : 'number-pad'}
+        returnKeyType="done" selectTextOnFocus onChangeText={(text) => { draft.current = text; setError(undefined); }}
+        onBlur={commit} onSubmitEditing={() => input.current?.blur()} />
+      {error ? <Text textStyle={{ color: theme.danger }}>{error}</Text> : null}
+      {help ? <Muted>{help}</Muted> : null}
+    </Column>
+  );
+}
+
 export function Choice({ label, value, options, onChange, help, disabled }: ChoiceProps) {
+  const optionHelp = options.find((o) => o.value === value)?.help;
   return (
     <Column spacing={4} alignment="start" style={disabled ? { opacity: 0.6 } : undefined}>
       <Text>{label}</Text>
@@ -158,6 +195,7 @@ export function Choice({ label, value, options, onChange, help, disabled }: Choi
           <Picker.Item key={o.value} label={o.label} value={o.value} />
         ))}
       </Picker>
+      {optionHelp ? <Muted>{optionHelp}</Muted> : null}
       {help ? <Muted>{help}</Muted> : null}
     </Column>
   );

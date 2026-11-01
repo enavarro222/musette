@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
-import { Body, Choice, Muted, NumberField, Section, TextField, Toggle } from '../components/ui';
+import { Body, Choice, Disclosure, Muted, NumberField, Section, TextField, Toggle } from '../components/ui';
 import type { Device } from '../lib/devices/types';
 import {
   changedValues,
@@ -170,10 +170,20 @@ export function groupSections(editor: SettingsEditor, groupId: string) {
         <Muted>{STATE_TEXT[editor.state]}</Muted>
       </Section>
       <Section title={group.label}>
-        {group.fields.map((f) => (
+        {group.fields.filter((f) => !f.advanced).map((f) => (
           <Control key={f.key} field={f} values={editor.edited} onChange={(v) => editor.set(f.key, v, f)} />
         ))}
       </Section>
+      {group.fields.some((f) => f.advanced) ? (
+        <Section>
+          <Disclosure label="Paramètres avancés">
+            <Muted>Les valeurs par défaut conviennent à la plupart des usages. Tu peux les personnaliser ici.</Muted>
+            {group.fields.filter((f) => f.advanced).map((f) => (
+              <Control key={f.key} field={f} values={editor.edited} onChange={(v) => editor.set(f.key, v, f)} />
+            ))}
+          </Disclosure>
+        </Section>
+      ) : null}
     </>
   );
 }
@@ -213,6 +223,7 @@ function Control({
           max={f.max}
           step={f.step}
           unit={f.unit}
+          entry={f.entry}
           onChange={onChange}
         />
       );

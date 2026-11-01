@@ -72,7 +72,7 @@ export default function DeviceHome() {
               <LinkItem
                 key={g.id}
                 title={g.label}
-                detail={g.fields.map((f) => f.label).join(', ')}
+                detail={g.fields.filter((f) => !f.advanced).map((f) => f.label).join(', ')}
                 onPress={() => router.push(`/device/${g.id}`)}
               />
             ))
