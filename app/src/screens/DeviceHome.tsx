@@ -65,6 +65,11 @@ export default function DeviceHome() {
         {free !== undefined ? <ListItem title="Stockage" detail={`${size(free)} libres pour les sorties`} /> : null}
         <Button label="Déconnecter" variant="danger" onPress={() => void disconnect()} />
       </Section>
+      {device.capabilities.routeCorridorMap ? (
+        <Section title="Cartographie">
+          <LinkItem title="Carte globale" detail="Une région, la France ou l’Europe, conservée entre les traces." onPress={() => router.push('/device/atlas')} />
+        </Section>
+      ) : null}
       {hasSettings ? (
         <Section title="Réglages">
           {editor.settings ? (

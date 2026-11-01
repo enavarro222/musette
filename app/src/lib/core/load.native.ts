@@ -14,7 +14,7 @@ const field = (f: ffi.SettingField): DeviceField => ({ ...f, kind: f.kind as Dev
 function outcome(o: ffi.Outcome): Outcome {
   switch (o.kind) {
     case 'info':
-      return { kind: 'info', name: o.name, recording: o.recording, routeMax: o.routeMax, mapMax: o.mapMax, free: o.free };
+      return { kind: 'info', name: o.name, recording: o.recording, routeMax: o.routeMax, mapMax: o.mapMax, atlasMax:o.atlasMax, atlasBytes:o.atlasBytes, atlasVersion:o.atlasVersion, free: o.free };
     case 'activities':
       return {
         kind: 'activities',
@@ -56,6 +56,12 @@ export async function loadPlatformCore(): Promise<Core> {
     analyzeRoute: (lats, lons, eles) => plain(() => ffi.analyzeRoute(lats, lons, eles) as RouteAnalysis),
     parseGpx: (text) => plain(() => ffi.parseGpx(text)),
     verifyFit: (b) => plain(() => ffi.verifyFit(buf(b))),
+    cc600Atlas: (source,name,bounds,rivers,cities) => plain(() => bytes(ffi.cc600Atlas(buf(source),name,bounds,rivers,cities))),
+    cc600AtlasPreview: (b) => plain(() => ffi.cc600AtlasPreview(buf(b)) as import('./types').AtlasPreview),
+    cc600BuildAtlas: (source, name, bounds, f, toleranceM) => plain(() => {
+      const result = ffi.cc600BuildAtlas(buf(source), name, bounds, f.classes, f.labels, f.lengths, f.lats, f.lons, toleranceM);
+      return result === undefined ? undefined : bytes(result);
+    }),
     cc600BuildMap: (r, f, corridorM) =>
       plain(() =>
         bytes(

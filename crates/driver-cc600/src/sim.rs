@@ -39,6 +39,7 @@ pub struct Device {
     partial: Option<transfer::Partial>,
     data: Vec<u8>,
     committed: Option<Vec<u8>>,
+    atlas: Option<Vec<u8>>,
     buffer: Vec<u8>,
     chunks: u32,
     acks: u32,
@@ -63,6 +64,7 @@ impl Device {
             partial: None,
             data: Vec::new(),
             committed: None,
+            atlas: None,
             buffer: Vec::new(),
             chunks: 0,
             acks: 0,
@@ -144,6 +146,9 @@ impl Device {
                         route_max: free,
                         map_max: free,
                         free,
+                        atlas_max: free.min(512 * 1024),
+                        atlas_bytes: self.atlas.as_ref().map_or(0, |a| a.len() as u32),
+                        atlas_version: route_cc600::atlas::LATEST_VERSION as u32,
                     }
                     .to_bytes(),
                 )
@@ -205,7 +210,12 @@ impl Device {
                 let Some(begin) = Begin::from_bytes(p) else {
                     return fail(ErrorCode::BadRequest);
                 };
-                match self.rx.begin(begin, self.partial, self.free()) {
+                let free = if begin.kind == transfer::Kind::Atlas {
+                    self.free().min(512 * 1024)
+                } else {
+                    self.free()
+                };
+                match self.rx.begin(begin, self.partial, free) {
                     Ok(ready) => {
                         self.data.truncate(ready.next as usize);
                         self.partial = self.rx.progress();
@@ -240,9 +250,18 @@ impl Device {
                 }
             }
             Op::TransferEnd => match self.rx.end() {
-                Ok(_) => {
+                Ok(begin) => {
                     self.partial = None;
+                    if begin.kind == transfer::Kind::Atlas
+                        && route_cc600::atlas::Atlas::parse(&self.data).is_err()
+                    {
+                        self.data.clear();
+                        return fail(ErrorCode::BadRequest);
+                    }
                     self.committed = Some(core::mem::take(&mut self.data));
+                    if begin.kind == transfer::Kind::Atlas {
+                        self.atlas = self.committed.clone();
+                    }
                     one(Op::Ok, &[])
                 }
                 Err(code) => {

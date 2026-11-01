@@ -98,6 +98,81 @@ pub fn parse_gpx(text: String) -> Result<ParsedRoute> {
     })
 }
 
+#[uniffi::export]
+pub fn cc600_atlas(
+    source: Vec<u8>,
+    name: String,
+    bounds: Vec<f64>,
+    rivers: bool,
+    cities: bool,
+) -> Result<Vec<u8>> {
+    Ok(musette_core::cc600_atlas(
+        &source, &name, &bounds, rivers, cities,
+    )?)
+}
+
+#[uniffi::export]
+#[allow(clippy::too_many_arguments)]
+pub fn cc600_build_atlas(
+    source: Vec<u8>,
+    name: String,
+    bounds: Vec<f64>,
+    classes: Vec<String>,
+    labels: Vec<String>,
+    lengths: Vec<u32>,
+    lats: Vec<f64>,
+    lons: Vec<f64>,
+    tolerance_m: f64,
+) -> Result<Option<Vec<u8>>> {
+    Ok(musette_core::cc600_build_atlas(
+        &source,
+        &name,
+        &bounds,
+        &classes,
+        &labels,
+        &lengths,
+        &lats,
+        &lons,
+        tolerance_m,
+    )?)
+}
+
+#[derive(uniffi::Record)]
+pub struct AtlasFeatures {
+    pub classes: Vec<String>,
+    pub labels: Vec<String>,
+    pub lengths: Vec<u32>,
+    pub lats: Vec<f64>,
+    pub lons: Vec<f64>,
+}
+
+#[derive(uniffi::Record)]
+pub struct AtlasPreview {
+    pub name: String,
+    pub min_m_per_px: u32,
+    pub levels: Vec<AtlasFeatures>,
+}
+
+#[uniffi::export]
+pub fn cc600_atlas_preview(bytes: Vec<u8>) -> Result<AtlasPreview> {
+    let p = musette_core::cc600_atlas_preview(&bytes)?;
+    Ok(AtlasPreview {
+        name: p.name,
+        min_m_per_px: p.min_m_per_px,
+        levels: p
+            .levels
+            .into_iter()
+            .map(|f| AtlasFeatures {
+                classes: f.classes,
+                labels: f.labels,
+                lengths: f.lengths,
+                lats: f.lats,
+                lons: f.lons,
+            })
+            .collect(),
+    })
+}
+
 /// The CC600 background map of a route (`musette_core::cc600_build_map`).
 #[uniffi::export]
 #[allow(clippy::too_many_arguments)]
@@ -258,6 +333,9 @@ pub struct Outcome {
     pub recording: bool,
     pub route_max: Option<u32>,
     pub map_max: Option<u32>,
+    pub atlas_max: Option<u32>,
+    pub atlas_bytes: Option<u32>,
+    pub atlas_version: Option<u32>,
     pub free: Option<u32>,
     pub activities: Vec<Activity>,
     pub bytes: Vec<u8>,
@@ -284,6 +362,9 @@ fn outcome(o: musette_core::Outcome) -> Outcome {
         recording: false,
         route_max: None,
         map_max: None,
+        atlas_max: None,
+        atlas_bytes: None,
+        atlas_version: None,
         free: None,
         activities: vec![],
         bytes: vec![],
@@ -299,12 +380,18 @@ fn outcome(o: musette_core::Outcome) -> Outcome {
             recording,
             route_max,
             map_max,
+            atlas_max,
+            atlas_bytes,
+            atlas_version,
             free,
         } => {
             out.name = name;
             out.recording = recording;
             out.route_max = route_max;
             out.map_max = map_max;
+            out.atlas_max = atlas_max;
+            out.atlas_bytes = atlas_bytes;
+            out.atlas_version = atlas_version;
             out.free = free;
             "info"
         }
@@ -437,6 +524,7 @@ impl Session {
         let kind = match kind.as_str() {
             "route" => musette_core::FileKind::Route,
             "map" => musette_core::FileKind::Map,
+            "atlas" => musette_core::FileKind::Atlas,
             _ => return Err(musette_core::Error(format!("unknown file kind {kind}")).into()),
         };
         Ok(self.0.lock().unwrap().send_file(kind, bytes)?.into())

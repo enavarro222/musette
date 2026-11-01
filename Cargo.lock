@@ -398,6 +398,7 @@ name = "driver-cc600"
 version = "0.1.0"
 dependencies = [
  "protocol-cc600",
+ "route-cc600",
  "settings-cc600",
 ]
 
@@ -955,6 +956,7 @@ dependencies = [
  "climbs",
  "libm",
  "route-cc600",
+ "serde_json",
  "track",
 ]
 

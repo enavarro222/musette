@@ -74,6 +74,9 @@ interface NativeModuleInterface {
     ubrn_uniffi_musette_ffi_fn_func_analyze_route(lats: Uint8Array, lons: Uint8Array, eles: Uint8Array, uniffi_out_err: UniffiRustCallStatus): Uint8Array;
     ubrn_uniffi_musette_ffi_fn_func_bryton_find_activities(paths: Uint8Array, sizes: Uint8Array, uniffi_out_err: UniffiRustCallStatus): Uint8Array;
     ubrn_uniffi_musette_ffi_fn_func_capabilities(model: Uint8Array, link: Uint8Array, uniffi_out_err: UniffiRustCallStatus): Uint8Array;
+    ubrn_uniffi_musette_ffi_fn_func_cc600_atlas(source: Uint8Array, name: Uint8Array, bounds: Uint8Array, rivers: number, cities: number, uniffi_out_err: UniffiRustCallStatus): Uint8Array;
+    ubrn_uniffi_musette_ffi_fn_func_cc600_atlas_preview(bytes: Uint8Array, uniffi_out_err: UniffiRustCallStatus): Uint8Array;
+    ubrn_uniffi_musette_ffi_fn_func_cc600_build_atlas(source: Uint8Array, name: Uint8Array, bounds: Uint8Array, classes: Uint8Array, labels: Uint8Array, lengths: Uint8Array, lats: Uint8Array, lons: Uint8Array, toleranceM: number, uniffi_out_err: UniffiRustCallStatus): Uint8Array;
     ubrn_uniffi_musette_ffi_fn_func_cc600_build_map(name: Uint8Array, lats: Uint8Array, lons: Uint8Array, eles: Uint8Array, classes: Uint8Array, lengths: Uint8Array, featureLats: Uint8Array, featureLons: Uint8Array, corridorM: number, uniffi_out_err: UniffiRustCallStatus): Uint8Array;
     ubrn_uniffi_musette_ffi_fn_func_parse_gpx(text: Uint8Array, uniffi_out_err: UniffiRustCallStatus): Uint8Array;
     ubrn_uniffi_musette_ffi_fn_func_setting_fields(model: Uint8Array, uniffi_out_err: UniffiRustCallStatus): Uint8Array;
@@ -105,6 +108,9 @@ interface NativeModuleInterface {
     ubrn_uniffi_musette_ffi_checksum_func_analyze_route(): number;
     ubrn_uniffi_musette_ffi_checksum_func_bryton_find_activities(): number;
     ubrn_uniffi_musette_ffi_checksum_func_capabilities(): number;
+    ubrn_uniffi_musette_ffi_checksum_func_cc600_atlas(): number;
+    ubrn_uniffi_musette_ffi_checksum_func_cc600_atlas_preview(): number;
+    ubrn_uniffi_musette_ffi_checksum_func_cc600_build_atlas(): number;
     ubrn_uniffi_musette_ffi_checksum_func_cc600_build_map(): number;
     ubrn_uniffi_musette_ffi_checksum_func_parse_gpx(): number;
     ubrn_uniffi_musette_ffi_checksum_func_setting_fields(): number;

@@ -5,7 +5,7 @@
 //   node scripts/generate.mjs android   (needs the Android NDK: ANDROID_NDK_HOME)
 //   node scripts/generate.mjs ios       (needs macOS and Xcode)
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -23,6 +23,14 @@ if (platform === 'android') {
 }
 if (process.env.MUSETTE_RELEASE) args.push('--release');
 execFileSync(join(root, '../../node_modules/.bin/ubrn'), args, { cwd: root, stdio: 'inherit' });
+
+// The generator emits trailing spaces in record fields. Keep regeneration
+// deterministic without requiring a formatter dependency.
+const generated = join(root, 'src/generated');
+for (const name of readdirSync(generated).filter((name) => name.endsWith('.ts'))) {
+  const file = join(generated, name);
+  writeFileSync(file, readFileSync(file, 'utf8').replace(/[ \t]+$/gm, ''));
+}
 
 if (platform === 'android') {
   // The app includes this CMakeLists from its own build: paths must be relative to it.

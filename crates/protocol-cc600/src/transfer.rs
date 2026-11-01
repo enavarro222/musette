@@ -33,6 +33,8 @@ pub enum Kind {
     Route = 1,
     /// Corridor map (`OCMP`) of the active route.
     Map = 2,
+    /// Permanent geographic atlas (`OCAT`), kept independently of routes.
+    Atlas = 3,
 }
 
 impl Kind {
@@ -40,6 +42,7 @@ impl Kind {
         match v {
             1 => Some(Self::Route),
             2 => Some(Self::Map),
+            3 => Some(Self::Atlas),
             _ => None,
         }
     }

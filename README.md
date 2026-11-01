@@ -29,6 +29,14 @@ Open a GPX (from Komoot, RideWithGPS, BRouter…): Musette shows it on a map wit
 Reverse a route from its detail screen: the direction is kept in the library, with the profile and climbs recalculated.
 Map detail and corridor options sit above the send button.
 
+In **Compteur → Carte globale**, install a permanent geographic atlas of Europe,
+France, a regional window or a manually selected map rectangle. Musette fetches
+OSM data and automatically adjusts detail to the device's available space;
+the included overview packs remain available too. Its 512 KiB
+budget is separate from the route's corridor map, and it stays when the active
+route changes. Both maps appear together on the device. See [the atlas format
+and installation](docs/atlas.md).
+
 ### Device settings
 
 <img src="docs/screenshots/settings.png" width="200" align="right" alt="Display settings of a CC600">

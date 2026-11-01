@@ -272,10 +272,13 @@ pub mod payload {
         pub route_max: u32,
         pub map_max: u32,
         pub free: u32,
+        pub atlas_max: u32,
+        pub atlas_bytes: u32,
+        pub atlas_version: u32,
     }
 
     impl DeviceInfo {
-        pub const LEN: usize = 12;
+        pub const LEN: usize = 24;
         /// `free` not known yet (the storage not read since boot).
         pub const UNKNOWN: u32 = u32::MAX;
 
@@ -284,6 +287,9 @@ pub mod payload {
             b[0..4].copy_from_slice(&self.route_max.to_le_bytes());
             b[4..8].copy_from_slice(&self.map_max.to_le_bytes());
             b[8..12].copy_from_slice(&self.free.to_le_bytes());
+            b[12..16].copy_from_slice(&self.atlas_max.to_le_bytes());
+            b[16..20].copy_from_slice(&self.atlas_bytes.to_le_bytes());
+            b[20..24].copy_from_slice(&self.atlas_version.to_le_bytes());
             b
         }
 
@@ -294,6 +300,9 @@ pub mod payload {
                 route_max: word(0)?,
                 map_max: word(4)?,
                 free: word(8)?,
+                atlas_max: word(12).unwrap_or(0),
+                atlas_bytes: word(16).unwrap_or(0),
+                atlas_version: word(20).unwrap_or(if b.len() >= 20 { 1 } else { 0 }),
             })
         }
     }
@@ -424,13 +433,27 @@ mod tests {
             route_max: 65_536,
             map_max: 1_048_576,
             free: 5_000_000,
+            atlas_max: 524_288,
+            atlas_bytes: 100_000,
+            atlas_version: 2,
         };
         assert_eq!(payload::DeviceInfo::from_bytes(&i.to_bytes()), Some(i));
-        let mut longer = [9u8; 14];
-        longer[..12].copy_from_slice(&i.to_bytes());
+        let mut longer = [9u8; 26];
+        longer[..24].copy_from_slice(&i.to_bytes());
         assert_eq!(payload::DeviceInfo::from_bytes(&longer), Some(i));
         assert_eq!(payload::DeviceInfo::from_bytes(&[]), None);
         assert_eq!(payload::DeviceInfo::from_bytes(&i.to_bytes()[..8]), None);
+        let older = payload::DeviceInfo::from_bytes(&i.to_bytes()[..12]).unwrap();
+        assert_eq!(
+            (older.atlas_max, older.atlas_bytes, older.atlas_version),
+            (0, 0, 0)
+        );
+        assert_eq!(
+            payload::DeviceInfo::from_bytes(&i.to_bytes()[..20])
+                .unwrap()
+                .atlas_version,
+            1
+        );
     }
 
     #[test]

@@ -162,6 +162,189 @@ pub fn verify_fit(bytes: &[u8]) -> Result<u32> {
         .map_err(|e| error(format!("{e:?}")))
 }
 
+/// Prepare the permanent geographic atlas selected in the app. Bounds are
+/// west/south/east/north in degrees; this file has no relation to a route CRC.
+pub fn cc600_atlas(
+    source: &[u8],
+    name: &str,
+    bounds: &[f64],
+    rivers: bool,
+    cities: bool,
+) -> Result<Vec<u8>> {
+    if bounds.len() != 4
+        || !bounds.iter().all(|n| n.is_finite())
+        || bounds[0] < -180.0
+        || bounds[2] > 180.0
+        || bounds[1] < -90.0
+        || bounds[3] > 90.0
+        || bounds[0] >= bounds[2]
+        || bounds[1] >= bounds[3]
+    {
+        return Err(error("Zone cartographique invalide"));
+    }
+    let atlas = route_cc600::atlas::Atlas::parse(source).map_err(|_| error("Atlas invalide"))?;
+    let bbox = core::array::from_fn(|i| (bounds[i] * atlas.scale as f64).round() as i32);
+    route_cc600::atlas::build::subset(source, name, bbox, rivers, cities)
+        .map_err(|_| error("Atlas invalide ou supérieur à 512 Kio"))
+}
+
+pub const ATLAS_CLASSES: [&str; 10] = [
+    "boundary",
+    "river",
+    "city",
+    "road",
+    "department",
+    "lake",
+    "minor",
+    "path",
+    "stream",
+    "track",
+];
+
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]
+pub struct AtlasFeatures {
+    pub classes: Vec<String>,
+    pub labels: Vec<String>,
+    pub lengths: Vec<u32>,
+    pub lats: Vec<f64>,
+    pub lons: Vec<f64>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]
+pub struct AtlasPreview {
+    pub name: String,
+    pub min_m_per_px: u32,
+    /// The three simplification levels, decoded from the exact file sent to the device.
+    pub levels: Vec<AtlasFeatures>,
+}
+
+/// Decode a validated OCAT file through the firmware's canonical reader.
+pub fn cc600_atlas_preview(bytes: &[u8]) -> Result<AtlasPreview> {
+    let atlas = route_cc600::atlas::Atlas::parse(bytes).map_err(|_| error("Atlas invalide"))?;
+    let bbox = [
+        -180 * atlas.scale,
+        -90 * atlas.scale,
+        180 * atlas.scale,
+        90 * atlas.scale,
+    ];
+    let mut levels = Vec::new();
+    for level in 0..3 {
+        let mut out = AtlasFeatures {
+            classes: Vec::new(),
+            labels: Vec::new(),
+            lengths: Vec::new(),
+            lats: Vec::new(),
+            lons: Vec::new(),
+        };
+        for feature in atlas.features(level, bbox) {
+            out.classes
+                .push(ATLAS_CLASSES[feature.class as usize].to_owned());
+            out.labels.push(feature.label.to_owned());
+            let start = out.lats.len();
+            for (lon, lat) in feature.points() {
+                out.lats.push(lat as f64 / atlas.scale as f64);
+                out.lons.push(lon as f64 / atlas.scale as f64);
+            }
+            out.lengths.push((out.lats.len() - start) as u32);
+        }
+        levels.push(out);
+    }
+    Ok(AtlasPreview {
+        name: atlas.name.to_owned(),
+        min_m_per_px: u32::from(atlas.min_m_per_px),
+        levels,
+    })
+}
+
+/// Geographic OSM features compiled into an independent, precise OCAT atlas.
+/// `None` means the encoded result exceeded 512 KiB; invalid input is an error.
+#[allow(clippy::too_many_arguments)]
+pub fn cc600_build_atlas(
+    source: &[u8],
+    name: &str,
+    bounds: &[f64],
+    classes: &[String],
+    labels: &[String],
+    lengths: &[u32],
+    lats: &[f64],
+    lons: &[f64],
+    tolerance_m: f64,
+) -> Result<Option<Vec<u8>>> {
+    use route_cc600::atlas::{self, build::Feature};
+    if bounds.len() != 4
+        || !bounds.iter().all(|v| v.is_finite())
+        || bounds[0] < -180.0
+        || bounds[2] > 180.0
+        || bounds[1] < -85.0
+        || bounds[3] > 85.0
+        || bounds[0] >= bounds[2]
+        || bounds[1] >= bounds[3]
+        || !tolerance_m.is_finite()
+        || !(1.0..=100_000.0).contains(&tolerance_m)
+    {
+        return Err(error("Zone ou précision cartographique invalide"));
+    }
+    if classes.len() != labels.len()
+        || classes.len() != lengths.len()
+        || lats.len() != lons.len()
+        || lats.len() > 300_000
+        || lengths.iter().map(|&n| n as u64).sum::<u64>() != lats.len() as u64
+    {
+        return Err(error(
+            "Données cartographiques invalides ou trop volumineuses",
+        ));
+    }
+    if lats.iter().zip(lons).any(|(&lat, &lon)| {
+        !lat.is_finite()
+            || !lon.is_finite()
+            || !(-90.0..=90.0).contains(&lat)
+            || !(-180.0..=180.0).contains(&lon)
+    }) {
+        return Err(error("Coordonnées cartographiques invalides"));
+    }
+    let mut at = 0;
+    let mut features = Vec::new();
+    for ((class, label), &length) in classes.iter().zip(labels).zip(lengths) {
+        let class = ATLAS_CLASSES
+            .iter()
+            .position(|name| *name == class)
+            .ok_or_else(|| error(format!("Classe cartographique inconnue : {class}")))?
+            as u8;
+        let end = at + length as usize;
+        if length < (if class == atlas::CITY { 1 } else { 2 })
+            || (class == atlas::CITY && length != 1)
+            || label.len() > 24
+            || !label.bytes().all(|b| (32..=126).contains(&b))
+        {
+            return Err(error("Objet cartographique invalide"));
+        }
+        features.push(Feature {
+            class,
+            level: 0,
+            label: label.clone(),
+            points: lats[at..end]
+                .iter()
+                .zip(&lons[at..end])
+                .map(|(&lat, &lon)| {
+                    (
+                        (lon * atlas::PRECISE_SCALE as f64).round() as i32,
+                        (lat * atlas::PRECISE_SCALE as f64).round() as i32,
+                    )
+                })
+                .collect(),
+        });
+        at = end;
+    }
+    let bbox = core::array::from_fn(|i| (bounds[i] * atlas::PRECISE_SCALE as f64).round() as i32);
+    match atlas::build::compile(source, name, bbox, &features, tolerance_m) {
+        Ok(bytes) => Ok(Some(bytes)),
+        Err(route_cc600::Error::TooLarge) => Ok(None),
+        Err(_) => Err(error("Impossible de construire cet atlas")),
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct ActivityRef {

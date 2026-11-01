@@ -75,6 +75,49 @@ pub fn verify_fit(bytes: &[u8]) -> Result<u32, JsError> {
     musette_core::verify_fit(bytes).map_err(js)
 }
 
+#[wasm_bindgen(js_name = cc600Atlas)]
+pub fn cc600_atlas(
+    source: &[u8],
+    name: &str,
+    bounds: Vec<f64>,
+    rivers: bool,
+    cities: bool,
+) -> Result<Vec<u8>, JsError> {
+    musette_core::cc600_atlas(source, name, &bounds, rivers, cities).map_err(js)
+}
+
+#[wasm_bindgen(js_name = cc600BuildAtlas)]
+#[allow(clippy::too_many_arguments)]
+pub fn cc600_build_atlas(
+    source: &[u8],
+    name: &str,
+    bounds: Vec<f64>,
+    classes: Vec<String>,
+    labels: Vec<String>,
+    lengths: Vec<u32>,
+    lats: Vec<f64>,
+    lons: Vec<f64>,
+    tolerance_m: f64,
+) -> Result<Option<Vec<u8>>, JsError> {
+    musette_core::cc600_build_atlas(
+        source,
+        name,
+        &bounds,
+        &classes,
+        &labels,
+        &lengths,
+        &lats,
+        &lons,
+        tolerance_m,
+    )
+    .map_err(js)
+}
+
+#[wasm_bindgen(js_name = cc600AtlasPreview)]
+pub fn cc600_atlas_preview(bytes: &[u8]) -> Result<JsValue, JsError> {
+    to_js(&musette_core::cc600_atlas_preview(bytes).map_err(js)?)
+}
+
 /// Pick activity files from a Bryton drive listing.
 #[wasm_bindgen(js_name = brytonFindActivities)]
 pub fn bryton_find_activities(paths: Vec<String>, sizes: Vec<f64>) -> Result<JsValue, JsError> {
@@ -171,6 +214,7 @@ impl Session {
         let kind = match kind {
             "route" => musette_core::FileKind::Route,
             "map" => musette_core::FileKind::Map,
+            "atlas" => musette_core::FileKind::Atlas,
             _ => return Err(JsError::new(&format!("unknown file kind {kind}"))),
         };
         to_js(&self.0.send_file(kind, bytes).map_err(js)?)

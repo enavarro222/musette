@@ -17,6 +17,7 @@
 #[cfg(feature = "build")]
 extern crate alloc;
 
+pub mod atlas;
 #[cfg(feature = "build")]
 mod build;
 #[cfg(feature = "build")]
@@ -38,6 +39,8 @@ pub enum Error {
     Format,
     /// Cut or damaged.
     Corrupt,
+    /// A generated file exceeds the device's format budget.
+    TooLarge,
 }
 
 /// The header of a route.

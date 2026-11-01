@@ -82,6 +82,69 @@ export function capabilities(model: string, link: string): Capabilities /*throws
     }
     }
 
+export function cc600Atlas(source: ArrayBuffer, name: string, bounds: Array<number>, rivers: boolean, cities: boolean): ArrayBuffer /*throws*/ {
+    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
+            /*liftError:*/ FfiConverterTypeFfiError.lift.bind(FfiConverterTypeFfiError),
+            /*caller:*/ (callStatus) => {
+                return nativeModule().ubrn_uniffi_musette_ffi_fn_func_cc600_atlas(
+        FfiConverterArrayBuffer.lower(source, nativeModule().rustbuffer_alloc),
+        FfiConverterString.lower(name, nativeModule().rustbuffer_alloc),
+        FfiConverterSequenceFloat64.lower(bounds, nativeModule().rustbuffer_alloc),
+        FfiConverterBool.lower(rivers, nativeModule().rustbuffer_alloc),
+        FfiConverterBool.lower(cities, nativeModule().rustbuffer_alloc),
+                callStatus);
+            },
+            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+        return FfiConverterArrayBuffer.lift(__rb);
+    } finally {
+        nativeModule().rustbuffer_free(__rb);
+    }
+    }
+
+export function cc600AtlasPreview(bytes: ArrayBuffer): AtlasPreview /*throws*/ {
+    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
+            /*liftError:*/ FfiConverterTypeFfiError.lift.bind(FfiConverterTypeFfiError),
+            /*caller:*/ (callStatus) => {
+                return nativeModule().ubrn_uniffi_musette_ffi_fn_func_cc600_atlas_preview(
+        FfiConverterArrayBuffer.lower(bytes, nativeModule().rustbuffer_alloc),
+                callStatus);
+            },
+            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+        return FfiConverterTypeAtlasPreview.lift(__rb);
+    } finally {
+        nativeModule().rustbuffer_free(__rb);
+    }
+    }
+
+export function cc600BuildAtlas(source: ArrayBuffer, name: string, bounds: Array<number>, classes: Array<string>, labels: Array<string>, lengths: Array<number>, lats: Array<number>, lons: Array<number>, toleranceM: number): ArrayBuffer | undefined /*throws*/ {
+    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
+            /*liftError:*/ FfiConverterTypeFfiError.lift.bind(FfiConverterTypeFfiError),
+            /*caller:*/ (callStatus) => {
+                return nativeModule().ubrn_uniffi_musette_ffi_fn_func_cc600_build_atlas(
+        FfiConverterArrayBuffer.lower(source, nativeModule().rustbuffer_alloc),
+        FfiConverterString.lower(name, nativeModule().rustbuffer_alloc),
+        FfiConverterSequenceFloat64.lower(bounds, nativeModule().rustbuffer_alloc),
+        FfiConverterSequenceString.lower(classes, nativeModule().rustbuffer_alloc),
+        FfiConverterSequenceString.lower(labels, nativeModule().rustbuffer_alloc),
+        FfiConverterSequenceUInt32.lower(lengths, nativeModule().rustbuffer_alloc),
+        FfiConverterSequenceFloat64.lower(lats, nativeModule().rustbuffer_alloc),
+        FfiConverterSequenceFloat64.lower(lons, nativeModule().rustbuffer_alloc),
+        FfiConverterFloat64.lower(toleranceM, nativeModule().rustbuffer_alloc),
+                callStatus);
+            },
+            /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+        return FfiConverterOptionalBytes.lift(__rb);
+    } finally {
+        nativeModule().rustbuffer_free(__rb);
+    }
+    }
+
 /**
  * The CC600 background map of a route (`musette_core::cc600_build_map`).
  */
@@ -246,10 +309,10 @@ const FfiConverterTypeActivity = (() => {
     class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
         readFromCursor(c: Cursor): TypeName {
             return {
-                id: FfiConverterString.readFromCursor(c), 
-                startTime: FfiConverterOptionalInt64.readFromCursor(c), 
-                localTime: FfiConverterBool.readFromCursor(c), 
-                size: FfiConverterOptionalUInt64.readFromCursor(c), 
+                id: FfiConverterString.readFromCursor(c),
+                startTime: FfiConverterOptionalInt64.readFromCursor(c),
+                localTime: FfiConverterBool.readFromCursor(c),
+                size: FfiConverterOptionalUInt64.readFromCursor(c),
                 synced: FfiConverterOptionalBoolean.readFromCursor(c)
             };
         }
@@ -266,7 +329,7 @@ const FfiConverterTypeActivity = (() => {
              FfiConverterBool.allocationSize(value.localTime) +
              FfiConverterOptionalUInt64.allocationSize(value.size) +
              FfiConverterOptionalBoolean.allocationSize(value.synced);
-            
+
         }
     };
     return new FFIConverter();
@@ -298,7 +361,7 @@ const FfiConverterTypeActivityRef = (() => {
     class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
         readFromCursor(c: Cursor): TypeName {
             return {
-                id: FfiConverterString.readFromCursor(c), 
+                id: FfiConverterString.readFromCursor(c),
                 size: FfiConverterOptionalUInt64.readFromCursor(c)
             };
         }
@@ -309,7 +372,109 @@ const FfiConverterTypeActivityRef = (() => {
         allocationSize(value: TypeName): number {
             return FfiConverterString.allocationSize(value.id) +
              FfiConverterOptionalUInt64.allocationSize(value.size);
-            
+
+        }
+    };
+    return new FFIConverter();
+})();
+
+export type AtlasFeatures = {
+    classes: Array<string>,
+    labels: Array<string>,
+    lengths: Array<number>,
+    lats: Array<number>,
+    lons: Array<number>
+}
+
+/**
+ * Generated factory for {@link AtlasFeatures} record objects.
+ */
+export const AtlasFeatures = (() => {
+    const defaults = () => ({
+    });
+    const create = (() => {
+        return uniffiCreateRecord<AtlasFeatures, ReturnType<typeof defaults>>(defaults);
+    })();
+    return Object.freeze({
+        create,
+        new: create,
+        defaults: () => Object.freeze(defaults()) as Partial<AtlasFeatures>,
+    });
+})();
+
+const FfiConverterTypeAtlasFeatures = (() => {
+    type TypeName = AtlasFeatures;
+    class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+        readFromCursor(c: Cursor): TypeName {
+            return {
+                classes: FfiConverterSequenceString.readFromCursor(c),
+                labels: FfiConverterSequenceString.readFromCursor(c),
+                lengths: FfiConverterSequenceUInt32.readFromCursor(c),
+                lats: FfiConverterSequenceFloat64.readFromCursor(c),
+                lons: FfiConverterSequenceFloat64.readFromCursor(c)
+            };
+        }
+        writeIntoCursor(value: TypeName, c: Cursor): void {
+            FfiConverterSequenceString.writeIntoCursor(value.classes, c);
+            FfiConverterSequenceString.writeIntoCursor(value.labels, c);
+            FfiConverterSequenceUInt32.writeIntoCursor(value.lengths, c);
+            FfiConverterSequenceFloat64.writeIntoCursor(value.lats, c);
+            FfiConverterSequenceFloat64.writeIntoCursor(value.lons, c);
+        }
+        allocationSize(value: TypeName): number {
+            return FfiConverterSequenceString.allocationSize(value.classes) +
+             FfiConverterSequenceString.allocationSize(value.labels) +
+             FfiConverterSequenceUInt32.allocationSize(value.lengths) +
+             FfiConverterSequenceFloat64.allocationSize(value.lats) +
+             FfiConverterSequenceFloat64.allocationSize(value.lons);
+
+        }
+    };
+    return new FFIConverter();
+})();
+
+export type AtlasPreview = {
+    name: string,
+    minMPerPx: number,
+    levels: Array<AtlasFeatures>
+}
+
+/**
+ * Generated factory for {@link AtlasPreview} record objects.
+ */
+export const AtlasPreview = (() => {
+    const defaults = () => ({
+    });
+    const create = (() => {
+        return uniffiCreateRecord<AtlasPreview, ReturnType<typeof defaults>>(defaults);
+    })();
+    return Object.freeze({
+        create,
+        new: create,
+        defaults: () => Object.freeze(defaults()) as Partial<AtlasPreview>,
+    });
+})();
+
+const FfiConverterTypeAtlasPreview = (() => {
+    type TypeName = AtlasPreview;
+    class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+        readFromCursor(c: Cursor): TypeName {
+            return {
+                name: FfiConverterString.readFromCursor(c),
+                minMPerPx: FfiConverterUInt32.readFromCursor(c),
+                levels: FfiConverterSequenceTypeAtlasFeatures.readFromCursor(c)
+            };
+        }
+        writeIntoCursor(value: TypeName, c: Cursor): void {
+            FfiConverterString.writeIntoCursor(value.name, c);
+            FfiConverterUInt32.writeIntoCursor(value.minMPerPx, c);
+            FfiConverterSequenceTypeAtlasFeatures.writeIntoCursor(value.levels, c);
+        }
+        allocationSize(value: TypeName): number {
+            return FfiConverterString.allocationSize(value.name) +
+             FfiConverterUInt32.allocationSize(value.minMPerPx) +
+             FfiConverterSequenceTypeAtlasFeatures.allocationSize(value.levels);
+
         }
     };
     return new FFIConverter();
@@ -346,12 +511,12 @@ const FfiConverterTypeCapabilities = (() => {
     class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
         readFromCursor(c: Cursor): TypeName {
             return {
-                downloadActivities: FfiConverterBool.readFromCursor(c), 
-                uploadRoute: FfiConverterBool.readFromCursor(c), 
-                routeCorridorMap: FfiConverterBool.readFromCursor(c), 
-                climbsOnDevice: FfiConverterBool.readFromCursor(c), 
-                settings: FfiConverterBool.readFromCursor(c), 
-                sensors: FfiConverterBool.readFromCursor(c), 
+                downloadActivities: FfiConverterBool.readFromCursor(c),
+                uploadRoute: FfiConverterBool.readFromCursor(c),
+                routeCorridorMap: FfiConverterBool.readFromCursor(c),
+                climbsOnDevice: FfiConverterBool.readFromCursor(c),
+                settings: FfiConverterBool.readFromCursor(c),
+                sensors: FfiConverterBool.readFromCursor(c),
                 wifiSync: FfiConverterBool.readFromCursor(c)
             };
         }
@@ -372,7 +537,7 @@ const FfiConverterTypeCapabilities = (() => {
              FfiConverterBool.allocationSize(value.settings) +
              FfiConverterBool.allocationSize(value.sensors) +
              FfiConverterBool.allocationSize(value.wifiSync);
-            
+
         }
     };
     return new FFIConverter();
@@ -406,9 +571,9 @@ const FfiConverterTypeChannel = (() => {
     class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
         readFromCursor(c: Cursor): TypeName {
             return {
-                service: FfiConverterString.readFromCursor(c), 
-                characteristic: FfiConverterString.readFromCursor(c), 
-                withResponse: FfiConverterBool.readFromCursor(c), 
+                service: FfiConverterString.readFromCursor(c),
+                characteristic: FfiConverterString.readFromCursor(c),
+                withResponse: FfiConverterBool.readFromCursor(c),
                 split: FfiConverterBool.readFromCursor(c)
             };
         }
@@ -423,7 +588,7 @@ const FfiConverterTypeChannel = (() => {
              FfiConverterString.allocationSize(value.characteristic) +
              FfiConverterBool.allocationSize(value.withResponse) +
              FfiConverterBool.allocationSize(value.split);
-            
+
         }
     };
     return new FFIConverter();
@@ -459,11 +624,11 @@ const FfiConverterTypeClimb = (() => {
     class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
         readFromCursor(c: Cursor): TypeName {
             return {
-                startM: FfiConverterFloat64.readFromCursor(c), 
-                endM: FfiConverterFloat64.readFromCursor(c), 
-                gainM: FfiConverterFloat64.readFromCursor(c), 
-                avgGrade: FfiConverterFloat64.readFromCursor(c), 
-                maxGrade: FfiConverterFloat64.readFromCursor(c), 
+                startM: FfiConverterFloat64.readFromCursor(c),
+                endM: FfiConverterFloat64.readFromCursor(c),
+                gainM: FfiConverterFloat64.readFromCursor(c),
+                avgGrade: FfiConverterFloat64.readFromCursor(c),
+                maxGrade: FfiConverterFloat64.readFromCursor(c),
                 category: FfiConverterString.readFromCursor(c)
             };
         }
@@ -482,7 +647,7 @@ const FfiConverterTypeClimb = (() => {
              FfiConverterFloat64.allocationSize(value.avgGrade) +
              FfiConverterFloat64.allocationSize(value.maxGrade) +
              FfiConverterString.allocationSize(value.category);
-            
+
         }
     };
     return new FFIConverter();
@@ -522,12 +687,12 @@ const FfiConverterTypeSettingField = (() => {
     class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
         readFromCursor(c: Cursor): TypeName {
             return {
-                key: FfiConverterString.readFromCursor(c), 
-                kind: FfiConverterString.readFromCursor(c), 
-                min: FfiConverterOptionalFloat64.readFromCursor(c), 
-                max: FfiConverterOptionalFloat64.readFromCursor(c), 
-                options: FfiConverterSequenceString.readFromCursor(c), 
-                labels: FfiConverterSequenceString.readFromCursor(c), 
+                key: FfiConverterString.readFromCursor(c),
+                kind: FfiConverterString.readFromCursor(c),
+                min: FfiConverterOptionalFloat64.readFromCursor(c),
+                max: FfiConverterOptionalFloat64.readFromCursor(c),
+                options: FfiConverterSequenceString.readFromCursor(c),
+                labels: FfiConverterSequenceString.readFromCursor(c),
                 writable: FfiConverterBool.readFromCursor(c)
             };
         }
@@ -548,7 +713,7 @@ const FfiConverterTypeSettingField = (() => {
              FfiConverterSequenceString.allocationSize(value.options) +
              FfiConverterSequenceString.allocationSize(value.labels) +
              FfiConverterBool.allocationSize(value.writable);
-            
+
         }
     };
     return new FFIConverter();
@@ -581,8 +746,8 @@ const FfiConverterTypeSetting = (() => {
     class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
         readFromCursor(c: Cursor): TypeName {
             return {
-                key: FfiConverterString.readFromCursor(c), 
-                number: FfiConverterOptionalFloat64.readFromCursor(c), 
+                key: FfiConverterString.readFromCursor(c),
+                number: FfiConverterOptionalFloat64.readFromCursor(c),
                 text: FfiConverterString.readFromCursor(c)
             };
         }
@@ -595,7 +760,7 @@ const FfiConverterTypeSetting = (() => {
             return FfiConverterString.allocationSize(value.key) +
              FfiConverterOptionalFloat64.allocationSize(value.number) +
              FfiConverterString.allocationSize(value.text);
-            
+
         }
     };
     return new FFIConverter();
@@ -611,6 +776,9 @@ export type Outcome = {
     recording: boolean,
     routeMax?: number,
     mapMax?: number,
+    atlasMax?: number,
+    atlasBytes?: number,
+    atlasVersion?: number,
     free?: number,
     activities: Array<Activity>,
     bytes: ArrayBuffer,
@@ -641,17 +809,20 @@ const FfiConverterTypeOutcome = (() => {
     class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
         readFromCursor(c: Cursor): TypeName {
             return {
-                kind: FfiConverterString.readFromCursor(c), 
-                name: FfiConverterString.readFromCursor(c), 
-                recording: FfiConverterBool.readFromCursor(c), 
-                routeMax: FfiConverterOptionalUInt32.readFromCursor(c), 
-                mapMax: FfiConverterOptionalUInt32.readFromCursor(c), 
-                free: FfiConverterOptionalUInt32.readFromCursor(c), 
-                activities: FfiConverterSequenceTypeActivity.readFromCursor(c), 
-                bytes: FfiConverterArrayBuffer.readFromCursor(c), 
-                fields: FfiConverterSequenceTypeSettingField.readFromCursor(c), 
-                values: FfiConverterSequenceTypeSetting.readFromCursor(c), 
-                code: FfiConverterString.readFromCursor(c), 
+                kind: FfiConverterString.readFromCursor(c),
+                name: FfiConverterString.readFromCursor(c),
+                recording: FfiConverterBool.readFromCursor(c),
+                routeMax: FfiConverterOptionalUInt32.readFromCursor(c),
+                mapMax: FfiConverterOptionalUInt32.readFromCursor(c),
+                atlasMax: FfiConverterOptionalUInt32.readFromCursor(c),
+                atlasBytes: FfiConverterOptionalUInt32.readFromCursor(c),
+                atlasVersion: FfiConverterOptionalUInt32.readFromCursor(c),
+                free: FfiConverterOptionalUInt32.readFromCursor(c),
+                activities: FfiConverterSequenceTypeActivity.readFromCursor(c),
+                bytes: FfiConverterArrayBuffer.readFromCursor(c),
+                fields: FfiConverterSequenceTypeSettingField.readFromCursor(c),
+                values: FfiConverterSequenceTypeSetting.readFromCursor(c),
+                code: FfiConverterString.readFromCursor(c),
                 detail: FfiConverterString.readFromCursor(c)
             };
         }
@@ -661,6 +832,9 @@ const FfiConverterTypeOutcome = (() => {
             FfiConverterBool.writeIntoCursor(value.recording, c);
             FfiConverterOptionalUInt32.writeIntoCursor(value.routeMax, c);
             FfiConverterOptionalUInt32.writeIntoCursor(value.mapMax, c);
+            FfiConverterOptionalUInt32.writeIntoCursor(value.atlasMax, c);
+            FfiConverterOptionalUInt32.writeIntoCursor(value.atlasBytes, c);
+            FfiConverterOptionalUInt32.writeIntoCursor(value.atlasVersion, c);
             FfiConverterOptionalUInt32.writeIntoCursor(value.free, c);
             FfiConverterSequenceTypeActivity.writeIntoCursor(value.activities, c);
             FfiConverterArrayBuffer.writeIntoCursor(value.bytes, c);
@@ -675,6 +849,9 @@ const FfiConverterTypeOutcome = (() => {
              FfiConverterBool.allocationSize(value.recording) +
              FfiConverterOptionalUInt32.allocationSize(value.routeMax) +
              FfiConverterOptionalUInt32.allocationSize(value.mapMax) +
+             FfiConverterOptionalUInt32.allocationSize(value.atlasMax) +
+             FfiConverterOptionalUInt32.allocationSize(value.atlasBytes) +
+             FfiConverterOptionalUInt32.allocationSize(value.atlasVersion) +
              FfiConverterOptionalUInt32.allocationSize(value.free) +
              FfiConverterSequenceTypeActivity.allocationSize(value.activities) +
              FfiConverterArrayBuffer.allocationSize(value.bytes) +
@@ -682,7 +859,7 @@ const FfiConverterTypeOutcome = (() => {
              FfiConverterSequenceTypeSetting.allocationSize(value.values) +
              FfiConverterString.allocationSize(value.code) +
              FfiConverterString.allocationSize(value.detail);
-            
+
         }
     };
     return new FFIConverter();
@@ -716,9 +893,9 @@ const FfiConverterTypeParsedRoute = (() => {
     class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
         readFromCursor(c: Cursor): TypeName {
             return {
-                name: FfiConverterString.readFromCursor(c), 
-                lats: FfiConverterSequenceFloat64.readFromCursor(c), 
-                lons: FfiConverterSequenceFloat64.readFromCursor(c), 
+                name: FfiConverterString.readFromCursor(c),
+                lats: FfiConverterSequenceFloat64.readFromCursor(c),
+                lons: FfiConverterSequenceFloat64.readFromCursor(c),
                 eles: FfiConverterSequenceFloat64.readFromCursor(c)
             };
         }
@@ -733,7 +910,7 @@ const FfiConverterTypeParsedRoute = (() => {
              FfiConverterSequenceFloat64.allocationSize(value.lats) +
              FfiConverterSequenceFloat64.allocationSize(value.lons) +
              FfiConverterSequenceFloat64.allocationSize(value.eles);
-            
+
         }
     };
     return new FFIConverter();
@@ -770,12 +947,12 @@ const FfiConverterTypeRouteAnalysis = (() => {
     class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
         readFromCursor(c: Cursor): TypeName {
             return {
-                distanceM: FfiConverterFloat64.readFromCursor(c), 
-                ascentM: FfiConverterFloat64.readFromCursor(c), 
-                profileStepM: FfiConverterFloat64.readFromCursor(c), 
-                profile: FfiConverterSequenceFloat64.readFromCursor(c), 
-                climbs: FfiConverterSequenceTypeClimb.readFromCursor(c), 
-                simplified: FfiConverterSequenceUInt32.readFromCursor(c), 
+                distanceM: FfiConverterFloat64.readFromCursor(c),
+                ascentM: FfiConverterFloat64.readFromCursor(c),
+                profileStepM: FfiConverterFloat64.readFromCursor(c),
+                profile: FfiConverterSequenceFloat64.readFromCursor(c),
+                climbs: FfiConverterSequenceTypeClimb.readFromCursor(c),
+                simplified: FfiConverterSequenceUInt32.readFromCursor(c),
                 simplifiedM: FfiConverterSequenceFloat64.readFromCursor(c)
             };
         }
@@ -796,7 +973,7 @@ const FfiConverterTypeRouteAnalysis = (() => {
              FfiConverterSequenceTypeClimb.allocationSize(value.climbs) +
              FfiConverterSequenceUInt32.allocationSize(value.simplified) +
              FfiConverterSequenceFloat64.allocationSize(value.simplifiedM);
-            
+
         }
     };
     return new FFIConverter();
@@ -828,7 +1005,7 @@ const FfiConverterTypeWrite = (() => {
     class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
         readFromCursor(c: Cursor): TypeName {
             return {
-                channel: FfiConverterUInt8.readFromCursor(c), 
+                channel: FfiConverterUInt8.readFromCursor(c),
                 bytes: FfiConverterArrayBuffer.readFromCursor(c)
             };
         }
@@ -839,7 +1016,7 @@ const FfiConverterTypeWrite = (() => {
         allocationSize(value: TypeName): number {
             return FfiConverterUInt8.allocationSize(value.channel) +
              FfiConverterArrayBuffer.allocationSize(value.bytes);
-            
+
         }
     };
     return new FFIConverter();
@@ -874,10 +1051,10 @@ const FfiConverterTypeStep = (() => {
     class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
         readFromCursor(c: Cursor): TypeName {
             return {
-                subscribe: FfiConverterArrayBuffer.readFromCursor(c), 
-                writes: FfiConverterSequenceTypeWrite.readFromCursor(c), 
-                progress: FfiConverterOptionalFloat64.readFromCursor(c), 
-                waitMs: FfiConverterOptionalUInt32.readFromCursor(c), 
+                subscribe: FfiConverterArrayBuffer.readFromCursor(c),
+                writes: FfiConverterSequenceTypeWrite.readFromCursor(c),
+                progress: FfiConverterOptionalFloat64.readFromCursor(c),
+                waitMs: FfiConverterOptionalUInt32.readFromCursor(c),
                 outcome: FfiConverterOptionalTypeOutcome.readFromCursor(c)
             };
         }
@@ -894,7 +1071,7 @@ const FfiConverterTypeStep = (() => {
              FfiConverterOptionalFloat64.allocationSize(value.progress) +
              FfiConverterOptionalUInt32.allocationSize(value.waitMs) +
              FfiConverterOptionalTypeOutcome.allocationSize(value.outcome);
-            
+
         }
     };
     return new FFIConverter();
@@ -909,7 +1086,7 @@ export const FfiError = (() => {
 
     type Core__interface = {
         tag: FfiError_Tags.Core;
-        inner: 
+        inner:
 Readonly<{message: string}>
     };
     /**
@@ -922,7 +1099,7 @@ Readonly<{message: string}>
          */
         readonly [uniffiTypeNameSymbol] = "FfiError";
         readonly tag = FfiError_Tags.Core;
-        readonly inner: 
+        readonly inner:
 Readonly<{message: string}>;
         constructor(
 inner: {message: string }) {
@@ -942,7 +1119,7 @@ inner: {message: string }): Core_ {
             return Core_.instanceOf(obj);
         }
 
-        static getInner(obj: Core_): 
+        static getInner(obj: Core_):
 Readonly<{message: string}> {
             return obj.inner;
         }
@@ -1005,7 +1182,7 @@ const FfiConverterTypeFfiError = (() => {
  * A CC600 in memory (demo without a device).
  */
 export interface Cc600SimulatorLike {
-    
+
     acked(): Array<number>;
 /**
  * `start_time` in Unix seconds.
@@ -1055,9 +1232,9 @@ export class Cc600Simulator extends UniffiAbstractObject implements Cc600Simulat
         this[destructorGuardSymbol] = uniffiTypeCc600SimulatorObjectFactory.bless(pointer);
     }
 
-    
 
-    
+
+
     acked(): Array<number> {
     const __rb: Uint8Array = uniffiCaller.rustCall(
             /*caller:*/ (callStatus) => {
@@ -1073,7 +1250,7 @@ export class Cc600Simulator extends UniffiAbstractObject implements Cc600Simulat
         nativeModule().rustbuffer_free(__rb);
     }
     }
-    
+
 /**
  * `start_time` in Unix seconds.
  */
@@ -1088,7 +1265,7 @@ export class Cc600Simulator extends UniffiAbstractObject implements Cc600Simulat
             /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
     );
     }
-    
+
     chunkBytes(): number {
     return FfiConverterUInt32.lift(uniffiCaller.rustCall(
             /*caller:*/ (callStatus) => {
@@ -1099,7 +1276,7 @@ export class Cc600Simulator extends UniffiAbstractObject implements Cc600Simulat
             /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
     ));
     }
-    
+
     committed(): ArrayBuffer | undefined {
     const __rb: Uint8Array = uniffiCaller.rustCall(
             /*caller:*/ (callStatus) => {
@@ -1115,7 +1292,7 @@ export class Cc600Simulator extends UniffiAbstractObject implements Cc600Simulat
         nativeModule().rustbuffer_free(__rb);
     }
     }
-    
+
     disconnect(): void {uniffiCaller.rustCall(
             /*caller:*/ (callStatus) => { nativeModule().ubrn_uniffi_musette_ffi_fn_method_cc600simulator_disconnect(
                 uniffiTypeCc600SimulatorObjectFactory.clonePointer(this),
@@ -1124,7 +1301,7 @@ export class Cc600Simulator extends UniffiAbstractObject implements Cc600Simulat
             /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
     );
     }
-    
+
     received(): number {
     return FfiConverterUInt32.lift(uniffiCaller.rustCall(
             /*caller:*/ (callStatus) => {
@@ -1135,7 +1312,7 @@ export class Cc600Simulator extends UniffiAbstractObject implements Cc600Simulat
             /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
     ));
     }
-    
+
     settings(): string {
     const __rb: Uint8Array = uniffiCaller.rustCall(
             /*caller:*/ (callStatus) => {
@@ -1151,7 +1328,7 @@ export class Cc600Simulator extends UniffiAbstractObject implements Cc600Simulat
         nativeModule().rustbuffer_free(__rb);
     }
     }
-    
+
     settingsWrites(): Array<string> {
     const __rb: Uint8Array = uniffiCaller.rustCall(
             /*caller:*/ (callStatus) => {
@@ -1167,7 +1344,7 @@ export class Cc600Simulator extends UniffiAbstractObject implements Cc600Simulat
         nativeModule().rustbuffer_free(__rb);
     }
     }
-    
+
 /**
  * The frames the device answers.
  */
@@ -1187,7 +1364,7 @@ export class Cc600Simulator extends UniffiAbstractObject implements Cc600Simulat
         nativeModule().rustbuffer_free(__rb);
     }
     }
-    
+
 
     uniffiDestroy(): void {
         const ptr = (this as any)[destructorGuardSymbol];
@@ -1203,11 +1380,11 @@ export class Cc600Simulator extends UniffiAbstractObject implements Cc600Simulat
         return uniffiTypeCc600SimulatorObjectFactory.isConcreteType(obj_);
     }
 
-    
+
 }
 
 const uniffiTypeCc600SimulatorObjectFactory: UniffiObjectFactory<Cc600SimulatorLike> = (() => {
-    
+
     return {
     create(pointer: UniffiHandle): Cc600SimulatorLike {
         const instance = Object.create(Cc600Simulator.prototype);
@@ -1217,7 +1394,7 @@ const uniffiTypeCc600SimulatorObjectFactory: UniffiObjectFactory<Cc600SimulatorL
         return instance;
     },
 
-    
+
     bless(p: UniffiHandle): UniffiGcObject {
         return uniffiCaller.rustCall(
             /*caller:*/ (status) =>
@@ -1262,7 +1439,7 @@ const FfiConverterTypeCc600Simulator = new FfiConverterObject(uniffiTypeCc600Sim
  * One connection to a device (`musette_core::Session`).
  */
 export interface SessionLike {
-    
+
     acknowledge(id: string) /*throws*/: Step;
     channels(): Array<Channel>;
     connect() /*throws*/: Step;
@@ -1317,9 +1494,9 @@ export class Session extends UniffiAbstractObject implements SessionLike {
         this[destructorGuardSymbol] = uniffiTypeSessionObjectFactory.bless(pointer);
     }
 
-    
 
-    
+
+
     acknowledge(id: string): Step /*throws*/ {
     const __rb: Uint8Array = uniffiCaller.rustCallWithError(
             /*liftError:*/ FfiConverterTypeFfiError.lift.bind(FfiConverterTypeFfiError),
@@ -1337,7 +1514,7 @@ export class Session extends UniffiAbstractObject implements SessionLike {
         nativeModule().rustbuffer_free(__rb);
     }
     }
-    
+
     channels(): Array<Channel> {
     const __rb: Uint8Array = uniffiCaller.rustCall(
             /*caller:*/ (callStatus) => {
@@ -1353,7 +1530,7 @@ export class Session extends UniffiAbstractObject implements SessionLike {
         nativeModule().rustbuffer_free(__rb);
     }
     }
-    
+
     connect(): Step /*throws*/ {
     const __rb: Uint8Array = uniffiCaller.rustCallWithError(
             /*liftError:*/ FfiConverterTypeFfiError.lift.bind(FfiConverterTypeFfiError),
@@ -1370,7 +1547,7 @@ export class Session extends UniffiAbstractObject implements SessionLike {
         nativeModule().rustbuffer_free(__rb);
     }
     }
-    
+
     deviceInfo(): Step /*throws*/ {
     const __rb: Uint8Array = uniffiCaller.rustCallWithError(
             /*liftError:*/ FfiConverterTypeFfiError.lift.bind(FfiConverterTypeFfiError),
@@ -1387,7 +1564,7 @@ export class Session extends UniffiAbstractObject implements SessionLike {
         nativeModule().rustbuffer_free(__rb);
     }
     }
-    
+
     download(id: string, size: bigint | undefined): Step /*throws*/ {
     const __rb: Uint8Array = uniffiCaller.rustCallWithError(
             /*liftError:*/ FfiConverterTypeFfiError.lift.bind(FfiConverterTypeFfiError),
@@ -1406,7 +1583,7 @@ export class Session extends UniffiAbstractObject implements SessionLike {
         nativeModule().rustbuffer_free(__rb);
     }
     }
-    
+
     listActivities(): Step /*throws*/ {
     const __rb: Uint8Array = uniffiCaller.rustCallWithError(
             /*liftError:*/ FfiConverterTypeFfiError.lift.bind(FfiConverterTypeFfiError),
@@ -1423,7 +1600,7 @@ export class Session extends UniffiAbstractObject implements SessionLike {
         nativeModule().rustbuffer_free(__rb);
     }
     }
-    
+
     onNotify(channel: number, bytes: ArrayBuffer): Step {
     const __rb: Uint8Array = uniffiCaller.rustCall(
             /*caller:*/ (callStatus) => {
@@ -1441,7 +1618,7 @@ export class Session extends UniffiAbstractObject implements SessionLike {
         nativeModule().rustbuffer_free(__rb);
     }
     }
-    
+
     onTimeout(): Step {
     const __rb: Uint8Array = uniffiCaller.rustCall(
             /*caller:*/ (callStatus) => {
@@ -1457,7 +1634,7 @@ export class Session extends UniffiAbstractObject implements SessionLike {
         nativeModule().rustbuffer_free(__rb);
     }
     }
-    
+
     readSettings(): Step /*throws*/ {
     const __rb: Uint8Array = uniffiCaller.rustCallWithError(
             /*liftError:*/ FfiConverterTypeFfiError.lift.bind(FfiConverterTypeFfiError),
@@ -1474,7 +1651,7 @@ export class Session extends UniffiAbstractObject implements SessionLike {
         nativeModule().rustbuffer_free(__rb);
     }
     }
-    
+
 /**
  * `kind`: `route` or `map`.
  */
@@ -1496,7 +1673,7 @@ export class Session extends UniffiAbstractObject implements SessionLike {
         nativeModule().rustbuffer_free(__rb);
     }
     }
-    
+
 /**
  * `eles` uses NaN for missing elevation.
  */
@@ -1520,7 +1697,7 @@ export class Session extends UniffiAbstractObject implements SessionLike {
         nativeModule().rustbuffer_free(__rb);
     }
     }
-    
+
     writeSettings(changes: Array<Setting>): Step /*throws*/ {
     const __rb: Uint8Array = uniffiCaller.rustCallWithError(
             /*liftError:*/ FfiConverterTypeFfiError.lift.bind(FfiConverterTypeFfiError),
@@ -1538,7 +1715,7 @@ export class Session extends UniffiAbstractObject implements SessionLike {
         nativeModule().rustbuffer_free(__rb);
     }
     }
-    
+
 
     uniffiDestroy(): void {
         const ptr = (this as any)[destructorGuardSymbol];
@@ -1554,11 +1731,11 @@ export class Session extends UniffiAbstractObject implements SessionLike {
         return uniffiTypeSessionObjectFactory.isConcreteType(obj_);
     }
 
-    
+
 }
 
 const uniffiTypeSessionObjectFactory: UniffiObjectFactory<SessionLike> = (() => {
-    
+
     return {
     create(pointer: UniffiHandle): SessionLike {
         const instance = Object.create(Session.prototype);
@@ -1568,7 +1745,7 @@ const uniffiTypeSessionObjectFactory: UniffiObjectFactory<SessionLike> = (() => 
         return instance;
     },
 
-    
+
     bless(p: UniffiHandle): UniffiGcObject {
         return uniffiCaller.rustCall(
             /*caller:*/ (status) =>
@@ -1618,6 +1795,18 @@ const FfiConverterOptionalUInt64 = new FfiConverterOptional(FfiConverterUInt64);
 // FfiConverter for boolean | undefined
 const FfiConverterOptionalBoolean = new FfiConverterOptional(FfiConverterBool);
 
+// FfiConverter for Array<string>
+const FfiConverterSequenceString = new FfiConverterArray(FfiConverterString);
+
+// FfiConverter for Array<number>
+const FfiConverterSequenceUInt32 = new FfiConverterArray(FfiConverterUInt32);
+
+// FfiConverter for Array<number>
+const FfiConverterSequenceFloat64 = new FfiConverterArray(FfiConverterFloat64);
+
+// FfiConverter for Array<AtlasFeatures>
+const FfiConverterSequenceTypeAtlasFeatures = new FfiConverterArray(FfiConverterTypeAtlasFeatures);
+
 // FfiConverter for number | undefined
 const FfiConverterOptionalUInt32 = new FfiConverterOptional(FfiConverterUInt32);
 
@@ -1627,23 +1816,14 @@ const FfiConverterSequenceTypeActivity = new FfiConverterArray(FfiConverterTypeA
 // FfiConverter for number | undefined
 const FfiConverterOptionalFloat64 = new FfiConverterOptional(FfiConverterFloat64);
 
-// FfiConverter for Array<string>
-const FfiConverterSequenceString = new FfiConverterArray(FfiConverterString);
-
 // FfiConverter for Array<SettingField>
 const FfiConverterSequenceTypeSettingField = new FfiConverterArray(FfiConverterTypeSettingField);
 
 // FfiConverter for Array<Setting>
 const FfiConverterSequenceTypeSetting = new FfiConverterArray(FfiConverterTypeSetting);
 
-// FfiConverter for Array<number>
-const FfiConverterSequenceFloat64 = new FfiConverterArray(FfiConverterFloat64);
-
 // FfiConverter for Array<Climb>
 const FfiConverterSequenceTypeClimb = new FfiConverterArray(FfiConverterTypeClimb);
-
-// FfiConverter for Array<number>
-const FfiConverterSequenceUInt32 = new FfiConverterArray(FfiConverterUInt32);
 
 // FfiConverter for Array<Write>
 const FfiConverterSequenceTypeWrite = new FfiConverterArray(FfiConverterTypeWrite);
@@ -1690,6 +1870,15 @@ function uniffiEnsureInitialized() {
     }
     if (nativeModule().ubrn_uniffi_musette_ffi_checksum_func_capabilities() !== 14003) {
         throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_func_capabilities");
+    }
+    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_func_cc600_atlas() !== 47837) {
+        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_func_cc600_atlas");
+    }
+    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_func_cc600_atlas_preview() !== 56629) {
+        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_func_cc600_atlas_preview");
+    }
+    if (nativeModule().ubrn_uniffi_musette_ffi_checksum_func_cc600_build_atlas() !== 40539) {
+        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_func_cc600_build_atlas");
     }
     if (nativeModule().ubrn_uniffi_musette_ffi_checksum_func_cc600_build_map() !== 52667) {
         throw new UniffiInternalError.ApiChecksumMismatch("uniffi_musette_ffi_checksum_func_cc600_build_map");
@@ -1780,6 +1969,8 @@ export default Object.freeze({
   converters: {
     FfiConverterTypeActivity,
     FfiConverterTypeActivityRef,
+    FfiConverterTypeAtlasFeatures,
+    FfiConverterTypeAtlasPreview,
     FfiConverterTypeCapabilities,
     FfiConverterTypeCc600Simulator,
     FfiConverterTypeChannel,

@@ -32,7 +32,10 @@ export interface Device {
    * as free (0: no room now), as it last said; undefined when it does not say
    * (an older firmware: it takes no map).
    */
-  readonly fileLimits?: Record<FileKind, number>;
+  readonly fileLimits?: Record<'route' | 'map', number> & Partial<Record<'atlas', number>>;
+  /** Permanent atlas installed on the device, absent on older firmware. */
+  readonly atlasBytes?: number;
+  readonly atlasVersion?: number;
   /** Bytes free for rides, as the device last said; undefined when it does not say. */
   readonly storageFree?: number;
   /** Asks the device again for its room (`fileLimits`, `storageFree`): it changes with each file and ride. */

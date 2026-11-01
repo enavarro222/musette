@@ -9,3 +9,4 @@ repository.workspace = true
 [dependencies]
 protocol-cc600.workspace = true
 settings-cc600.workspace = true
+route-cc600.workspace = true

@@ -42,6 +42,9 @@ function outcome(o: Raw): Outcome {
         recording: o.recording as boolean,
         routeMax: opt(o.routeMax),
         mapMax: opt(o.mapMax),
+        atlasMax: opt(o.atlasMax),
+        atlasBytes: opt(o.atlasBytes),
+        atlasVersion: opt(o.atlasVersion),
         free: opt(o.free),
       };
     case 'settings':
@@ -78,6 +81,10 @@ export function wasmCore(m: typeof Wasm): Core {
       return { name: r.name, lats: [...r.lats], lons: [...r.lons], eles: [...r.eles] } satisfies ParsedRoute;
     },
     verifyFit: (bytes) => m.verifyFit(bytes),
+    cc600Atlas: (source,name,bounds,rivers,cities) => m.cc600Atlas(source,name,f64(bounds),rivers,cities),
+    cc600AtlasPreview: (bytes) => m.cc600AtlasPreview(bytes) as import('./types').AtlasPreview,
+    cc600BuildAtlas: (source, name, bounds, f, toleranceM) =>
+      m.cc600BuildAtlas(source, name, f64(bounds), f.classes, f.labels, Uint32Array.from(f.lengths), f64(f.lats), f64(f.lons), toleranceM),
     cc600BuildMap: (r, f, corridorM) =>
       m.cc600BuildMap(
         r.name,

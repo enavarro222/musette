@@ -110,6 +110,9 @@ fn cc600_connects_lists_downloads_and_acknowledges() {
         Outcome::Info {
             route_max: Some(1_048_576),
             map_max: Some(1_048_576),
+            atlas_max: Some(524_288),
+            atlas_bytes: Some(0),
+            atlas_version: Some(2),
             free: Some(1_048_576),
             ..
         }
@@ -325,6 +328,9 @@ fn bryton_connects_without_handshake() {
             recording: false,
             route_max: None,
             map_max: None,
+            atlas_max: None,
+            atlas_bytes: None,
+            atlas_version: None,
             free: None,
         })
     );
@@ -412,5 +418,129 @@ fn map_class_names_match_the_format() {
         (class::MAJOR, "major"),
     ] {
         assert_eq!(crate::MAP_CLASSES[c as usize], name);
+    }
+}
+
+#[test]
+fn custom_atlas_validates_the_app_arrays_and_returns_a_precise_independent_file() {
+    let base = route_cc600::atlas::build::encode("Base", &[]).unwrap();
+    let bounds = [1.9, 43.0, 2.1, 43.2];
+    let classes = ["minor".into(), "city".into()];
+    let labels = [String::new(), "Village".into()];
+    let lengths = [2, 1];
+    let lats = [43.01, 43.19, 43.1];
+    let lons = [1.91, 2.09, 2.0];
+    let bytes = cc600_build_atlas(
+        &base, "Local", &bounds, &classes, &labels, &lengths, &lats, &lons, 5.0,
+    )
+    .unwrap()
+    .unwrap();
+    let atlas = route_cc600::atlas::Atlas::parse(&bytes).unwrap();
+    assert_eq!(atlas.scale, 100_000);
+    assert!(cc600_build_atlas(
+        &base,
+        "Local",
+        &bounds,
+        &classes,
+        &labels,
+        &[3, 1],
+        &lats,
+        &lons,
+        5.0
+    )
+    .is_err());
+    assert!(cc600_build_atlas(
+        &base,
+        "Local",
+        &bounds,
+        &classes,
+        &labels,
+        &lengths,
+        &[f64::NAN, 43.1, 43.2],
+        &lons,
+        5.0
+    )
+    .is_err());
+    assert!(cc600_build_atlas(
+        &base, "Local", &bounds, &classes, &labels, &lengths, &lats, &lons, 0.0
+    )
+    .is_err());
+    assert!(cc600_build_atlas(
+        &base,
+        "Local",
+        &[1.0, 3.0, 0.0, 4.0],
+        &classes,
+        &labels,
+        &lengths,
+        &lats,
+        &lons,
+        5.0
+    )
+    .is_err());
+}
+
+#[test]
+fn atlas_preview_decodes_the_sent_file_with_its_precision_and_levels() {
+    use route_cc600::atlas::{self, build::Feature};
+    for precise in [false, true] {
+        let scale = if precise { 100_000 } else { 1000 };
+        let features = [
+            Feature {
+                class: atlas::ROAD,
+                level: 0,
+                label: String::new(),
+                points: vec![(scale, 43 * scale), (2 * scale, 44 * scale)],
+            },
+            Feature {
+                class: atlas::RIVER,
+                level: 1,
+                label: String::new(),
+                points: vec![(scale, 43 * scale), (3 * scale, 44 * scale)],
+            },
+            Feature {
+                class: atlas::CITY,
+                level: 0,
+                label: "Village".into(),
+                points: vec![(2 * scale, 43 * scale)],
+            },
+        ];
+        let bytes = if precise {
+            atlas::build::encode_precise("Preview", &features)
+        } else {
+            atlas::build::encode("Preview", &features)
+        }
+        .unwrap();
+        let preview = cc600_atlas_preview(&bytes).unwrap();
+        assert_eq!(preview.name, "Preview");
+        assert_eq!(preview.min_m_per_px, if precise { 1 } else { 20 });
+        assert_eq!(preview.levels.len(), 3);
+        assert_eq!(preview.levels[0].classes, ["road", "city"]);
+        assert_eq!(preview.levels[0].lengths, [2, 1]);
+        assert_eq!(preview.levels[0].lats, [43.0, 44.0, 43.0]);
+        assert_eq!(preview.levels[0].lons, [1.0, 2.0, 2.0]);
+        assert_eq!(preview.levels[1].classes, ["river", "city"]);
+        assert_eq!(preview.levels[2].classes, ["city"]);
+        assert_eq!(preview.levels[2].labels, ["Village"]);
+        let mut broken = bytes.clone();
+        broken[7] ^= 1;
+        assert!(cc600_atlas_preview(&broken).is_err());
+        assert!(cc600_atlas_preview(&bytes[..bytes.len() - 1]).is_err());
+    }
+    let shared = atlas::build::encode_precise(
+        "Shared",
+        &[Feature {
+            class: atlas::MINOR,
+            level: atlas::SHARED_LEVEL,
+            label: String::new(),
+            points: vec![(191_001, 4_301_001), (192_002, 4_302_002)],
+        }],
+    )
+    .unwrap();
+    let preview = cc600_atlas_preview(&shared).unwrap();
+    for level in preview.levels {
+        assert_eq!(level.classes, ["minor"]);
+        assert_eq!(level.lengths, [2]);
+        assert_eq!(level.lons, [1.91001, 1.92002]);
+        assert_eq!(level.lats, [43.01001, 43.02002]);
     }
 }

@@ -1,0 +1,9 @@
+{
+  "ne_10m_admin_0_countries.geojson": "239eec57ac17f100a11e2536cffc56752c318b50ae765b0918ff7aab4ce8f255",
+  "ne_10m_populated_places_simple.geojson": "fd3fa867a320cbd5c5b6bb5bc550afeec2939fb2cef688e508007282a55ac42f",
+  "ne_10m_rivers_lake_centerlines.geojson": "bb854a900ecbd3b408df46d5e16e3e0f974ba55993f9d8b5c26e855273c0905a",
+  "ne_10m_roads.geojson": "66a0c7b438e92fd124822cc5921cfa11042f48c294ade5e0f03f2c6640fd0248",
+  "ne_10m_lakes.geojson": "2d036f53dedec578001c5c30c2959ee7d4eebc1306900fa4367c49929ec8f2d9",
+  "fr-communes.json": "4b021396fb250d1c1b2ae526a1a4a8bfbd7154d9f21db6f1ecdcfb369ada7428",
+  "fr-departements.geojson": "10f5c6ffc2dc857b4f4fc360297f97f6f01fc3ba3eb3a326ee92b76baefed447"
+}

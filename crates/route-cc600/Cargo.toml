@@ -19,3 +19,8 @@ track = { workspace = true, optional = true }
 
 [dev-dependencies]
 route-cc600 = { path = ".", features = ["build"] }
+serde_json = "1"
+
+[[example]]
+name = "atlas_pack"
+required-features = ["build"]

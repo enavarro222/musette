@@ -109,10 +109,13 @@ export class BleDevice implements Device {
     return this.info?.name || this.transport.peerName || this.profile.name;
   }
 
-  get fileLimits(): Record<FileKind, number> | undefined {
+  get fileLimits(): Device['fileLimits'] {
     const i = this.info;
-    return i?.routeMax === undefined || i.mapMax === undefined ? undefined : { route: i.routeMax, map: i.mapMax };
+    return i?.routeMax === undefined || i.mapMax === undefined ? undefined : { route: i.routeMax, map: i.mapMax, atlas:i.atlasMax };
   }
+
+  get atlasBytes(): number | undefined { return this.info?.atlasBytes; }
+  get atlasVersion(): number | undefined { return this.info?.atlasVersion; }
 
   get storageFree(): number | undefined {
     return this.info?.free;

@@ -1,0 +1,152 @@
+{
+  "france": {
+    "label": "France métropolitaine et voisinage",
+    "name": "France",
+    "bounds": [
+      -5.5,
+      41,
+      10,
+      51.5
+    ]
+  },
+  "europe": {
+    "label": "Europe",
+    "name": "Europe",
+    "bounds": [
+      -25,
+      34,
+      45,
+      72
+    ]
+  },
+  "occitanie": {
+    "label": "Occitanie et voisinage",
+    "name": "Occitanie",
+    "bounds": [
+      -0.5,
+      42.2,
+      4.9,
+      45.1
+    ]
+  },
+  "alpes": {
+    "label": "Auvergne-Rhône-Alpes et voisinage",
+    "name": "Auvergne-Rhone-Alpes",
+    "bounds": [
+      2.0,
+      44.0,
+      7.4,
+      46.7
+    ]
+  },
+  "bretagne": {
+    "label": "Bretagne et voisinage",
+    "name": "Bretagne",
+    "bounds": [
+      -5.3,
+      47.1,
+      -0.8,
+      49
+    ]
+  },
+  "aquitaine": {
+    "label": "Nouvelle-Aquitaine et voisinage",
+    "name": "Nouvelle-Aquitaine",
+    "bounds": [
+      -2,
+      42.7,
+      2.7,
+      47.3
+    ]
+  },
+  "paca": {
+    "label": "Provence-Alpes-Côte d’Azur et voisinage",
+    "name": "Provence-Alpes-Cote Azur",
+    "bounds": [
+      4.1,
+      42.8,
+      7.9,
+      45.2
+    ]
+  },
+  "corse": {
+    "label": "Corse et voisinage",
+    "name": "Corse",
+    "bounds": [
+      8.4,
+      41.2,
+      9.7,
+      43.2
+    ]
+  },
+  "normandie": {
+    "label": "Normandie et voisinage",
+    "name": "Normandie",
+    "bounds": [
+      -2.2,
+      48.1,
+      2.1,
+      50
+    ]
+  },
+  "loire": {
+    "label": "Pays de la Loire et voisinage",
+    "name": "Pays de la Loire",
+    "bounds": [
+      -2.7,
+      46.2,
+      0.9,
+      48.7
+    ]
+  },
+  "centre": {
+    "label": "Centre-Val de Loire et voisinage",
+    "name": "Centre-Val de Loire",
+    "bounds": [
+      0,
+      46.2,
+      3.3,
+      49
+    ]
+  },
+  "idf": {
+    "label": "Île-de-France et voisinage",
+    "name": "Ile-de-France",
+    "bounds": [
+      1.3,
+      48.0,
+      3.7,
+      49.3
+    ]
+  },
+  "nord": {
+    "label": "Hauts-de-France et voisinage",
+    "name": "Hauts-de-France",
+    "bounds": [
+      1.3,
+      48.7,
+      4.5,
+      51.2
+    ]
+  },
+  "est": {
+    "label": "Grand Est et voisinage",
+    "name": "Grand Est",
+    "bounds": [
+      3.2,
+      47.3,
+      8.4,
+      50.3
+    ]
+  },
+  "bourgogne": {
+    "label": "Bourgogne-Franche-Comté et voisinage",
+    "name": "Bourgogne-Franche-Comte",
+    "bounds": [
+      2.7,
+      46.0,
+      7.3,
+      48.6
+    ]
+  }
+}

@@ -151,6 +151,9 @@ pub enum Outcome {
         recording: bool,
         route_max: Option<u32>,
         map_max: Option<u32>,
+        atlas_max: Option<u32>,
+        atlas_bytes: Option<u32>,
+        atlas_version: Option<u32>,
         free: Option<u32>,
     },
     Activities {
@@ -188,6 +191,7 @@ pub struct Step {
 pub enum FileKind {
     Route,
     Map,
+    Atlas,
 }
 
 /// One connection to a device of any model.
@@ -305,6 +309,7 @@ impl Session {
                 let kind = match kind {
                     FileKind::Route => protocol_cc600::transfer::Kind::Route,
                     FileKind::Map => protocol_cc600::transfer::Kind::Map,
+                    FileKind::Atlas => protocol_cc600::transfer::Kind::Atlas,
                 };
                 if bytes.is_empty() {
                     return Err(error("empty file"));
@@ -475,6 +480,13 @@ impl Cc600 {
                         recording: false,
                         route_max: limits.map(|l| l.route_max),
                         map_max: limits.map(|l| l.map_max),
+                        atlas_max: limits.filter(|_| payload.len() >= 20).map(|l| l.atlas_max),
+                        atlas_version: limits
+                            .filter(|_| payload.len() >= 20)
+                            .map(|l| l.atlas_version),
+                        atlas_bytes: limits
+                            .filter(|_| payload.len() >= 20)
+                            .map(|l| l.atlas_bytes),
                         free: limits
                             .map(|l| l.free)
                             .filter(|&f| f != protocol_cc600::payload::DeviceInfo::UNKNOWN),
@@ -815,6 +827,9 @@ impl Bryton {
             recording,
             route_max: None,
             map_max: None,
+            atlas_max: None,
+            atlas_bytes: None,
+            atlas_version: None,
             free: None,
         })
     }

@@ -41,7 +41,7 @@ export type ModelId = 'open-cc600' | 'bryton-rider-750';
 export type Link = 'ble' | 'usbFiles';
 
 /** Files a device can receive. */
-export type FileKind = 'route' | 'map';
+export type FileKind = 'route' | 'map' | 'atlas';
 
 /** What a map feature is (`musette_core::MAP_CLASSES`). Contour lines are not drawn from OSM. */
 export type MapClass =
@@ -64,6 +64,22 @@ export interface MapFeatures {
   lengths: number[];
   lats: number[];
   lons: number[];
+}
+
+export type AtlasClass = 'boundary' | 'department' | 'city' | 'river' | 'lake' | 'road' | 'minor' | 'path' | 'stream' | 'track';
+/** Flat geographic features; labels are ASCII, at most 24 bytes. */
+export interface AtlasFeatures {
+  classes: AtlasClass[];
+  labels: string[];
+  lengths: number[];
+  lats: number[];
+  lons: number[];
+}
+export interface AtlasPreview {
+  name: string;
+  minMPerPx: number;
+  /** The exact three simplification levels carried in the file. */
+  levels: AtlasFeatures[];
 }
 
 /** What a device can do over a link (`crates/device`). */
@@ -151,6 +167,9 @@ export type Outcome =
       /** The largest file the device takes now, by kind, the one it replaces counted as free (0: no room now). */
       routeMax?: number;
       mapMax?: number;
+      atlasMax?: number;
+      atlasBytes?: number;
+      atlasVersion?: number;
       /** Bytes free for rides. */
       free?: number;
     }
@@ -237,6 +256,10 @@ export interface Core {
   verifyFit(bytes: Uint8Array): number;
   /** The CC600 background map (`OCMP`) of the route file `sendRoute` writes for `route`: the features within `corridorM` of it. */
   cc600BuildMap(route: ParsedRoute, features: MapFeatures, corridorM: number): Uint8Array;
+  cc600Atlas(source: Uint8Array, name: string, bounds: number[], rivers: boolean, cities: boolean): Uint8Array;
+  /** Undefined if the encoded result exceeds 512 KiB. */
+  cc600BuildAtlas(source: Uint8Array, name: string, bounds: number[], features: AtlasFeatures, toleranceM: number): Uint8Array | undefined;
+  cc600AtlasPreview(bytes: Uint8Array): AtlasPreview;
   brytonFindActivities(paths: string[], sizes: number[]): { id: string; size?: number }[];
 
   capabilities(model: ModelId, link: Link): Capabilities;
