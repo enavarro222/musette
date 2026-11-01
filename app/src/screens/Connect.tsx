@@ -13,12 +13,13 @@ const SCAN_MS = 20_000;
 const { gatt, bleScan, blePick } = platform.transports;
 const WANTED = BLE_MODELS.map((m) => m.ble!.options);
 const HINTS = BLE_MODELS.map((m) => m.ble!.hint ?? m.connectHint).join(' ');
-const OTHERS = MODELS.filter((m) => m.create);
+const OTHERS = MODELS.filter((m) => m.create?.(platform.transports));
 
 /**
  * The device chooser: connecting is app-wide, every tab then sees the device.
  * One Bluetooth search finds every supported model; the device found tells
- * which model it is. Other devices (USB) are listed by model.
+ * which model it is. Other devices (USB) are listed by model, where the
+ * platform can reach them.
  */
 export default function Connect() {
   const { connecting } = useApp();
@@ -111,20 +112,17 @@ export default function Connect() {
       </Section>
 
       {OTHERS.length > 0 ? (
-        <Section title="Autres compteurs">
-          {OTHERS.map((model) => {
-            const supported = !!model.create!(platform.transports);
-            return (
-              <ListItem key={model.label} title={model.label} detail={supported ? model.connectHint : platform.unsupported}>
-                <Button
-                  label={connectLabel}
-                  variant="secondary"
-                  disabled={!supported || connecting}
-                  onPress={() => void connect(async () => model.create!(platform.transports))}
-                />
-              </ListItem>
-            );
-          })}
+        <Section title="USB">
+          {OTHERS.map((model) => (
+            <ListItem key={model.label} title={model.label} detail={model.connectHint}>
+              <Button
+                label={connectLabel}
+                variant="secondary"
+                disabled={connecting}
+                onPress={() => void connect(async () => model.create!(platform.transports))}
+              />
+            </ListItem>
+          ))}
         </Section>
       ) : null}
     </Screen>
