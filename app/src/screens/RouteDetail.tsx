@@ -5,11 +5,14 @@ import { ElevationProfile } from '../components/ElevationProfile';
 import { MapPreview } from '../components/MapPreview';
 import { Body, Button, Embed, LinkItem, ListItem, Muted, Screen, Section, Toggle } from '../components/ui';
 import { confirmAction } from '../lib/ask';
+import type { ParsedRoute } from '../lib/core';
+import type { Device } from '../lib/devices/types';
+import type { MapPlan } from '../lib/mapPlan';
 import { sendRouteAndMap, setOptions, useMapPlan, useSendOptions, type Sending } from '../lib/mapSend';
 import { routeMapData } from '../lib/routeMap';
 import { routes } from '../lib/storage';
 import { reportError, useApp } from '../lib/store';
-import { km, size } from './format';
+import { km } from './format';
 import { mapText } from './mapText';
 import { useRoute } from './useRoute';
 
@@ -22,29 +25,31 @@ export default function RouteDetail() {
   const [reversing, setReversing] = useState(false);
   /** What the device holds while sending, undefined otherwise. */
   const [sending, setSending] = useState<Sending>();
-  const [sent, setSent] = useState<string>();
+  const [sent, setSent] = useState<{
+    device: Device;
+    route: ParsedRoute;
+    plan?: MapPlan;
+    map?: MapPlan;
+  }>();
   const options = useSendOptions();
 
   const mapData = useMemo(() => (route && analysis ? routeMapData(route, analysis) : undefined), [route, analysis]);
   const canSend = !!device?.capabilities.uploadRoute && !!device?.uploadRoute;
   const draws = !!device?.capabilities.routeCorridorMap;
   const [map, retryMap] = useMapPlan(id, route, analysis, device, reversed);
-  const shownMap = mapText(map, options);
+  const plan = map.status === 'ready' && map.plan.fits && device?.uploadFile ? map.plan : undefined;
+  const upToDate = !!sent && sent.device === device && sent.route === route && sent.plan === plan;
+  // Show the map actually installed, including any reduction made after uploading the route.
+  const shownMap = mapText(upToDate && sent.map && map.status === 'ready' ? { ...map, plan: sent.map } : map, options);
 
   async function send() {
-    if (!device || !route) return;
+    if (!device || !route || sending || upToDate) return;
     if (!(await confirmAction(`Remplacer la trace du compteur par « ${route.name} » ?`, 'Remplacer'))) return;
     setSending({ what: 'route', ratio: 0 });
     setSent(undefined);
     try {
       const sentMap = await sendRouteAndMap(device, route, map, setSending);
-      setSent(
-        !sentMap
-          ? 'Trace envoyée sur le compteur.'
-          : map.status === 'ready' && sentMap !== map.plan
-            ? `Trace et fond de carte envoyés (carte allégée à ${size(sentMap.bytes.length)} : la trace a pris de la place).`
-            : 'Trace et fond de carte envoyés sur le compteur.',
-      );
+      setSent({ device, route, plan, map: sentMap });
     } catch (e) {
       reportError(e);
     } finally {
@@ -52,9 +57,11 @@ export default function RouteDetail() {
     }
   }
 
-  const sendLabel = !sending
-    ? 'Envoyer sur le compteur'
-    : `Envoi ${sending.what === 'map' ? 'de la carte' : 'de la trace'}… ${Math.round(sending.ratio * 100)} %`;
+  const sendLabel = sending
+    ? `Envoi ${sending.what === 'map' ? 'de la carte' : 'de la trace'}… ${Math.round(sending.ratio * 100)} %`
+    : upToDate
+      ? sent.map ? 'Trace et carte envoyées' : 'Trace envoyée'
+      : 'Envoyer sur le compteur';
 
   async function invert() {
     setReversing(true);
@@ -133,13 +140,12 @@ export default function RouteDetail() {
         ) : null}
         <Button
           label={sendLabel}
-          disabled={!canSend || !!sending || reversing || map.status === 'preparing'}
+          disabled={!canSend || !!sending || reversing || upToDate || map.status === 'preparing'}
           onPress={() => void send()}
         />
-        {map.status === 'preparing' && !sending ? (
+        {map.status === 'preparing' && !sending && !upToDate ? (
           <Button label="Envoyer la trace seule" variant="secondary" disabled={reversing} onPress={() => void send()} />
         ) : null}
-        {sent ? <Body>{sent}</Body> : null}
         {!device ? (
           <Muted>Connectez un compteur pour lui envoyer la trace.</Muted>
         ) : !canSend ? (
