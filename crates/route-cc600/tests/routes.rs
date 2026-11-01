@@ -296,7 +296,7 @@ fn climbs_of_a_pass_ride() {
     );
 }
 
-/// 350 km, six climbs from 800 m to 15 km.
+/// 350 km, thirteen climbs from 800 m to 15 km, seven of them after a long approach.
 #[test]
 fn climbs_of_a_long_ride() {
     let got = climbs_of(&along_profile(include_str!("data/long-ride-350km.txt")));
@@ -304,11 +304,18 @@ fn climbs_of_a_long_ride() {
         &got,
         &[
             (1.9, 15.2, 1042),
+            (115.3, 0.8, 30),
+            (139.9, 0.8, 26),
+            (154.3, 4.4, 139),
             (163.5, 7.9, 363),
             (172.9, 4.7, 151),
             (236.5, 10.6, 485),
+            (248.7, 1.1, 60),
+            (257.1, 1.4, 61),
             (286.6, 12.5, 438),
             (299.9, 0.8, 34),
+            (305.9, 4.3, 132),
+            (313.6, 15.5, 504),
         ],
     );
 }
