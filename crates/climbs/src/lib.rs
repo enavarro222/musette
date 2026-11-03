@@ -5,7 +5,8 @@
 //! drops more than `max_drop` below that summit. Candidates are then kept
 //! if they are long, high and steep enough. A rise that fails on its average
 //! grade alone may hold real climbs after a long flat approach or a plateau:
-//! the same walk on the rise, tilted by `approach_grade`, finds them.
+//! the same walk on the rise, tilted by `approach_grade`, finds them. Without
+//! one in it, a long gentle rise of `gentle_gain` is a climb in its own right.
 
 use track::Profile;
 
@@ -21,6 +22,8 @@ pub struct Params {
     pub min_grade: f64,
     /// Below this grade a rise too gentle on average is an approach, not part of a climb.
     pub approach_grade: f64,
+    /// A rise with no climb in it is one all the same from this gain (m), over `approach_grade` on average.
+    pub gentle_gain: f64,
 }
 
 impl Default for Params {
@@ -32,6 +35,7 @@ impl Default for Params {
             min_gain: 25.0,
             min_grade: 0.03,
             approach_grade: 0.015,
+            gentle_gain: 50.0,
         }
     }
 }
@@ -96,8 +100,19 @@ pub fn detect(profile: &Profile, params: &Params) -> Vec<Climb> {
             .enumerate()
             .map(|(i, e)| e - i as f64 * profile.step * params.approach_grade)
             .collect();
+        let before = climbs.len();
         for (a, b) in rises(&tilted, params.max_drop) {
             push_if_climb(&mut climbs, profile, &ele, start + a, start + b, params);
+        }
+        if climbs.len() == before {
+            let gentle = Params {
+                min_gain: params.gentle_gain,
+                min_grade: params.approach_grade,
+                ..*params
+            };
+            for (a, b) in rises(&tilted, params.max_drop) {
+                push_if_climb(&mut climbs, profile, &ele, start + a, start + b, &gentle);
+            }
         }
     }
     climbs
@@ -259,6 +274,21 @@ mod tests {
         let p = build(&[(5000.0, 0.06), (1000.0, 0.005), (5000.0, 0.06)]);
         let climbs = detect(&p, &Params::default());
         assert_eq!(climbs.len(), 1, "{climbs:#?}");
+    }
+
+    #[test]
+    fn a_long_gentle_rise_with_no_climb_in_it_is_a_climb() {
+        // +80 m over 4.1 km, 2 % on average, 2.6 % at its steepest
+        let p = build(&[
+            (2600.0, 0.016),
+            (1500.0, 0.026),
+            (1400.0, 0.003),
+            (1500.0, -0.04),
+        ]);
+        let climbs = detect(&p, &Params::default());
+        assert_eq!(climbs.len(), 1, "{climbs:#?}");
+        assert!(climbs[0].start < 300.0, "{climbs:?}");
+        assert!(climbs[0].gain > 70.0, "{climbs:?}");
     }
 
     #[test]
