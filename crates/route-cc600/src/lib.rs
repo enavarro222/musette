@@ -245,20 +245,73 @@ impl<'a> Route<'a> {
         project(&self.info, lat_e7, lon_e7)
     }
 
-    /// Where (`x`, `y`) is along the route: the nearest segment. With `last` (the previous result), segments from
-    /// 500 m before to 2 km after it are preferred within 200 m, so that a loop or an out-and-back does not jump to
-    /// the other pass.
-    pub fn locate(&self, x: i32, y: i32, last: Option<Progress>) -> Progress {
+    /// Where (`x`, `y`) is along the route. With `last` (the previous result), segments from 500 m before to 2 km
+    /// after it are preferred within 200 m, so that a loop or an out-and-back does not jump to the other pass.
+    /// `course_cdeg` is the rider's course when moving: a segment ridden the other way is the other pass of a road
+    /// used twice. Otherwise the first pass the rider's way, after `last`, among those as near as the nearest
+    /// ([`PASSES_DM`]); farther than 200 m from the route, or only against it, `last` stays where it was.
+    pub fn locate(
+        &self,
+        x: i32,
+        y: i32,
+        last: Option<Progress>,
+        course_cdeg: Option<u16>,
+    ) -> Progress {
+        let heading = course_cdeg.map(heading);
         let mut best: Option<(i64, Progress)> = None;
-        let mut near: Option<(i64, Progress)> = None;
-        let mut points = self.points();
-        let Some(mut a) = points.next() else {
+        let mut ahead: Option<(i64, Progress)> = None;
+        let mut against: Option<(i64, Progress)> = None;
+        self.for_segments(x, y, |d2, p, direction| {
+            if best.is_none_or(|(bd, _)| d2 < bd) {
+                best = Some((d2, p));
+            }
+            if let Some(l) = last
+                && (l.along_dm.saturating_sub(5_000)..=l.along_dm + 20_000).contains(&p.along_dm)
+            {
+                let near = if same_way(direction, heading) {
+                    &mut ahead
+                } else {
+                    &mut against
+                };
+                if near.is_none_or(|(nd, _)| d2 < nd) {
+                    *near = Some((d2, p));
+                }
+            }
+        });
+        let Some(best) = best else {
             return Progress {
                 along_dm: 0,
                 off_dm: u32::MAX,
                 segment: 0,
             };
         };
+        let near = |c: Option<(i64, Progress)>| c.filter(|c| c.0 <= SAME_PASS_DM * SAME_PASS_DM);
+        let on_route = last.is_none() || best.0 <= SAME_PASS_DM * SAME_PASS_DM;
+        let found = near(ahead)
+            .or_else(|| {
+                on_route
+                    .then(|| self.first_pass(x, y, best.0, last, heading))
+                    .flatten()
+            })
+            .or(near(against))
+            .or(last.is_none().then_some(best));
+        match (found, last) {
+            (Some((d2, p)), _) => Progress {
+                off_dm: isqrt(d2 as u64) as u32,
+                ..p
+            },
+            (None, Some(l)) => Progress {
+                off_dm: isqrt(best.0 as u64) as u32,
+                ..l
+            },
+            (None, None) => unreachable!("`best` without `last`"),
+        }
+    }
+
+    /// Each segment seen from (`x`, `y`): the squared distance, the closest point, its direction.
+    fn for_segments(&self, x: i32, y: i32, mut f: impl FnMut(i64, Progress, (i64, i64))) {
+        let mut points = self.points();
+        let Some(mut a) = points.next() else { return };
         for (i, b) in points.enumerate() {
             let (d2, along) = to_segment(a, b, x, y);
             let p = Progress {
@@ -266,25 +319,69 @@ impl<'a> Route<'a> {
                 off_dm: 0,
                 segment: i as u32,
             };
-            if best.is_none_or(|(bd, _)| d2 < bd) {
-                best = Some((d2, p));
-            }
-            if let Some(l) = last
-                && (l.along_dm.saturating_sub(5_000)..=l.along_dm + 20_000).contains(&along)
-                && near.is_none_or(|(nd, _)| d2 < nd)
-            {
-                near = Some((d2, p));
-            }
+            f(d2, p, ((b.x - a.x) as i64, (b.y - a.y) as i64));
             a = b;
         }
-        let (d2, mut p) = match (near, best) {
-            (Some(n), _) if n.0 <= 2_000 * 2_000 => n,
-            (_, Some(b)) => b,
-            _ => unreachable!("a route has at least 2 points"),
-        };
-        p.off_dm = isqrt(d2 as u64) as u32;
-        p
     }
+
+    /// The closest point of the first pass of the route the rider's way within [`PASSES_DM`] of `nearest_d2`, from
+    /// `last` on, else from the start.
+    fn first_pass(
+        &self,
+        x: i32,
+        y: i32,
+        nearest_d2: i64,
+        last: Option<Progress>,
+        heading: Option<(i64, i64)>,
+    ) -> Option<(i64, Progress)> {
+        let limit = (isqrt(nearest_d2 as u64) as i64 + PASSES_DM).pow(2);
+        let from = last.map_or(0, |l| l.along_dm);
+        let (mut run, mut first, mut after) = (None::<(i64, Progress)>, None, None);
+        self.for_segments(x, y, |d2, p, direction| {
+            if after.is_some() {
+                return;
+            }
+            if d2 <= limit && same_way(direction, heading) {
+                if run.is_none_or(|(rd, _)| d2 < rd) {
+                    run = Some((d2, p));
+                }
+            } else if let Some(r) = run.take() {
+                if r.1.along_dm >= from {
+                    after = Some(r);
+                }
+                first = first.or(Some(r));
+            }
+        });
+        after
+            .or(run.filter(|r| r.1.along_dm >= from))
+            .or(first)
+            .or(run)
+    }
+}
+
+/// From the last position, this far from the route the rider is still on it, decimetres.
+const SAME_PASS_DM: i64 = 2_000;
+/// Passes of a road used twice this much farther than the nearest are as likely, decimetres (the GNSS, and the
+/// line of each pass simplified on its own).
+const PASSES_DM: i64 = 300;
+
+/// A course (centidegrees, clockwise from north) as a vector on the route's plane (x east, y north), to the nearest
+/// 15 degrees: enough to tell the two ways along a segment.
+fn heading(course_cdeg: u16) -> (i64, i64) {
+    const SIN: [i64; 7] = [0, 265, 512, 724, 887, 989, 1024];
+    let sin = |step: usize| match step {
+        0..=6 => SIN[step],
+        7..=12 => SIN[12 - step],
+        13..=18 => -SIN[step - 12],
+        _ => -SIN[24 - step],
+    };
+    let step = (course_cdeg as usize + 750) / 1_500 % 24;
+    (sin(step), sin((step + 6) % 24))
+}
+
+/// Whether a direction is not against a heading (none: unknown, not against).
+fn same_way((dx, dy): (i64, i64), heading: Option<(i64, i64)>) -> bool {
+    heading.is_none_or(|(hx, hy)| dx * hx + dy * hy >= 0)
 }
 
 /// Squared distance from (`x`, `y`) to segment `a`-`b`, and the distance along the route at the closest point.

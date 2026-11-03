@@ -1,6 +1,6 @@
 //! Routes built from synthetic GPX files and read back as the device does.
 
-use route_cc600::{Error, Route, build, parse_gpx};
+use route_cc600::{Error, Progress, Route, build, parse_gpx};
 
 /// A GPX of `points` (lat, lon, ele), as Komoot writes them.
 fn gpx(name: &str, points: &[(f64, f64, f64)]) -> String {
@@ -79,7 +79,7 @@ fn locating_the_rider() {
         ((LAT + 0.5 * KM_LAT) * 1e7).round() as i32,
         ((LON + 1.02 * km_lon()) * 1e7).round() as i32,
     );
-    let p = r.locate(x, y, None);
+    let p = r.locate(x, y, None, None);
     assert!((p.along_dm as i64 - 25_000).abs() < 30, "{p:?}");
     assert!((p.off_dm as i64 - 200).abs() < 5, "{p:?}");
 }
@@ -98,13 +98,127 @@ fn an_out_and_back_keeps_its_direction() {
     let r = Route::parse(&file).unwrap();
     let at_500m = r.project(((LAT + 0.5 * KM_LAT) * 1e7) as i32, (LON * 1e7) as i32);
     // going out: about 500 m along
-    let out = r.locate(at_500m.0, at_500m.1, None);
+    let out = r.locate(at_500m.0, at_500m.1, None, None);
     assert!(out.along_dm < 6_000, "{out:?}");
     // coming back past the same place, 3.4 km along before: the back pass (3.5 km)
-    let mut last = r.locate(at_500m.0, at_500m.1, None);
+    let mut last = r.locate(at_500m.0, at_500m.1, None, None);
     last.along_dm = 34_000;
-    let back = r.locate(at_500m.0, at_500m.1, Some(last));
+    let back = r.locate(at_500m.0, at_500m.1, Some(last), None);
     assert!((back.along_dm as i64 - 35_000).abs() < 100, "{back:?}");
+}
+
+const NORTH: Option<u16> = Some(0);
+const SOUTH: Option<u16> = Some(18_000);
+
+/// (lat, lon) `north_km` north and `east_km` east of the origin, at an elevation of 100 m.
+fn at(north_km: f64, east_km: f64) -> (f64, f64, f64) {
+    (LAT + north_km * KM_LAT, LON + east_km * km_lon(), 100.0)
+}
+
+/// A lasso: 2 km north on a road, 4 km around a block, and back south on the same road. 8 km, the road ridden at
+/// 0-2 km going north and at 6-8 km going south, its start and its end at the same place.
+fn lasso(r_file: &mut Vec<u8>) -> Route<'_> {
+    let mut pts = vec![];
+    pts.extend((0..200).map(|i| at(i as f64 / 100.0, 0.0)));
+    pts.extend((0..100).map(|i| at(2.0 + i as f64 / 100.0, 0.0)));
+    pts.extend((0..100).map(|i| at(3.0, i as f64 / 100.0)));
+    pts.extend((0..100).map(|i| at(3.0 - i as f64 / 100.0, 1.0)));
+    pts.extend((0..100).map(|i| at(2.0, 1.0 - i as f64 / 100.0)));
+    pts.extend((0..=200).map(|i| at(2.0 - i as f64 / 100.0, 0.00001)));
+    *r_file = build(&parse_gpx(&gpx("lasso", &pts)).unwrap(), 3.0);
+    Route::parse(r_file).unwrap()
+}
+
+fn on_road(r: &Route<'_>, north_km: f64, east_km: f64) -> (i32, i32) {
+    let (lat, lon, _) = at(north_km, east_km);
+    r.project((lat * 1e7) as i32, (lon * 1e7) as i32)
+}
+
+#[test]
+fn the_first_fix_on_a_road_used_twice_is_its_first_pass() {
+    let mut file = vec![];
+    let r = lasso(&mut file);
+    // a few metres on the far side of the second pass: it is the nearest
+    for (north_km, along_km) in [(0.0, 0.0), (0.02, 0.02), (1.0, 1.0), (1.9, 1.9)] {
+        let (x, y) = on_road(&r, north_km, 0.005);
+        let p = r.locate(x, y, None, None);
+        assert!(
+            (p.along_dm as f64 - along_km * 10_000.0).abs() < 200.0,
+            "{north_km} km: {p:?}"
+        );
+    }
+}
+
+#[test]
+fn the_course_picks_the_pass_of_a_road_used_twice() {
+    let mut file = vec![];
+    let r = lasso(&mut file);
+    let (x, y) = on_road(&r, 1.0, 0.0);
+    let north = r.locate(x, y, None, NORTH);
+    assert!((north.along_dm as i64 - 10_000).abs() < 200, "{north:?}");
+    let south = r.locate(x, y, None, SOUTH);
+    assert!((south.along_dm as i64 - 70_000).abs() < 200, "{south:?}");
+}
+
+#[test]
+fn riding_north_from_the_common_start_stays_on_the_first_pass() {
+    let mut file = vec![];
+    let r = lasso(&mut file);
+    let (x, y) = on_road(&r, 0.0, 0.0);
+    let mut last = r.locate(x, y, None, None);
+    assert_eq!(last.along_dm, 0, "{last:?}");
+    for i in 0..=250 {
+        let (x, y) = on_road(&r, i as f64 / 100.0, 0.0);
+        last = r.locate(x, y, Some(last), NORTH);
+    }
+    assert!((last.along_dm as i64 - 25_000).abs() < 300, "{last:?}");
+}
+
+#[test]
+fn a_rider_going_on_along_the_road_does_not_slide_back_along_the_other_pass() {
+    let mut file = vec![];
+    let r = lasso(&mut file);
+    // lost on the second pass by a position kept from elsewhere: it is left at the first fix the rider's way
+    let wrong = Progress {
+        along_dm: 75_000,
+        off_dm: 0,
+        segment: 0,
+    };
+    let (x, y) = on_road(&r, 0.5, 0.0);
+    let p = r.locate(x, y, Some(wrong), NORTH);
+    assert!((p.along_dm as i64 - 5_000).abs() < 200, "{p:?}");
+}
+
+#[test]
+fn far_from_the_route_the_position_stays() {
+    let mut file = vec![];
+    let r = lasso(&mut file);
+    let (x, y) = on_road(&r, 1.0, 0.0);
+    let last = r.locate(x, y, None, NORTH);
+    // 500 m off, the end of the route as near as anything: no jump, the distance from the route still told
+    let (x, y) = on_road(&r, 1.0, -0.5);
+    let p = r.locate(x, y, Some(last), NORTH);
+    assert_eq!(p.along_dm, last.along_dm);
+    assert!((p.off_dm as i64 - 5_000).abs() < 20, "{p:?}");
+}
+
+#[test]
+fn turning_round_on_a_road_used_once_follows_the_rider_back() {
+    let mut file = vec![];
+    let r = lasso(&mut file);
+    let mut last = r.locate(
+        on_road(&r, 3.0, 0.5).0,
+        on_road(&r, 3.0, 0.5).1,
+        None,
+        Some(9_000),
+    );
+    assert!((last.along_dm as i64 - 35_000).abs() < 200, "{last:?}");
+    // west along the block, against the route
+    for i in 1..=10 {
+        let (x, y) = on_road(&r, 3.0, 0.5 - i as f64 / 100.0);
+        last = r.locate(x, y, Some(last), Some(27_000));
+    }
+    assert!((last.along_dm as i64 - 34_000).abs() < 200, "{last:?}");
 }
 
 #[test]
