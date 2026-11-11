@@ -52,7 +52,7 @@ pub struct Settings {
     pub power: Sensor,
     /// The loaded route is followed; off: set aside for a free ride (it stays stored). A new route is followed.
     pub follow_route: bool,
-    /// Switch off after this many minutes still during a ride (the ride kept); 0: never.
+    /// Switch off after this many minutes still, during a ride (the ride kept) or not; 0: never.
     pub auto_off_min: u8,
     /// Pause the ride timer below `auto_pause_kmh`; resume automatically at or above it.
     pub auto_pause: bool,

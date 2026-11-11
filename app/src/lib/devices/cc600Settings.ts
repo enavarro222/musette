@@ -115,7 +115,7 @@ export const CC600_SETTINGS: Record<string, Presentation> = {
     label: 'Extinction automatique',
     group: 'power',
     unit: 'min',
-    help: 'Après ce temps à l’arrêt pendant une sortie (elle est conservée). 0 : jamais.',
+    help: 'Après ce temps à l’arrêt, pendant une sortie (elle est conservée) ou après. 0 : jamais.',
   },
   tz: { label: 'Fuseau horaire', group: 'system', help: 'Passage à l’heure d’été automatique.' },
   trip_log: {
