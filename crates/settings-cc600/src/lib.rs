@@ -31,8 +31,12 @@ fn tenths(value: &str) -> Option<u16> {
 /// What the settings file holds.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Settings {
-    /// Beeps on or off.
+    /// Beeps for the keys: ride start, pause, resume and save.
     pub sound: bool,
+    /// A beep with the off-route banner, whatever `sound` says.
+    pub off_route_beep: bool,
+    /// A banner and a beep when the device moves at riding speed without a ride started (it never starts one).
+    pub start_reminder: bool,
     pub tz: Tz,
     /// The theme; with `auto_night`, only until the device knows where it is (its first GNSS fix).
     pub theme: Theme,
@@ -232,6 +236,8 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             sound: true,
+            off_route_beep: true,
+            start_reminder: true,
             tz: Tz::parse(PARIS).unwrap(),
             theme: Theme::Day,
             auto_night: true,
@@ -263,8 +269,10 @@ pub enum Error {
 }
 
 /// The keys, in the order the file is written.
-pub const KEYS: [&str; 20] = [
+pub const KEYS: [&str; 22] = [
     "sound",
+    "off_route_beep",
+    "start_reminder",
     "tz",
     "theme",
     "auto_night",
@@ -318,9 +326,17 @@ pub const FTP_W: (u16, u16) = (0, 2000);
 pub const HR_MAX: (u16, u16) = (0, 250);
 
 /// Every setting and its values, in the order of [`KEYS`]. [`Settings::set`] accepts exactly these.
-pub const FIELDS: [Field; 20] = [
+pub const FIELDS: [Field; 22] = [
     Field {
         key: "sound",
+        kind: FieldKind::OnOff,
+    },
+    Field {
+        key: "off_route_beep",
+        kind: FieldKind::OnOff,
+    },
+    Field {
+        key: "start_reminder",
         kind: FieldKind::OnOff,
     },
     Field {
@@ -438,6 +454,8 @@ impl Settings {
         let bad = Error::BadValue;
         match key {
             "sound" => self.sound = on_off(value).ok_or(bad)?,
+            "off_route_beep" => self.off_route_beep = on_off(value).ok_or(bad)?,
+            "start_reminder" => self.start_reminder = on_off(value).ok_or(bad)?,
             "tz" => self.tz = Tz::parse(value).ok_or(bad)?,
             "theme" => {
                 self.theme = match value {
@@ -488,6 +506,8 @@ impl Settings {
     pub fn get(&self, key: &str, out: &mut impl Write) -> Result<(), Error> {
         let r = match key {
             "sound" => out.write_str(if self.sound { "on" } else { "off" }),
+            "off_route_beep" => out.write_str(if self.off_route_beep { "on" } else { "off" }),
+            "start_reminder" => out.write_str(if self.start_reminder { "on" } else { "off" }),
             "tz" => out.write_str(self.tz.as_str()),
             "theme" => out.write_str(match self.theme {
                 Theme::Day => "day",
@@ -788,6 +808,7 @@ mod tests {
     fn the_file_round_trips() {
         let mut s = Settings::default();
         s.set("sound", "off").unwrap();
+        s.set("off_route_beep", "off").unwrap();
         s.set("tz", "UTC0").unwrap();
         s.set("backlight", "80").unwrap();
         s.set("auto_backlight", "off").unwrap();
@@ -800,7 +821,7 @@ mod tests {
         s.write(&mut text).unwrap();
         assert_eq!(
             text,
-            "sound=off\ntz=UTC0\ntheme=day\nauto_night=on\nbacklight=80\nauto_backlight=off\nusage=train\nscroll_s=4\n\
+            "sound=off\noff_route_beep=off\nstart_reminder=on\ntz=UTC0\ntheme=day\nauto_night=on\nbacklight=80\nauto_backlight=off\nusage=train\nscroll_s=4\n\
              hr=ble:r:E0:E2:58:63:35:07\nspeed_cadence=none\npower=ant:11:12345:5\nfollow_route=on\nauto_off_min=20\nauto_pause=on\nauto_pause_kmh=1.5\ntrip_log=off\n\
              ftp=230\nhr_max=0\npower_zones=60,75,89,104,118\nhr_zones=60,70,80,90\n"
         );

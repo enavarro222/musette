@@ -110,7 +110,17 @@ export const CC600_SETTINGS: Record<string, Presentation> = {
   hr: { label: 'Cardio', group: 'sensors', help: SENSOR_HELP },
   speed_cadence: { label: 'Vitesse et cadence', group: 'sensors', help: SENSOR_HELP },
   power: { label: 'Puissance', group: 'sensors', help: SENSOR_HELP },
-  sound: { label: 'Bips', group: 'sound' },
+  sound: { label: 'Bip des touches', group: 'sound', help: 'Départ, pause, reprise et enregistrement de la sortie.' },
+  off_route_beep: {
+    label: 'Bip hors de la trace',
+    group: 'sound',
+    help: 'Avec le bandeau « Hors de la trace », même sans le bip des touches.',
+  },
+  start_reminder: {
+    label: 'Rappel de départ',
+    group: 'ride',
+    help: 'Un bandeau et un bip si tu roules sans avoir démarré la sortie. Le compteur ne la démarre jamais seul.',
+  },
   auto_off_min: {
     label: 'Extinction automatique',
     group: 'power',
